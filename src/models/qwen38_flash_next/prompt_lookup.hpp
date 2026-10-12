@@ -119,6 +119,20 @@ public:
     return best.length >= kMinMatch ? best : Match{};
   }
 
+  /// Expected accepted tokens among `count` copies after `length` matched
+  /// tokens. By the rule of succession, a history that has repeated for m
+  /// tokens repeats the next with probability (m + 1) / (m + 2); accepting
+  /// copies extends the match, so all of the first t survive with
+  /// probability (m + 1) / (m + 1 + t).
+  [[nodiscard]] static float ExpectedCopies(std::size_t length,
+                                            std::size_t count) noexcept {
+    float expected = 0.0F;
+    for (std::size_t t = 1; t <= count; ++t)
+      expected +=
+          static_cast<float>(length + 1) / static_cast<float>(length + 1 + t);
+    return expected;
+  }
+
   [[nodiscard]] std::span<const std::int32_t> Tokens() const noexcept {
     return tokens_;
   }

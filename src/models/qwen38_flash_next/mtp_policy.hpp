@@ -56,6 +56,18 @@ public:
     return expected;
   }
 
+  /// Expected accepted drafts at depths [first, last), given that the drafts
+  /// before `first` are accepted: what replacing that tail would forgo.
+  [[nodiscard]] float ExpectedDrafts(std::uint32_t first,
+                                     std::uint32_t last) const noexcept {
+    float expected = 0.0F, survival = 1.0F;
+    for (auto depth = first; depth < std::min(last, limit_); ++depth) {
+      survival *= Probability(depth);
+      expected += survival;
+    }
+    return expected;
+  }
+
   void Observe(std::size_t accepted, std::size_t drafted,
                std::uint32_t context = 0) noexcept {
     if (drafted == 0)

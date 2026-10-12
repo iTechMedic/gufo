@@ -20,14 +20,23 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
-**Prompt lookup's timing gate is also inconclusive.** Against one main
-baseline, an unchanged-main control raised 13 flags (snapshot-copy jitter) and
-the candidate rerun 22. The only reproducible candidate decode flag is
-`tool-agent` `agent_read_after_edit`: a 24-token reply that MTP alone drafts
-perfectly takes 338 → 395–412 ms in four candidate runs because a rejected copy
-adds one cycle. Copies past a stop token and on a request's first cycle had
-added up to 20 ms to 1–2-token replies; both were removed. Restart load time
-varied 24–101 s on unchanged main and is not attributed to the change. On this
+**Prompt lookup: correctness passes; the timing gate stays inconclusive.**
+Correctness: every functional case passes on both builds with unchanged
+output and cache/prefill counts, and greedy HTTP output is byte-identical to
+main in every compared pair. Fixed timing failure: the earlier branch slowed
+`tool-agent` `agent_read_after_edit` 338 → 395–412 ms in five runs, because its
+first ≥12-token match ended MTP drafting. That 13-token match landed in the
+previous `edit` call, the copy was rejected on its second token, and the
+24-token reply needed five cycles instead of four. Copies now replace pending
+MTP drafts only when more of them are expected to be accepted, so this reply
+uses main's four fully accepted cycles: 342/341 ms on main, 341/366 ms on the
+retained build, and 408 ms on the earlier branch. The 366 ms run's prefill
+was also 14–20% slower on every request, which lookup does not touch.
+Inconclusive: in the full four-suite gate, an unchanged-main control raised 13
+flags (snapshot-copy jitter) and the earlier branch 22. The focused tool-agent
+reruns flag machine-wide prefill and snapshot timing and restart load time
+(25–46 s on main, 38–48 s on the candidate); the full gate was not rerun on
+the retained build. On this
 host the disk cache stalled for up to 18.5 s per write, so
 `thinking-tool-cancel-disk`, `legacy-tool-cancel-disk` and `disk-spacing-disk`
 failed intermittently on both main and the candidate; with the cache on
@@ -35,7 +44,7 @@ RAM-backed storage all 11 cache cases passed twice on each build.
 
 | Check | Result |
 | --- | --- |
-| Prompt lookup, October 12 | Branch `codex/flash-next-prompt-lookup` on main `f37fb012`, matched ROCm 10 container build. All 15 Flash-Next CTest cases, the full session test (62 exact checks) and the snapshot test pass. Greedy MTP with copies equals AR, including stop-terminated replies; seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot; batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP: 20/20 ABBA greedy cells and 18/18 cold 2-session greedy pairs are byte-identical to main. `state-edges`, `tool-agent`, `long-context` and `cache` pass; the timing gate stays inconclusive (below). [Evidence](artifacts/decode-prompt-lookup.json). |
+| Prompt lookup, October 12 | Branch `codex/flash-next-prompt-lookup` on main `f37fb012`, matched ROCm 10 container build; rechecked after copies were gated on expected acceptance. All 15 Flash-Next CTest cases (including the copy-evidence checks), the full session test with no exact check failing, and the snapshot test pass. Greedy MTP with copies equals AR, including stop-terminated replies; seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot; batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to main in every per-pass pair: 20/20 and 10/10 ABBA cells, and 18/18 cold 2-session pairs before and after the gate (the later run also matches an unchanged-main control). `state-edges`, `tool-agent`, `long-context` and `cache` pass; `tool-agent` was rerun on the retained build. The timing gate stays inconclusive (above). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Decode-kernel review, October 10 | All 13 operator tests and native snapshot/session/deep-execution checks pass. Independent MTP formulas: worst relative RMS 0.0007655 (limit 0.002), 41 reported comparisons over eight text/image states. Sampled replay, cancellation, C2/4/6/8 and RAM/disk restoration pass. [Evidence](artifacts/decode-kernels-review.json). |
 | Focused HTTP regression, October 10 | `state-edges`, `tool-agent`, `long-context`, `cache`, Flash AR/MTP only. Two main/PR pairs plus unchanged-main controls; no output or expected cache/prefill-work changes. Timing failures remain visible above and in the [evidence](artifacts/decode-kernels-review.json). |
 | Concurrency, October 10 | All 63 tg128 requests match fresh AR completions: 21 AR, 21 mixed MTP and 21 repetitive MTP at C1/2/4/6/8. Prepared prefixes are reused; mixed/repetitive MTP propose 882/2170 drafts and accept 517/1959. [Evidence](artifacts/decode-kernels-review.json). |

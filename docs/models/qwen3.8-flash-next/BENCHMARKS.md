@@ -40,9 +40,11 @@ pp is the highest measured rate per engine and depth across mixed/repetitive
 text, including Gufo predictor catch-up.
 
 Prompt lookup (October 12) is not reflected in these Nix-build rows yet. On a
-matched ROCm 10 container build of main `f37fb012` and the branch, this table's
-workloads measured repetitive tg 64.40 → 109.14 tok/s at d0 and 44.42 → 104.94
-at d32K; mixed tg 30.55 → 30.56 and 38.66 → 38.64; pp within 1.1%. That
+matched ROCm 10 container build of main `f37fb012` and the branch before copies
+were gated on expected acceptance, this table's workloads measured repetitive
+tg 64.40 → 109.14 tok/s at d0 and 44.42 → 104.94 at d32K; mixed tg 30.55 →
+30.56 and 38.66 → 38.64; pp within 1.1%. The retained build was not rerun on
+this table; its HTTP rewrites are 1.2–1.8% slower than that branch. That
 toolchain's absolute rates differ from this table, so the Nix refresh is
 pending. [Evidence](artifacts/decode-prompt-lookup.json).
 

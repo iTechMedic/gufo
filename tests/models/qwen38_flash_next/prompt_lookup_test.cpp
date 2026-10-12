@@ -1,10 +1,13 @@
 #include "src/models/qwen38_flash_next/prompt_lookup.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <span>
 #include <stdexcept>
 #include <vector>
+
+#include "src/models/qwen38_flash_next/mtp_policy.hpp"
 
 namespace qfn = gufo::models::qwen38_flash_next;
 using Lookup = qfn::PromptLookup;
@@ -121,12 +124,48 @@ void CheckNoMatch() {
   Require(Lookup{}.Find(tail).length == 0, "an empty index matched");
 }
 
+// A copy replaces the MTP drafts a cycle has not proposed yet only when more
+// copies than drafts are expected to be accepted.
+void CheckCopyEvidence() {
+  Require(Lookup::ExpectedCopies(13, 0) == 0.0F &&
+              std::abs(Lookup::ExpectedCopies(13, 1) - 14.0F / 15.0F) < 1e-6F,
+          "one copy is not the rule-of-succession probability");
+  for (std::size_t count = 1; count <= 7; ++count) {
+    Require(
+        Lookup::ExpectedCopies(64, count) > Lookup::ExpectedCopies(12, count) &&
+            Lookup::ExpectedCopies(12, count) < static_cast<float>(count) &&
+            Lookup::ExpectedCopies(12, count + 1) >
+                Lookup::ExpectedCopies(12, count),
+        "copy evidence is not monotone in match and copy length");
+  }
+
+  // An MTP chain accepted in full (two, four, then seven drafts, as in a
+  // repeated tool call) keeps its tail against a 13-token template match.
+  qfn::MtpLengthController perfect(7);
+  for (const unsigned drafts : {2U, 4U, 7U})
+    perfect.Observe(drafts, drafts);
+  Require(perfect.ExpectedDrafts(1, 7) == 6.0F &&
+              Lookup::ExpectedCopies(13, 6) < perfect.ExpectedDrafts(1, 7),
+          "a short match displaced a fully accepted MTP chain");
+  Require(perfect.ExpectedDrafts(7, 7) == 0.0F &&
+              perfect.ExpectedDrafts(0, 7) + 1.0F == perfect.ExpectedTokens(7),
+          "remaining-draft estimate disagrees with the length controller");
+
+  // Rejections in a rewrite leave the tail uncertain; a long match replaces it.
+  qfn::MtpLengthController rejected(7);
+  for (const unsigned accepted : {7U, 3U, 7U, 5U, 2U, 7U})
+    rejected.Observe(accepted, 7);
+  Require(Lookup::ExpectedCopies(64, 6) > rejected.ExpectedDrafts(1, 7),
+          "a long match did not replace an uncertain MTP tail");
+}
+
 int main() {
   try {
     CheckCopy();
     CheckLongestWins();
     CheckSync();
     CheckNoMatch();
+    CheckCopyEvidence();
   } catch (const std::exception& e) {
     std::cerr << "prompt_lookup_test: " << e.what() << "\n";
     return 1;
