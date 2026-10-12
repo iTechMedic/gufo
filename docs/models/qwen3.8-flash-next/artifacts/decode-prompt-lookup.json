@@ -9733,7 +9733,7 @@
    }
   },
   "final_v013": {
-   "status": "not qualified: correctness passes; C2 mixed resolved (no copies, equal cycle costs); the final timing gate is inconclusive because of discrete machine performance states that also affect unchanged-base runs; host-disk cache failures are storage (both builds)",
+   "status": "not qualified: correctness passes (container and Nix greedy identity); the functional timing gate is blocked by uncontrolled GPU clock states (fixing clocks needs a power-configuration change); host-disk validation is blocked by storage; Nix covers the production build, pr checks and representative throughput only",
    "source": {
     "upstream_checked": "2026-10-12, origin/main = v0.13.0 fcf8bf7 (f37fb01 plus 956f3d6 raw-completion cache_prompt, 1834991 docs, release)",
     "baseline": {
@@ -19485,6 +19485,5839 @@
     },
     "getpid_fix": "tests/cli/text_generation_scheduler_test.cpp uses ::getpid (from #458) without <unistd.h>; the container's GCC 15 libstdc++ does not include it transitively. Test-only fix a3b4a77 on codex/scheduler-test-unistd (from v0.13.0); the full gpu-test build succeeds with it",
     "nix": "unavailable: neither halo-llm1 nor the editing host has Nix; no Nix build or Nix check was run, and no result here is a Nix qualification"
+   },
+   "environment_build_round_23_25": {
+    "date": "2026-10-12 night; source unchanged (baseline v0.13.0 fcf8bf7, candidate a0aee02); upstream main now 2599ad6 (248d902 managed-alloc fallback #460 is a code change; not merged here, baseline stays pinned)",
+    "machine_speed_diagnosis": {
+     "method": "two instrumented alternating pairs (trace3 binaries base then candidate, gate suite order through long-context:long_cancel_resume) with a read-only 100 ms sampler (scratch telemetry.py): amdgpu hwmon sclk/PPT/temperature, gpu_busy_percent, gpu_metrics v3_0 (average gfx/fclk/uclk/socclk, socket/gfx/core power, throttle residency counters), /proc/stat per-core CPU, cpufreq, PSI, context switches, gufo process CPU; aligned to CLOCK_MONOTONIC PREP/CYCLE trace timestamps. Diagnostic only, not performance evidence. Nothing was written to sysfs; power_dpm_force_performance_level stayed 'auto', cpufreq governor 'performance'",
+     "pair1_tel23": {
+      "runs": [
+       "tel23-1-v013-base-trace3",
+       "tel23-2-v013-cand-trace3"
+      ],
+      "matched_phases": 38,
+      "corr_time_ratio_vs_ratio": {
+       "sclk_mhz": -0.677,
+       "ppt_w": -0.682,
+       "cpu_util_max_core": -0.103,
+       "gufo_cpu_pct": -0.541
+      },
+      "largest_differences": [
+       {
+        "phase": "state-edges:execution_mode_probe prefill",
+        "base_ms": 452.9,
+        "cand_ms": 327.7,
+        "cand_over_base": 0.724,
+        "sclk_mhz": [
+         834.4,
+         888.6
+        ],
+        "ppt_w": [
+         30.5,
+         37.8
+        ],
+        "gpu_busy": [
+         8.4,
+         10.6
+        ],
+        "cpu_util": [
+         3.8,
+         4.1
+        ],
+        "cpu_util_max_core": [
+         72.0,
+         81.1
+        ],
+        "gufo_cpu_pct": [
+         92.5,
+         103.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.4,
+         2.7
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_chat prefill",
+        "base_ms": 433.6,
+        "cand_ms": 372.1,
+        "cand_over_base": 0.858,
+        "sclk_mhz": [
+         2357.5,
+         2402.4
+        ],
+        "ppt_w": [
+         88.0,
+         92.1
+        ],
+        "gpu_busy": [
+         74.2,
+         75.8
+        ],
+        "cpu_util": [
+         3.0,
+         3.3
+        ],
+        "cpu_util_max_core": [
+         75.8,
+         79.6
+        ],
+        "gufo_cpu_pct": [
+         84.3,
+         93.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.9,
+         1.2
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_read_after_edit prefill",
+        "base_ms": 299.0,
+        "cand_ms": 257.1,
+        "cand_over_base": 0.86,
+        "sclk_mhz": [
+         2563,
+         2656.8
+        ],
+        "ppt_w": [
+         97.5,
+         102.8
+        ],
+        "gpu_busy": [
+         83.4,
+         87
+        ],
+        "cpu_util": [
+         3.2,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         82.2,
+         81.1
+        ],
+        "gufo_cpu_pct": [
+         94.1,
+         101.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         2.0
+        ]
+       },
+       {
+        "phase": "state-edges:execution_mode_probe decode",
+        "base_ms": 463.8,
+        "cand_ms": 402.6,
+        "cand_over_base": 0.868,
+        "sclk_mhz": [
+         1324.9,
+         1394.2
+        ],
+        "ppt_w": [
+         45.8,
+         56.1
+        ],
+        "gpu_busy": [
+         29,
+         32
+        ],
+        "cpu_util": [
+         3.4,
+         3.8
+        ],
+        "cpu_util_max_core": [
+         72.6,
+         66.1
+        ],
+        "gufo_cpu_pct": [
+         100.9,
+         112.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         1.2
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_alpha prefill",
+        "base_ms": 582.8,
+        "cand_ms": 518.5,
+        "cand_over_base": 0.89,
+        "sclk_mhz": [
+         2310.6,
+         2468.6
+        ],
+        "ppt_w": [
+         94.2,
+         114.4
+        ],
+        "gpu_busy": [
+         71.9,
+         79.1
+        ],
+        "cpu_util": [
+         3.5,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         83.6,
+         82.1
+        ],
+        "gufo_cpu_pct": [
+         99.2,
+         103.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.9
+        ]
+       },
+       {
+        "phase": "state-edges:zero_argument_tool_after_limit decode",
+        "base_ms": 253.5,
+        "cand_ms": 227.7,
+        "cand_over_base": 0.898,
+        "sclk_mhz": [
+         2276,
+         2397
+        ],
+        "ppt_w": [
+         91.6,
+         107.8
+        ],
+        "gpu_busy": [
+         69.8,
+         75.8
+        ],
+        "cpu_util": [
+         3.9,
+         4.5
+        ],
+        "cpu_util_max_core": [
+         83.0,
+         72.2
+        ],
+        "gufo_cpu_pct": [
+         102.5,
+         111.4
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.0,
+         0.4
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_read_after_edit decode",
+        "base_ms": 367.3,
+        "cand_ms": 337.9,
+        "cand_over_base": 0.92,
+        "sclk_mhz": [
+         2556.4,
+         2679.2
+        ],
+        "ppt_w": [
+         95.0,
+         101.4
+        ],
+        "gpu_busy": [
+         83.4,
+         88
+        ],
+        "cpu_util": [
+         3.5,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         87.5,
+         85.4
+        ],
+        "gufo_cpu_pct": [
+         95.5,
+         98.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.2
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_stop decode",
+        "base_ms": 241.0,
+        "cand_ms": 222.2,
+        "cand_over_base": 0.922,
+        "sclk_mhz": [
+         2661.8,
+         2789
+        ],
+        "ppt_w": [
+         104.8,
+         111.4
+        ],
+        "gpu_busy": [
+         87.4,
+         93.2
+        ],
+        "cpu_util": [
+         3.3,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         74.2,
+         93.0
+        ],
+        "gufo_cpu_pct": [
+         97.0,
+         103.8
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.2
+        ]
+       }
+      ],
+      "all_phases": [
+       {
+        "phase": "state-edges:execution_mode_probe prefill",
+        "base_ms": 452.9,
+        "cand_ms": 327.7,
+        "cand_over_base": 0.724,
+        "sclk_mhz": [
+         834.4,
+         888.6
+        ],
+        "ppt_w": [
+         30.5,
+         37.8
+        ],
+        "gpu_busy": [
+         8.4,
+         10.6
+        ],
+        "cpu_util": [
+         3.8,
+         4.1
+        ],
+        "cpu_util_max_core": [
+         72.0,
+         81.1
+        ],
+        "gufo_cpu_pct": [
+         92.5,
+         103.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.4,
+         2.7
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_chat prefill",
+        "base_ms": 433.6,
+        "cand_ms": 372.1,
+        "cand_over_base": 0.858,
+        "sclk_mhz": [
+         2357.5,
+         2402.4
+        ],
+        "ppt_w": [
+         88.0,
+         92.1
+        ],
+        "gpu_busy": [
+         74.2,
+         75.8
+        ],
+        "cpu_util": [
+         3.0,
+         3.3
+        ],
+        "cpu_util_max_core": [
+         75.8,
+         79.6
+        ],
+        "gufo_cpu_pct": [
+         84.3,
+         93.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.9,
+         1.2
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_read_after_edit prefill",
+        "base_ms": 299.0,
+        "cand_ms": 257.1,
+        "cand_over_base": 0.86,
+        "sclk_mhz": [
+         2563,
+         2656.8
+        ],
+        "ppt_w": [
+         97.5,
+         102.8
+        ],
+        "gpu_busy": [
+         83.4,
+         87
+        ],
+        "cpu_util": [
+         3.2,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         82.2,
+         81.1
+        ],
+        "gufo_cpu_pct": [
+         94.1,
+         101.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         2.0
+        ]
+       },
+       {
+        "phase": "state-edges:execution_mode_probe decode",
+        "base_ms": 463.8,
+        "cand_ms": 402.6,
+        "cand_over_base": 0.868,
+        "sclk_mhz": [
+         1324.9,
+         1394.2
+        ],
+        "ppt_w": [
+         45.8,
+         56.1
+        ],
+        "gpu_busy": [
+         29,
+         32
+        ],
+        "cpu_util": [
+         3.4,
+         3.8
+        ],
+        "cpu_util_max_core": [
+         72.6,
+         66.1
+        ],
+        "gufo_cpu_pct": [
+         100.9,
+         112.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         1.2
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_alpha prefill",
+        "base_ms": 582.8,
+        "cand_ms": 518.5,
+        "cand_over_base": 0.89,
+        "sclk_mhz": [
+         2310.6,
+         2468.6
+        ],
+        "ppt_w": [
+         94.2,
+         114.4
+        ],
+        "gpu_busy": [
+         71.9,
+         79.1
+        ],
+        "cpu_util": [
+         3.5,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         83.6,
+         82.1
+        ],
+        "gufo_cpu_pct": [
+         99.2,
+         103.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.9
+        ]
+       },
+       {
+        "phase": "state-edges:zero_argument_tool_after_limit decode",
+        "base_ms": 253.5,
+        "cand_ms": 227.7,
+        "cand_over_base": 0.898,
+        "sclk_mhz": [
+         2276,
+         2397
+        ],
+        "ppt_w": [
+         91.6,
+         107.8
+        ],
+        "gpu_busy": [
+         69.8,
+         75.8
+        ],
+        "cpu_util": [
+         3.9,
+         4.5
+        ],
+        "cpu_util_max_core": [
+         83.0,
+         72.2
+        ],
+        "gufo_cpu_pct": [
+         102.5,
+         111.4
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.0,
+         0.4
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_read_after_edit decode",
+        "base_ms": 367.3,
+        "cand_ms": 337.9,
+        "cand_over_base": 0.92,
+        "sclk_mhz": [
+         2556.4,
+         2679.2
+        ],
+        "ppt_w": [
+         95.0,
+         101.4
+        ],
+        "gpu_busy": [
+         83.4,
+         88
+        ],
+        "cpu_util": [
+         3.5,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         87.5,
+         85.4
+        ],
+        "gufo_cpu_pct": [
+         95.5,
+         98.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.2
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_stop decode",
+        "base_ms": 241.0,
+        "cand_ms": 222.2,
+        "cand_over_base": 0.922,
+        "sclk_mhz": [
+         2661.8,
+         2789
+        ],
+        "ppt_w": [
+         104.8,
+         111.4
+        ],
+        "gpu_busy": [
+         87.4,
+         93.2
+        ],
+        "cpu_util": [
+         3.3,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         74.2,
+         93.0
+        ],
+        "gufo_cpu_pct": [
+         97.0,
+         103.8
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.2
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_alpha decode",
+        "base_ms": 579.7,
+        "cand_ms": 537.8,
+        "cand_over_base": 0.928,
+        "sclk_mhz": [
+         2502.2,
+         2621.9
+        ],
+        "ppt_w": [
+         98.8,
+         116.4
+        ],
+        "gpu_busy": [
+         80,
+         85.6
+        ],
+        "cpu_util": [
+         3.7,
+         4.0
+        ],
+        "cpu_util_max_core": [
+         89.3,
+         79.2
+        ],
+        "gufo_cpu_pct": [
+         109.0,
+         115.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.6,
+         1.9
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_beta prefill",
+        "base_ms": 538.1,
+        "cand_ms": 506.2,
+        "cand_over_base": 0.941,
+        "sclk_mhz": [
+         2620,
+         2723.1
+        ],
+        "ppt_w": [
+         104.4,
+         118.7
+        ],
+        "gpu_busy": [
+         85.6,
+         90.1
+        ],
+        "cpu_util": [
+         3.6,
+         3.8
+        ],
+        "cpu_util_max_core": [
+         90.3,
+         88.8
+        ],
+        "gufo_cpu_pct": [
+         112.5,
+         117.8
+        ],
+        "psi_cpu_some_ms_per_s": [
+         3.5,
+         1.3
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_limit prefill",
+        "base_ms": 766.0,
+        "cand_ms": 723.7,
+        "cand_over_base": 0.945,
+        "sclk_mhz": [
+         2625.9,
+         2745.2
+        ],
+        "ppt_w": [
+         104.5,
+         111.7
+        ],
+        "gpu_busy": [
+         86.3,
+         91.3
+        ],
+        "cpu_util": [
+         3.7,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         81.9,
+         86.3
+        ],
+        "gufo_cpu_pct": [
+         110.4,
+         114.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.8,
+         3.4
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_sampled_peers prefill",
+        "base_ms": 300.8,
+        "cand_ms": 286.7,
+        "cand_over_base": 0.953,
+        "sclk_mhz": [
+         2532.6,
+         2549.8
+        ],
+        "ppt_w": [
+         92.3,
+         95.5
+        ],
+        "gpu_busy": [
+         81.6,
+         82.2
+        ],
+        "cpu_util": [
+         3.8,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         88.4,
+         79.9
+        ],
+        "gufo_cpu_pct": [
+         114.1,
+         110.8
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.6,
+         0.7
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_responses_False prefill",
+        "base_ms": 816.8,
+        "cand_ms": 778.9,
+        "cand_over_base": 0.954,
+        "sclk_mhz": [
+         2714.1,
+         2817.8
+        ],
+        "ppt_w": [
+         106.6,
+         113.3
+        ],
+        "gpu_busy": [
+         90.3,
+         95
+        ],
+        "cpu_util": [
+         3.7,
+         3.8
+        ],
+        "cpu_util_max_core": [
+         86.1,
+         83.5
+        ],
+        "gufo_cpu_pct": [
+         107.1,
+         110.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.6,
+         2.1
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_retry decode",
+        "base_ms": 819.5,
+        "cand_ms": 784.7,
+        "cand_over_base": 0.958,
+        "sclk_mhz": [
+         2709,
+         2823
+        ],
+        "ppt_w": [
+         101.1,
+         108.1
+        ],
+        "gpu_busy": [
+         89.7,
+         94.7
+        ],
+        "cpu_util": [
+         3.3,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         90.8,
+         94.5
+        ],
+        "gufo_cpu_pct": [
+         95.2,
+         101.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         1.1
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_edit decode",
+        "base_ms": 898.5,
+        "cand_ms": 865.3,
+        "cand_over_base": 0.963,
+        "sclk_mhz": [
+         2551.7,
+         2610.8
+        ],
+        "ppt_w": [
+         102.7,
+         106.3
+        ],
+        "gpu_busy": [
+         83,
+         85.3
+        ],
+        "cpu_util": [
+         3.2,
+         3.3
+        ],
+        "cpu_util_max_core": [
+         84.9,
+         86.4
+        ],
+        "gufo_cpu_pct": [
+         94.1,
+         100.2
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.3,
+         0.3
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_edit prefill",
+        "base_ms": 781.5,
+        "cand_ms": 753.6,
+        "cand_over_base": 0.964,
+        "sclk_mhz": [
+         2489.2,
+         2525.7
+        ],
+        "ppt_w": [
+         108.7,
+         111.3
+        ],
+        "gpu_busy": [
+         80.4,
+         82.1
+        ],
+        "cpu_util": [
+         3.6,
+         3.8
+        ],
+        "cpu_util_max_core": [
+         80.3,
+         78.5
+        ],
+        "gufo_cpu_pct": [
+         105.3,
+         109.2
+        ],
+        "psi_cpu_some_ms_per_s": [
+         3.8,
+         1.5
+        ]
+       },
+       {
+        "phase": "long-context:long_schema_cold decode",
+        "base_ms": 228.4,
+        "cand_ms": 221.4,
+        "cand_over_base": 0.969,
+        "sclk_mhz": [
+         2678.5,
+         2695.8
+        ],
+        "ppt_w": [
+         138.1,
+         138.1
+        ],
+        "gpu_busy": [
+         93,
+         93.5
+        ],
+        "cpu_util": [
+         7.2,
+         7.1
+        ],
+        "cpu_util_max_core": [
+         90.5,
+         92.7
+        ],
+        "gufo_cpu_pct": [
+         206.3,
+         204.4
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.1,
+         0.9
+        ]
+       },
+       {
+        "phase": "state-edges:zero_argument_tool_after_limit prefill",
+        "base_ms": 480.6,
+        "cand_ms": 467.9,
+        "cand_over_base": 0.974,
+        "sclk_mhz": [
+         2124.2,
+         2252.9
+        ],
+        "ppt_w": [
+         86.8,
+         103.9
+        ],
+        "gpu_busy": [
+         63.7,
+         70
+        ],
+        "cpu_util": [
+         4.5,
+         4.8
+        ],
+        "cpu_util_max_core": [
+         86.2,
+         88.0
+        ],
+        "gufo_cpu_pct": [
+         112.0,
+         124.6
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.4,
+         0.3
+        ]
+       },
+       {
+        "phase": "state-edges:tool_argument_stop_retry decode",
+        "base_ms": 541.6,
+        "cand_ms": 527.8,
+        "cand_over_base": 0.975,
+        "sclk_mhz": [
+         2772.4,
+         2835.3
+        ],
+        "ppt_w": [
+         95.1,
+         100.7
+        ],
+        "gpu_busy": [
+         93,
+         95.7
+        ],
+        "cpu_util": [
+         3.5,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         97.3,
+         94.4
+        ],
+        "gufo_cpu_pct": [
+         102.1,
+         105.2
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.1
+        ]
+       },
+       {
+        "phase": "long-context:long_responses_sampled prefill",
+        "base_ms": 215.3,
+        "cand_ms": 219.7,
+        "cand_over_base": 1.02,
+        "sclk_mhz": [
+         2489,
+         2509.5
+        ],
+        "ppt_w": [
+         113.0,
+         113.0
+        ],
+        "gpu_busy": [
+         82.8,
+         83
+        ],
+        "cpu_util": [
+         3.7,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         71.1,
+         68.0
+        ],
+        "gufo_cpu_pct": [
+         91.9,
+         93.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         4.4,
+         2.6
+        ]
+       },
+       {
+        "phase": "state-edges:quoted_call_argument_stop_streamFalse prefill",
+        "base_ms": 559.3,
+        "cand_ms": 548.5,
+        "cand_over_base": 0.981,
+        "sclk_mhz": [
+         2710.9,
+         2747
+        ],
+        "ppt_w": [
+         106.6,
+         110.4
+        ],
+        "gpu_busy": [
+         89.5,
+         91.1
+        ],
+        "cpu_util": [
+         3.5,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         87.3,
+         89.3
+        ],
+        "gufo_cpu_pct": [
+         104.5,
+         106.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.1,
+         0.3
+        ]
+       },
+       {
+        "phase": "state-edges:tool_argument_stop decode",
+        "base_ms": 297.5,
+        "cand_ms": 292.8,
+        "cand_over_base": 0.984,
+        "sclk_mhz": [
+         2727.6,
+         2783.4
+        ],
+        "ppt_w": [
+         102.5,
+         109.4
+        ],
+        "gpu_busy": [
+         89.6,
+         92.4
+        ],
+        "cpu_util": [
+         3.3,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         86.5,
+         90.9
+        ],
+        "gufo_cpu_pct": [
+         96.2,
+         95.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.4,
+         0.3
+        ]
+       },
+       {
+        "phase": "long-context:long_thinking_token_limit decode",
+        "base_ms": 183.9,
+        "cand_ms": 181.0,
+        "cand_over_base": 0.984,
+        "sclk_mhz": [
+         2671.2,
+         2658.8
+        ],
+        "ppt_w": [
+         133.7,
+         134.5
+        ],
+        "gpu_busy": [
+         91.2,
+         91.5
+        ],
+        "cpu_util": [
+         6.2,
+         6.3
+        ],
+        "cpu_util_max_core": [
+         83.4,
+         85.9
+        ],
+        "gufo_cpu_pct": [
+         182.2,
+         189.2
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.5,
+         0.8
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_responses prefill",
+        "base_ms": 517.2,
+        "cand_ms": 524.9,
+        "cand_over_base": 1.015,
+        "sclk_mhz": [
+         2418.9,
+         2463
+        ],
+        "ppt_w": [
+         94.0,
+         97.7
+        ],
+        "gpu_busy": [
+         76.3,
+         78.4
+        ],
+        "cpu_util": [
+         3.5,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         89.0,
+         93.2
+        ],
+        "gufo_cpu_pct": [
+         103.1,
+         105.8
+        ],
+        "psi_cpu_some_ms_per_s": [
+         5.7,
+         5.1
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_open_schema prefill",
+        "base_ms": 600.9,
+        "cand_ms": 609.2,
+        "cand_over_base": 1.014,
+        "sclk_mhz": [
+         1900.7,
+         1927.2
+        ],
+        "ppt_w": [
+         74.6,
+         77.3
+        ],
+        "gpu_busy": [
+         55.4,
+         56.8
+        ],
+        "cpu_util": [
+         3.4,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         84.4,
+         80.8
+        ],
+        "gufo_cpu_pct": [
+         87.6,
+         90.9
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         1.9
+        ]
+       },
+       {
+        "phase": "long-context:long_cancel_resume decode",
+        "base_ms": 1603.7,
+        "cand_ms": 1583.5,
+        "cand_over_base": 0.987,
+        "sclk_mhz": [
+         2645.9,
+         2656.2
+        ],
+        "ppt_w": [
+         106.1,
+         108.8
+        ],
+        "gpu_busy": [
+         87.6,
+         87.9
+        ],
+        "cpu_util": [
+         3.5,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         84.8,
+         77.1
+        ],
+        "gufo_cpu_pct": [
+         98.0,
+         99.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.7,
+         0.5
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_sampled_peers decode",
+        "base_ms": 1160.4,
+        "cand_ms": 1171.2,
+        "cand_over_base": 1.009,
+        "sclk_mhz": [
+         2580.8,
+         2576.5
+        ],
+        "ppt_w": [
+         94.4,
+         96.6
+        ],
+        "gpu_busy": [
+         83.9,
+         83.6
+        ],
+        "cpu_util": [
+         3.6,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         94.0,
+         88.0
+        ],
+        "gufo_cpu_pct": [
+         105.3,
+         104.4
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.7,
+         0.2
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_chat decode",
+        "base_ms": 236.0,
+        "cand_ms": 234.6,
+        "cand_over_base": 0.994,
+        "sclk_mhz": [
+         2383.2,
+         2463.2
+        ],
+        "ppt_w": [
+         87.9,
+         93.4
+        ],
+        "gpu_busy": [
+         75.2,
+         78.5
+        ],
+        "cpu_util": [
+         3.4,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         86.5,
+         73.5
+        ],
+        "gufo_cpu_pct": [
+         95.5,
+         97.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         3.2,
+         0.3
+        ]
+       },
+       {
+        "phase": "long-context:long_schema_cached decode",
+        "base_ms": 163.0,
+        "cand_ms": 162.1,
+        "cand_over_base": 0.994,
+        "sclk_mhz": [
+         2599,
+         2622.2
+        ],
+        "ppt_w": [
+         127.0,
+         127.1
+        ],
+        "gpu_busy": [
+         88.5,
+         89
+        ],
+        "cpu_util": [
+         4.5,
+         4.2
+        ],
+        "cpu_util_max_core": [
+         80.7,
+         85.2
+        ],
+        "gufo_cpu_pct": [
+         103.7,
+         95.9
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.1,
+         0.2
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_beta decode",
+        "base_ms": 552.2,
+        "cand_ms": 554.1,
+        "cand_over_base": 1.003,
+        "sclk_mhz": [
+         2680.7,
+         2772.4
+        ],
+        "ppt_w": [
+         104.8,
+         115.2
+        ],
+        "gpu_busy": [
+         87.9,
+         91.7
+        ],
+        "cpu_util": [
+         3.7,
+         4.0
+        ],
+        "cpu_util_max_core": [
+         89.0,
+         96.0
+        ],
+        "gufo_cpu_pct": [
+         111.3,
+         116.9
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.9,
+         0.2
+        ]
+       },
+       {
+        "phase": "long-context:long_thinking_token_limit prefill",
+        "base_ms": 7540.6,
+        "cand_ms": 7564.1,
+        "cand_over_base": 1.003,
+        "sclk_mhz": [
+         2749.2,
+         2743.0
+        ],
+        "ppt_w": [
+         146.2,
+         147.1
+        ],
+        "gpu_busy": [
+         97.4,
+         97.3
+        ],
+        "cpu_util": [
+         3.4,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         97.4,
+         97.6
+        ],
+        "gufo_cpu_pct": [
+         102.4,
+         101.8
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.3
+        ]
+       },
+       {
+        "phase": "long-context:long_cancel_resume prefill",
+        "base_ms": 150.1,
+        "cand_ms": 150.6,
+        "cand_over_base": 1.003,
+        "sclk_mhz": [
+         2637,
+         2626.7
+        ],
+        "ppt_w": [
+         123.4,
+         125.3
+        ],
+        "gpu_busy": [
+         88.3,
+         88.3
+        ],
+        "cpu_util": [
+         3.6,
+         4.4
+        ],
+        "cpu_util_max_core": [
+         80.3,
+         83.3
+        ],
+        "gufo_cpu_pct": [
+         104.1,
+         119.8
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         0.4
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_responses_False decode",
+        "base_ms": 964.9,
+        "cand_ms": 966.8,
+        "cand_over_base": 1.002,
+        "sclk_mhz": [
+         2756.8,
+         2803.2
+        ],
+        "ppt_w": [
+         108.6,
+         111.6
+        ],
+        "gpu_busy": [
+         91.9,
+         94.4
+        ],
+        "cpu_util": [
+         3.5,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         93.9,
+         87.0
+        ],
+        "gufo_cpu_pct": [
+         95.0,
+         97.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.1,
+         1.0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_responses_True decode",
+        "base_ms": 928.5,
+        "cand_ms": 929.9,
+        "cand_over_base": 1.002,
+        "sclk_mhz": [
+         2736.7,
+         2737.5
+        ],
+        "ppt_w": [
+         101.6,
+         102.8
+        ],
+        "gpu_busy": [
+         91.5,
+         91.7
+        ],
+        "cpu_util": [
+         3.5,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         94.7,
+         93.1
+        ],
+        "gufo_cpu_pct": [
+         94.5,
+         96.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         0.2
+        ]
+       },
+       {
+        "phase": "state-edges:schema_error_did_not_poison_cache decode",
+        "base_ms": 527.0,
+        "cand_ms": 526.3,
+        "cand_over_base": 0.999,
+        "sclk_mhz": [
+         2786.3,
+         2833.6
+        ],
+        "ppt_w": [
+         95.1,
+         99.8
+        ],
+        "gpu_busy": [
+         93.4,
+         95.7
+        ],
+        "cpu_util": [
+         3.4,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         90.0,
+         96.0
+        ],
+        "gufo_cpu_pct": [
+         93.7,
+         92.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.6,
+         0.1
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_closed_schema prefill",
+        "base_ms": 545.0,
+        "cand_ms": 544.2,
+        "cand_over_base": 0.999,
+        "sclk_mhz": [
+         2314.9,
+         2323.1
+        ],
+        "ppt_w": [
+         97.7,
+         100.0
+        ],
+        "gpu_busy": [
+         72.9,
+         73.6
+        ],
+        "cpu_util": [
+         3.5,
+         4.0
+        ],
+        "cpu_util_max_core": [
+         82.3,
+         83.6
+        ],
+        "gufo_cpu_pct": [
+         111.8,
+         114.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.1,
+         2.2
+        ]
+       },
+       {
+        "phase": "long-context:long_schema_cold prefill",
+        "base_ms": 7260.1,
+        "cand_ms": 7255.5,
+        "cand_over_base": 0.999,
+        "sclk_mhz": [
+         2629.0,
+         2627.8
+        ],
+        "ppt_w": [
+         140.2,
+         140.9
+        ],
+        "gpu_busy": [
+         91.8,
+         91.9
+        ],
+        "cpu_util": [
+         3.6,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         98.3,
+         98.7
+        ],
+        "gufo_cpu_pct": [
+         107.2,
+         108.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         0.5
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_responses decode",
+        "base_ms": 216.7,
+        "cand_ms": 216.7,
+        "cand_over_base": 1.0,
+        "sclk_mhz": [
+         2528.2,
+         2541.8
+        ],
+        "ppt_w": [
+         99.6,
+         101.8
+        ],
+        "gpu_busy": [
+         81,
+         82
+        ],
+        "cpu_util": [
+         3.5,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         71.1,
+         83.2
+        ],
+        "gufo_cpu_pct": [
+         95.1,
+         85.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         4.8,
+         1.7
+        ]
+       }
+      ]
+     },
+     "pair2_tel24": {
+      "runs": [
+       "tel24-1-v013-base-trace3",
+       "tel24-2-v013-cand-trace3"
+      ],
+      "matched_phases": 37,
+      "corr_time_ratio_vs_ratio": {
+       "gm_gfxclk": -0.81,
+       "gm_fclk": -0.627,
+       "gm_uclk": -0.629,
+       "gm_socket_w": -0.715,
+       "sclk_mhz": -0.795,
+       "ppt_w": -0.71,
+       "cpu_util_max_core": -0.053,
+       "gufo_cpu_pct": -0.532
+      },
+      "largest_differences": [
+       {
+        "phase": "state-edges:execution_mode_probe decode",
+        "base_ms": 396.1,
+        "cand_ms": 470.3,
+        "cand_over_base": 1.187,
+        "gm_gfxclk": [
+         1422,
+         1336.4
+        ],
+        "gm_fclk": [
+         1709.5,
+         1640.4
+        ],
+        "gm_uclk": [
+         997.8,
+         988.7
+        ],
+        "gm_socket_w": [
+         52.1,
+         46.7
+        ],
+        "gm_gfx_w": [
+         14.6,
+         14.2
+        ],
+        "sclk_mhz": [
+         1415.3,
+         1334
+        ],
+        "ppt_w": [
+         51.8,
+         46.6
+        ],
+        "gpu_busy": [
+         33.2,
+         29.3
+        ],
+        "cpu_util": [
+         3.7,
+         3.3
+        ],
+        "cpu_util_max_core": [
+         82.0,
+         72.6
+        ],
+        "gufo_cpu_pct": [
+         111.5,
+         96.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         4.7,
+         0.3
+        ],
+        "d_throttle_fppt": [
+         0,
+         1
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_alpha prefill",
+        "base_ms": 510.3,
+        "cand_ms": 593.5,
+        "cand_over_base": 1.163,
+        "gm_gfxclk": [
+         2483.6,
+         2309.7
+        ],
+        "gm_fclk": [
+         1867.3,
+         1785.9
+        ],
+        "gm_uclk": [
+         1000,
+         998.6
+        ],
+        "gm_socket_w": [
+         102.3,
+         98.6
+        ],
+        "gm_gfx_w": [
+         37.4,
+         36.9
+        ],
+        "sclk_mhz": [
+         2481.7,
+         2308.1
+        ],
+        "ppt_w": [
+         102.2,
+         98.5
+        ],
+        "gpu_busy": [
+         79.3,
+         72.1
+        ],
+        "cpu_util": [
+         3.8,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         79.6,
+         83.5
+        ],
+        "gufo_cpu_pct": [
+         105.7,
+         95.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.4,
+         1.0
+        ],
+        "d_throttle_fppt": [
+         4,
+         74
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:execution_mode_probe prefill",
+        "base_ms": 322.2,
+        "cand_ms": 374.5,
+        "cand_over_base": 1.162,
+        "gm_gfxclk": [
+         909.8,
+         845
+        ],
+        "gm_fclk": [
+         1635,
+         1593.2
+        ],
+        "gm_uclk": [
+         997,
+         982.8
+        ],
+        "gm_socket_w": [
+         36.9,
+         31.9
+        ],
+        "gm_gfx_w": [
+         7.2,
+         6.9
+        ],
+        "sclk_mhz": [
+         901.4,
+         841.6
+        ],
+        "ppt_w": [
+         36.6,
+         31.8
+        ],
+        "gpu_busy": [
+         11.4,
+         8.6
+        ],
+        "cpu_util": [
+         4.2,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         88.2,
+         80.4
+        ],
+        "gufo_cpu_pct": [
+         100.0,
+         88.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         0.4
+        ],
+        "d_throttle_fppt": [
+         0,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:zero_argument_tool_after_limit decode",
+        "base_ms": 227.0,
+        "cand_ms": 254.4,
+        "cand_over_base": 1.121,
+        "gm_gfxclk": [
+         2401.6,
+         2270.8
+        ],
+        "gm_fclk": [
+         1857.6,
+         1770
+        ],
+        "gm_uclk": [
+         999.6,
+         998
+        ],
+        "gm_socket_w": [
+         97.4,
+         96.1
+        ],
+        "gm_gfx_w": [
+         34.7,
+         34.5
+        ],
+        "sclk_mhz": [
+         2400.4,
+         2270.2
+        ],
+        "ppt_w": [
+         97.4,
+         96.1
+        ],
+        "gpu_busy": [
+         75.4,
+         69.8
+        ],
+        "cpu_util": [
+         4.2,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         78.7,
+         81.5
+        ],
+        "gufo_cpu_pct": [
+         107.3,
+         96.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.9,
+         0.7
+        ],
+        "d_throttle_fppt": [
+         3,
+         28
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_alpha decode",
+        "base_ms": 537.2,
+        "cand_ms": 601.4,
+        "cand_over_base": 1.12,
+        "gm_gfxclk": [
+         2622.9,
+         2454.5
+        ],
+        "gm_fclk": [
+         1881.3,
+         1786.9
+        ],
+        "gm_uclk": [
+         1000,
+         992.2
+        ],
+        "gm_socket_w": [
+         104.9,
+         100.2
+        ],
+        "gm_gfx_w": [
+         38.2,
+         36.9
+        ],
+        "sclk_mhz": [
+         2621.1,
+         2452.2
+        ],
+        "ppt_w": [
+         104.8,
+         100.1
+        ],
+        "gpu_busy": [
+         85.4,
+         78.1
+        ],
+        "cpu_util": [
+         4.0,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         85.7,
+         80.8
+        ],
+        "gufo_cpu_pct": [
+         115.7,
+         106.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.3,
+         1.1
+        ],
+        "d_throttle_fppt": [
+         1,
+         41
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_sampled_peers prefill",
+        "base_ms": 275.7,
+        "cand_ms": 290.0,
+        "cand_over_base": 1.052,
+        "gm_gfxclk": [
+         2577.8,
+         2564.5
+        ],
+        "gm_fclk": [
+         1929.8,
+         1915.2
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         102.5,
+         93.8
+        ],
+        "gm_gfx_w": [
+         34.2,
+         35.3
+        ],
+        "sclk_mhz": [
+         2576.8,
+         2562.8
+        ],
+        "ppt_w": [
+         102.5,
+         93.8
+        ],
+        "gpu_busy": [
+         83.2,
+         82.8
+        ],
+        "cpu_util": [
+         4.5,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         88.0,
+         88.4
+        ],
+        "gufo_cpu_pct": [
+         117.2,
+         117.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.5,
+         5.0
+        ],
+        "d_throttle_fppt": [
+         22,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "long-context:long_thinking_token_limit decode",
+        "base_ms": 167.2,
+        "cand_ms": 158.9,
+        "cand_over_base": 0.95,
+        "gm_gfxclk": [
+         2723.8,
+         2715.7
+        ],
+        "gm_fclk": [
+         1887.8,
+         1881
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         137.2,
+         139.3
+        ],
+        "gm_gfx_w": [
+         47.3,
+         48.8
+        ],
+        "sclk_mhz": [
+         2722.8,
+         2714
+        ],
+        "ppt_w": [
+         137.5,
+         139.6
+        ],
+        "gpu_busy": [
+         93.8,
+         94.3
+        ],
+        "cpu_util": [
+         6.2,
+         7.4
+        ],
+        "cpu_util_max_core": [
+         92.7,
+         74.5
+        ],
+        "gufo_cpu_pct": [
+         191.5,
+         219.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         9.2,
+         1.9
+        ],
+        "d_throttle_fppt": [
+         15,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:zero_argument_tool_after_limit prefill",
+        "base_ms": 467.2,
+        "cand_ms": 487.3,
+        "cand_over_base": 1.043,
+        "gm_gfxclk": [
+         2251.3,
+         2143.8
+        ],
+        "gm_fclk": [
+         1841.2,
+         1772.3
+        ],
+        "gm_uclk": [
+         999,
+         997.3
+        ],
+        "gm_socket_w": [
+         92.6,
+         91.2
+        ],
+        "gm_gfx_w": [
+         32.6,
+         33.6
+        ],
+        "sclk_mhz": [
+         2249.8,
+         2140
+        ],
+        "ppt_w": [
+         92.5,
+         90.9
+        ],
+        "gpu_busy": [
+         69,
+         64.5
+        ],
+        "cpu_util": [
+         4.9,
+         4.6
+        ],
+        "cpu_util_max_core": [
+         86.0,
+         83.0
+        ],
+        "gufo_cpu_pct": [
+         123.0,
+         109.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.4,
+         2.0
+        ],
+        "d_throttle_fppt": [
+         4,
+         289
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       }
+      ],
+      "all_phases": [
+       {
+        "phase": "state-edges:execution_mode_probe decode",
+        "base_ms": 396.1,
+        "cand_ms": 470.3,
+        "cand_over_base": 1.187,
+        "gm_gfxclk": [
+         1422,
+         1336.4
+        ],
+        "gm_fclk": [
+         1709.5,
+         1640.4
+        ],
+        "gm_uclk": [
+         997.8,
+         988.7
+        ],
+        "gm_socket_w": [
+         52.1,
+         46.7
+        ],
+        "gm_gfx_w": [
+         14.6,
+         14.2
+        ],
+        "sclk_mhz": [
+         1415.3,
+         1334
+        ],
+        "ppt_w": [
+         51.8,
+         46.6
+        ],
+        "gpu_busy": [
+         33.2,
+         29.3
+        ],
+        "cpu_util": [
+         3.7,
+         3.3
+        ],
+        "cpu_util_max_core": [
+         82.0,
+         72.6
+        ],
+        "gufo_cpu_pct": [
+         111.5,
+         96.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         4.7,
+         0.3
+        ],
+        "d_throttle_fppt": [
+         0,
+         1
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_alpha prefill",
+        "base_ms": 510.3,
+        "cand_ms": 593.5,
+        "cand_over_base": 1.163,
+        "gm_gfxclk": [
+         2483.6,
+         2309.7
+        ],
+        "gm_fclk": [
+         1867.3,
+         1785.9
+        ],
+        "gm_uclk": [
+         1000,
+         998.6
+        ],
+        "gm_socket_w": [
+         102.3,
+         98.6
+        ],
+        "gm_gfx_w": [
+         37.4,
+         36.9
+        ],
+        "sclk_mhz": [
+         2481.7,
+         2308.1
+        ],
+        "ppt_w": [
+         102.2,
+         98.5
+        ],
+        "gpu_busy": [
+         79.3,
+         72.1
+        ],
+        "cpu_util": [
+         3.8,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         79.6,
+         83.5
+        ],
+        "gufo_cpu_pct": [
+         105.7,
+         95.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.4,
+         1.0
+        ],
+        "d_throttle_fppt": [
+         4,
+         74
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:execution_mode_probe prefill",
+        "base_ms": 322.2,
+        "cand_ms": 374.5,
+        "cand_over_base": 1.162,
+        "gm_gfxclk": [
+         909.8,
+         845
+        ],
+        "gm_fclk": [
+         1635,
+         1593.2
+        ],
+        "gm_uclk": [
+         997,
+         982.8
+        ],
+        "gm_socket_w": [
+         36.9,
+         31.9
+        ],
+        "gm_gfx_w": [
+         7.2,
+         6.9
+        ],
+        "sclk_mhz": [
+         901.4,
+         841.6
+        ],
+        "ppt_w": [
+         36.6,
+         31.8
+        ],
+        "gpu_busy": [
+         11.4,
+         8.6
+        ],
+        "cpu_util": [
+         4.2,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         88.2,
+         80.4
+        ],
+        "gufo_cpu_pct": [
+         100.0,
+         88.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         0.4
+        ],
+        "d_throttle_fppt": [
+         0,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:zero_argument_tool_after_limit decode",
+        "base_ms": 227.0,
+        "cand_ms": 254.4,
+        "cand_over_base": 1.121,
+        "gm_gfxclk": [
+         2401.6,
+         2270.8
+        ],
+        "gm_fclk": [
+         1857.6,
+         1770
+        ],
+        "gm_uclk": [
+         999.6,
+         998
+        ],
+        "gm_socket_w": [
+         97.4,
+         96.1
+        ],
+        "gm_gfx_w": [
+         34.7,
+         34.5
+        ],
+        "sclk_mhz": [
+         2400.4,
+         2270.2
+        ],
+        "ppt_w": [
+         97.4,
+         96.1
+        ],
+        "gpu_busy": [
+         75.4,
+         69.8
+        ],
+        "cpu_util": [
+         4.2,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         78.7,
+         81.5
+        ],
+        "gufo_cpu_pct": [
+         107.3,
+         96.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.9,
+         0.7
+        ],
+        "d_throttle_fppt": [
+         3,
+         28
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_alpha decode",
+        "base_ms": 537.2,
+        "cand_ms": 601.4,
+        "cand_over_base": 1.12,
+        "gm_gfxclk": [
+         2622.9,
+         2454.5
+        ],
+        "gm_fclk": [
+         1881.3,
+         1786.9
+        ],
+        "gm_uclk": [
+         1000,
+         992.2
+        ],
+        "gm_socket_w": [
+         104.9,
+         100.2
+        ],
+        "gm_gfx_w": [
+         38.2,
+         36.9
+        ],
+        "sclk_mhz": [
+         2621.1,
+         2452.2
+        ],
+        "ppt_w": [
+         104.8,
+         100.1
+        ],
+        "gpu_busy": [
+         85.4,
+         78.1
+        ],
+        "cpu_util": [
+         4.0,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         85.7,
+         80.8
+        ],
+        "gufo_cpu_pct": [
+         115.7,
+         106.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.3,
+         1.1
+        ],
+        "d_throttle_fppt": [
+         1,
+         41
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_sampled_peers prefill",
+        "base_ms": 275.7,
+        "cand_ms": 290.0,
+        "cand_over_base": 1.052,
+        "gm_gfxclk": [
+         2577.8,
+         2564.5
+        ],
+        "gm_fclk": [
+         1929.8,
+         1915.2
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         102.5,
+         93.8
+        ],
+        "gm_gfx_w": [
+         34.2,
+         35.3
+        ],
+        "sclk_mhz": [
+         2576.8,
+         2562.8
+        ],
+        "ppt_w": [
+         102.5,
+         93.8
+        ],
+        "gpu_busy": [
+         83.2,
+         82.8
+        ],
+        "cpu_util": [
+         4.5,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         88.0,
+         88.4
+        ],
+        "gufo_cpu_pct": [
+         117.2,
+         117.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.5,
+         5.0
+        ],
+        "d_throttle_fppt": [
+         22,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "long-context:long_thinking_token_limit decode",
+        "base_ms": 167.2,
+        "cand_ms": 158.9,
+        "cand_over_base": 0.95,
+        "gm_gfxclk": [
+         2723.8,
+         2715.7
+        ],
+        "gm_fclk": [
+         1887.8,
+         1881
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         137.2,
+         139.3
+        ],
+        "gm_gfx_w": [
+         47.3,
+         48.8
+        ],
+        "sclk_mhz": [
+         2722.8,
+         2714
+        ],
+        "ppt_w": [
+         137.5,
+         139.6
+        ],
+        "gpu_busy": [
+         93.8,
+         94.3
+        ],
+        "cpu_util": [
+         6.2,
+         7.4
+        ],
+        "cpu_util_max_core": [
+         92.7,
+         74.5
+        ],
+        "gufo_cpu_pct": [
+         191.5,
+         219.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         9.2,
+         1.9
+        ],
+        "d_throttle_fppt": [
+         15,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:zero_argument_tool_after_limit prefill",
+        "base_ms": 467.2,
+        "cand_ms": 487.3,
+        "cand_over_base": 1.043,
+        "gm_gfxclk": [
+         2251.3,
+         2143.8
+        ],
+        "gm_fclk": [
+         1841.2,
+         1772.3
+        ],
+        "gm_uclk": [
+         999,
+         997.3
+        ],
+        "gm_socket_w": [
+         92.6,
+         91.2
+        ],
+        "gm_gfx_w": [
+         32.6,
+         33.6
+        ],
+        "sclk_mhz": [
+         2249.8,
+         2140
+        ],
+        "ppt_w": [
+         92.5,
+         90.9
+        ],
+        "gpu_busy": [
+         69,
+         64.5
+        ],
+        "cpu_util": [
+         4.9,
+         4.6
+        ],
+        "cpu_util_max_core": [
+         86.0,
+         83.0
+        ],
+        "gufo_cpu_pct": [
+         123.0,
+         109.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.4,
+         2.0
+        ],
+        "d_throttle_fppt": [
+         4,
+         289
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:quoted_call_argument_stop_streamFalse prefill",
+        "base_ms": 502.7,
+        "cand_ms": 493.1,
+        "cand_over_base": 0.981,
+        "gm_gfxclk": [
+         2813.8,
+         2792.1
+        ],
+        "gm_fclk": [
+         1907,
+         1880.7
+        ],
+        "gm_uclk": [
+         1000,
+         997.7
+        ],
+        "gm_socket_w": [
+         108.9,
+         112.4
+        ],
+        "gm_gfx_w": [
+         41.2,
+         41.3
+        ],
+        "sclk_mhz": [
+         2814.5,
+         2791.4
+        ],
+        "ppt_w": [
+         109.0,
+         112.4
+        ],
+        "gpu_busy": [
+         94,
+         93.1
+        ],
+        "cpu_util": [
+         3.9,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         89.4,
+         85.6
+        ],
+        "gufo_cpu_pct": [
+         115.7,
+         113.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.9,
+         1.3
+        ],
+        "d_throttle_fppt": [
+         1,
+         10
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "long-context:long_schema_cold decode",
+        "base_ms": 211.2,
+        "cand_ms": 207.9,
+        "cand_over_base": 0.984,
+        "gm_gfxclk": [
+         2722,
+         2643.2
+        ],
+        "gm_fclk": [
+         1861.2,
+         1836.8
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         139.9,
+         141.3
+        ],
+        "gm_gfx_w": [
+         46.0,
+         43.4
+        ],
+        "sclk_mhz": [
+         2724,
+         2643
+        ],
+        "ppt_w": [
+         140.2,
+         141.5
+        ],
+        "gpu_busy": [
+         95,
+         94.8
+        ],
+        "cpu_util": [
+         7.2,
+         7.6
+        ],
+        "cpu_util_max_core": [
+         88.6,
+         85.7
+        ],
+        "gufo_cpu_pct": [
+         216.4,
+         216.9
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.8,
+         1.5
+        ],
+        "d_throttle_fppt": [
+         27,
+         15
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_edit decode",
+        "base_ms": 835.3,
+        "cand_ms": 847.5,
+        "cand_over_base": 1.015,
+        "gm_gfxclk": [
+         2686.6,
+         2668.1
+        ],
+        "gm_fclk": [
+         1884.5,
+         1846.3
+        ],
+        "gm_uclk": [
+         999.2,
+         1000
+        ],
+        "gm_socket_w": [
+         107.7,
+         117.2
+        ],
+        "gm_gfx_w": [
+         40.1,
+         40.6
+        ],
+        "sclk_mhz": [
+         2685.7,
+         2667.5
+        ],
+        "ppt_w": [
+         107.7,
+         117.2
+        ],
+        "gpu_busy": [
+         88.8,
+         88.3
+        ],
+        "cpu_util": [
+         3.5,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         88.4,
+         91.5
+        ],
+        "gufo_cpu_pct": [
+         102.8,
+         101.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.6,
+         0.8
+        ],
+        "d_throttle_fppt": [
+         0,
+         14
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "long-context:long_thinking_token_limit prefill",
+        "base_ms": 7490.4,
+        "cand_ms": 7594.5,
+        "cand_over_base": 1.014,
+        "gm_gfxclk": [
+         2764.5,
+         2685.4
+        ],
+        "gm_fclk": [
+         1865.0,
+         1838.1
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         146.0,
+         150.3
+        ],
+        "gm_gfx_w": [
+         48.9,
+         47.2
+        ],
+        "sclk_mhz": [
+         2764.3,
+         2685.1
+        ],
+        "ppt_w": [
+         146.0,
+         150.2
+        ],
+        "gpu_busy": [
+         97.8,
+         97.9
+        ],
+        "cpu_util": [
+         3.4,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         97.0,
+         96.4
+        ],
+        "gufo_cpu_pct": [
+         102.7,
+         102.9
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.4,
+         0.5
+        ],
+        "d_throttle_fppt": [
+         5414,
+         6330
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "long-context:long_schema_cold prefill",
+        "base_ms": 7239.3,
+        "cand_ms": 7331.5,
+        "cand_over_base": 1.013,
+        "gm_gfxclk": [
+         2643.9,
+         2583.5
+        ],
+        "gm_fclk": [
+         1863.6,
+         1844.4
+        ],
+        "gm_uclk": [
+         999.6,
+         1000
+        ],
+        "gm_socket_w": [
+         140.0,
+         143.6
+        ],
+        "gm_gfx_w": [
+         46.6,
+         45.4
+        ],
+        "sclk_mhz": [
+         2643.0,
+         2582.7
+        ],
+        "ppt_w": [
+         139.9,
+         143.5
+        ],
+        "gpu_busy": [
+         92.0,
+         92.1
+        ],
+        "cpu_util": [
+         3.6,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         98.4,
+         94.8
+        ],
+        "gufo_cpu_pct": [
+         107.3,
+         107.4
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.5,
+         0.4
+        ],
+        "d_throttle_fppt": [
+         5153,
+         6026
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_retry decode",
+        "base_ms": 787.4,
+        "cand_ms": 796.6,
+        "cand_over_base": 1.012,
+        "gm_gfxclk": [
+         2830.8,
+         2817.1
+        ],
+        "gm_fclk": [
+         1915.1,
+         1894.8
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         107.3,
+         114.5
+        ],
+        "gm_gfx_w": [
+         38.5,
+         39.5
+        ],
+        "sclk_mhz": [
+         2830.2,
+         2817.4
+        ],
+        "ppt_w": [
+         107.3,
+         114.5
+        ],
+        "gpu_busy": [
+         95,
+         94.9
+        ],
+        "cpu_util": [
+         3.4,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         95.5,
+         91.6
+        ],
+        "gufo_cpu_pct": [
+         101.8,
+         101.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.9,
+         1.8
+        ],
+        "d_throttle_fppt": [
+         0,
+         2
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_open_schema prefill",
+        "base_ms": 530.2,
+        "cand_ms": 525.5,
+        "cand_over_base": 0.991,
+        "gm_gfxclk": [
+         1990.3,
+         2042.4
+        ],
+        "gm_fclk": [
+         1826.7,
+         1847.1
+        ],
+        "gm_uclk": [
+         994.3,
+         1000
+        ],
+        "gm_socket_w": [
+         79.8,
+         83.0
+        ],
+        "gm_gfx_w": [
+         32.6,
+         35.6
+        ],
+        "sclk_mhz": [
+         1984.3,
+         2039.3
+        ],
+        "ppt_w": [
+         79.5,
+         82.7
+        ],
+        "gpu_busy": [
+         59.2,
+         61.6
+        ],
+        "cpu_util": [
+         4.0,
+         3.8
+        ],
+        "cpu_util_max_core": [
+         93.6,
+         93.1
+        ],
+        "gufo_cpu_pct": [
+         105.4,
+         105.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.9,
+         3.2
+        ],
+        "d_throttle_fppt": [
+         59,
+         88
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:schema_error_did_not_poison_cache decode",
+        "base_ms": 528.9,
+        "cand_ms": 533.1,
+        "cand_over_base": 1.008,
+        "gm_gfxclk": [
+         2824.1,
+         2848.1
+        ],
+        "gm_fclk": [
+         1919.4,
+         1924.4
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         96.5,
+         99.6
+        ],
+        "gm_gfx_w": [
+         34.3,
+         37.1
+        ],
+        "sclk_mhz": [
+         2827.4,
+         2850.3
+        ],
+        "ppt_w": [
+         96.6,
+         99.6
+        ],
+        "gpu_busy": [
+         95.4,
+         96.4
+        ],
+        "cpu_util": [
+         3.6,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         88.2,
+         92.2
+        ],
+        "gufo_cpu_pct": [
+         89.3,
+         95.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.1,
+         0.3
+        ],
+        "d_throttle_fppt": [
+         0,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_chat prefill",
+        "base_ms": 329.6,
+        "cand_ms": 326.8,
+        "cand_over_base": 0.992,
+        "gm_gfxclk": [
+         2485,
+         2470.2
+        ],
+        "gm_fclk": [
+         1858,
+         1839.4
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         94.8,
+         101.5
+        ],
+        "gm_gfx_w": [
+         34.4,
+         35.6
+        ],
+        "sclk_mhz": [
+         2485.2,
+         2472.4
+        ],
+        "ppt_w": [
+         94.8,
+         101.5
+        ],
+        "gpu_busy": [
+         78.8,
+         78.8
+        ],
+        "cpu_util": [
+         3.6,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         79.4,
+         77.9
+        ],
+        "gufo_cpu_pct": [
+         102.4,
+         101.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.7,
+         1.1
+        ],
+        "d_throttle_fppt": [
+         0,
+         16
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "long-context:long_responses_sampled prefill",
+        "base_ms": 202.1,
+        "cand_ms": 200.7,
+        "cand_over_base": 0.993,
+        "gm_gfxclk": [
+         2528.3,
+         2513.8
+        ],
+        "gm_fclk": [
+         1845.7,
+         1832
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         112.4,
+         117.4
+        ],
+        "gm_gfx_w": [
+         36.7,
+         36.6
+        ],
+        "sclk_mhz": [
+         2525.7,
+         2515
+        ],
+        "ppt_w": [
+         112.5,
+         117.6
+        ],
+        "gpu_busy": [
+         83.7,
+         85.2
+        ],
+        "cpu_util": [
+         4.0,
+         4.0
+        ],
+        "cpu_util_max_core": [
+         64.4,
+         70.1
+        ],
+        "gufo_cpu_pct": [
+         107.9,
+         95.6
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.6,
+         0.5
+        ],
+        "d_throttle_fppt": [
+         0,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:tool_argument_stop_retry decode",
+        "base_ms": 530.9,
+        "cand_ms": 527.9,
+        "cand_over_base": 0.994,
+        "gm_gfxclk": [
+         2842.8,
+         2853.6
+        ],
+        "gm_fclk": [
+         1903.8,
+         1918.9
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         97.5,
+         100.8
+        ],
+        "gm_gfx_w": [
+         34.0,
+         37.4
+        ],
+        "sclk_mhz": [
+         2842.5,
+         2853.4
+        ],
+        "ppt_w": [
+         97.5,
+         100.8
+        ],
+        "gpu_busy": [
+         96,
+         96.6
+        ],
+        "cpu_util": [
+         3.5,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         98.5,
+         98.7
+        ],
+        "gufo_cpu_pct": [
+         103.3,
+         103.9
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.1,
+         0.1
+        ],
+        "d_throttle_fppt": [
+         0,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "long-context:long_cancel_resume decode",
+        "base_ms": 1493.5,
+        "cand_ms": 1483.9,
+        "cand_over_base": 0.994,
+        "gm_gfxclk": [
+         2754.9,
+         2764.6
+        ],
+        "gm_fclk": [
+         1855.8,
+         1855.8
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         111.3,
+         111.7
+        ],
+        "gm_gfx_w": [
+         38.1,
+         39.2
+        ],
+        "sclk_mhz": [
+         2756,
+         2766
+        ],
+        "ppt_w": [
+         111.4,
+         111.8
+        ],
+        "gpu_busy": [
+         92.6,
+         92.9
+        ],
+        "cpu_util": [
+         3.7,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         87.9,
+         89.2
+        ],
+        "gufo_cpu_pct": [
+         109.0,
+         106.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.5,
+         2.9
+        ],
+        "d_throttle_fppt": [
+         2,
+         1
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_limit prefill",
+        "base_ms": 731.5,
+        "cand_ms": 727.8,
+        "cand_over_base": 0.995,
+        "gm_gfxclk": [
+         2790.4,
+         2774.8
+        ],
+        "gm_fclk": [
+         1914.2,
+         1887.8
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         111.1,
+         124.3
+        ],
+        "gm_gfx_w": [
+         41.5,
+         42.5
+        ],
+        "sclk_mhz": [
+         2789.8,
+         2774.1
+        ],
+        "ppt_w": [
+         111.0,
+         124.2
+        ],
+        "gpu_busy": [
+         93.3,
+         93.2
+        ],
+        "cpu_util": [
+         3.8,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         92.6,
+         93.3
+        ],
+        "gufo_cpu_pct": [
+         112.4,
+         116.2
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.9,
+         0.8
+        ],
+        "d_throttle_fppt": [
+         73,
+         384
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_responses_False prefill",
+        "base_ms": 778.5,
+        "cand_ms": 774.5,
+        "cand_over_base": 0.995,
+        "gm_gfxclk": [
+         2820.2,
+         2812
+        ],
+        "gm_fclk": [
+         1937,
+         1925.3
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         111.8,
+         115.9
+        ],
+        "gm_gfx_w": [
+         41.9,
+         42.7
+        ],
+        "sclk_mhz": [
+         2820.6,
+         2812.2
+        ],
+        "ppt_w": [
+         111.8,
+         115.8
+        ],
+        "gpu_busy": [
+         95.2,
+         94.9
+        ],
+        "cpu_util": [
+         3.8,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         90.9,
+         93.8
+        ],
+        "gufo_cpu_pct": [
+         110.6,
+         111.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.6,
+         0.5
+        ],
+        "d_throttle_fppt": [
+         63,
+         10
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_chat decode",
+        "base_ms": 226.8,
+        "cand_ms": 225.6,
+        "cand_over_base": 0.995,
+        "gm_gfxclk": [
+         2520.5,
+         2507.2
+        ],
+        "gm_fclk": [
+         1854,
+         1840
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         94.1,
+         102.0
+        ],
+        "gm_gfx_w": [
+         34.0,
+         35.1
+        ],
+        "sclk_mhz": [
+         2523.5,
+         2511
+        ],
+        "ppt_w": [
+         94.2,
+         102.1
+        ],
+        "gpu_busy": [
+         80.5,
+         80.5
+        ],
+        "cpu_util": [
+         3.5,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         69.4,
+         78.4
+        ],
+        "gufo_cpu_pct": [
+         100.8,
+         99.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.4,
+         0.4
+        ],
+        "d_throttle_fppt": [
+         0,
+         2
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_edit prefill",
+        "base_ms": 702.7,
+        "cand_ms": 705.6,
+        "cand_over_base": 1.004,
+        "gm_gfxclk": [
+         2576.2,
+         2564.5
+        ],
+        "gm_fclk": [
+         1882.9,
+         1834.2
+        ],
+        "gm_uclk": [
+         998.6,
+         1000
+        ],
+        "gm_socket_w": [
+         111.3,
+         121.3
+        ],
+        "gm_gfx_w": [
+         42.6,
+         43.3
+        ],
+        "sclk_mhz": [
+         2574.2,
+         2562.2
+        ],
+        "ppt_w": [
+         111.2,
+         121.1
+        ],
+        "gpu_busy": [
+         84.1,
+         84.5
+        ],
+        "cpu_util": [
+         3.9,
+         4.0
+        ],
+        "cpu_util_max_core": [
+         86.3,
+         89.2
+        ],
+        "gufo_cpu_pct": [
+         114.1,
+         115.4
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.1,
+         3.8
+        ],
+        "d_throttle_fppt": [
+         5,
+         365
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_sampled_peers decode",
+        "base_ms": 1167.8,
+        "cand_ms": 1163.1,
+        "cand_over_base": 0.996,
+        "gm_gfxclk": [
+         2611.6,
+         2600.2
+        ],
+        "gm_fclk": [
+         1892.6,
+         1874.9
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         100.1,
+         99.7
+        ],
+        "gm_gfx_w": [
+         35.3,
+         36.5
+        ],
+        "sclk_mhz": [
+         2611.7,
+         2599.8
+        ],
+        "ppt_w": [
+         100.1,
+         99.6
+        ],
+        "gpu_busy": [
+         84.7,
+         84.5
+        ],
+        "cpu_util": [
+         3.6,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         97.6,
+         97.8
+        ],
+        "gufo_cpu_pct": [
+         106.8,
+         107.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         1.6
+        ],
+        "d_throttle_fppt": [
+         0,
+         4
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_beta prefill",
+        "base_ms": 506.1,
+        "cand_ms": 507.8,
+        "cand_over_base": 1.003,
+        "gm_gfxclk": [
+         2730,
+         2595.7
+        ],
+        "gm_fclk": [
+         1908.2,
+         1805
+        ],
+        "gm_uclk": [
+         1000,
+         991
+        ],
+        "gm_socket_w": [
+         109.6,
+         109.4
+        ],
+        "gm_gfx_w": [
+         40.7,
+         39.4
+        ],
+        "sclk_mhz": [
+         2729.5,
+         2594
+        ],
+        "ppt_w": [
+         109.6,
+         109.2
+        ],
+        "gpu_busy": [
+         90,
+         84.9
+        ],
+        "cpu_util": [
+         3.9,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         94.2,
+         89.0
+        ],
+        "gufo_cpu_pct": [
+         117.7,
+         116.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.4,
+         1.7
+        ],
+        "d_throttle_fppt": [
+         2,
+         307
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:tool_argument_stop decode",
+        "base_ms": 293.0,
+        "cand_ms": 292.4,
+        "cand_over_base": 0.998,
+        "gm_gfxclk": [
+         2804.5,
+         2751
+        ],
+        "gm_fclk": [
+         1896.2,
+         1852.2
+        ],
+        "gm_uclk": [
+         1000,
+         996.6
+        ],
+        "gm_socket_w": [
+         104.7,
+         108.3
+        ],
+        "gm_gfx_w": [
+         38.8,
+         38.8
+        ],
+        "sclk_mhz": [
+         2805.2,
+         2750
+        ],
+        "ppt_w": [
+         104.8,
+         108.3
+        ],
+        "gpu_busy": [
+         93.5,
+         91
+        ],
+        "cpu_util": [
+         3.4,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         97.7,
+         92.7
+        ],
+        "gufo_cpu_pct": [
+         102.8,
+         102.4
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.4,
+         0.2
+        ],
+        "d_throttle_fppt": [
+         0,
+         8
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_closed_schema prefill",
+        "base_ms": 544.0,
+        "cand_ms": 545.2,
+        "cand_over_base": 1.002,
+        "gm_gfxclk": [
+         2370.1,
+         2374.9
+        ],
+        "gm_fclk": [
+         1861.6,
+         1839.6
+        ],
+        "gm_uclk": [
+         997,
+         1000
+        ],
+        "gm_socket_w": [
+         100.2,
+         106.8
+        ],
+        "gm_gfx_w": [
+         39.0,
+         40.4
+        ],
+        "sclk_mhz": [
+         2369.1,
+         2372.7
+        ],
+        "ppt_w": [
+         100.1,
+         106.6
+        ],
+        "gpu_busy": [
+         75.1,
+         75.9
+        ],
+        "cpu_util": [
+         3.9,
+         3.8
+        ],
+        "cpu_util_max_core": [
+         90.9,
+         90.4
+        ],
+        "gufo_cpu_pct": [
+         112.2,
+         115.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.9,
+         1.7
+        ],
+        "d_throttle_fppt": [
+         38,
+         427
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_read_after_edit prefill",
+        "base_ms": 239.9,
+        "cand_ms": 240.3,
+        "cand_over_base": 1.002,
+        "gm_gfxclk": [
+         2734.5,
+         2719
+        ],
+        "gm_fclk": [
+         1893,
+         1867.2
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         104.6,
+         113.9
+        ],
+        "gm_gfx_w": [
+         39.0,
+         39.1
+        ],
+        "sclk_mhz": [
+         2733.2,
+         2718
+        ],
+        "ppt_w": [
+         104.5,
+         113.9
+        ],
+        "gpu_busy": [
+         91,
+         90.2
+        ],
+        "cpu_util": [
+         3.6,
+         3.4
+        ],
+        "cpu_util_max_core": [
+         91.0,
+         84.7
+        ],
+        "gufo_cpu_pct": [
+         106.5,
+         104.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         1.7
+        ],
+        "d_throttle_fppt": [
+         0,
+         2
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_responses_True decode",
+        "base_ms": 930.5,
+        "cand_ms": 929.2,
+        "cand_over_base": 0.999,
+        "gm_gfxclk": [
+         2749.3,
+         2745.5
+        ],
+        "gm_fclk": [
+         1944,
+         1943.9
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         101.9,
+         101.9
+        ],
+        "gm_gfx_w": [
+         38.0,
+         38.3
+        ],
+        "sclk_mhz": [
+         2750,
+         2747.4
+        ],
+        "ppt_w": [
+         101.9,
+         102.0
+        ],
+        "gpu_busy": [
+         92.4,
+         92.2
+        ],
+        "cpu_util": [
+         3.5,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         94.2,
+         94.2
+        ],
+        "gufo_cpu_pct": [
+         94.8,
+         95.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.1,
+         0.7
+        ],
+        "d_throttle_fppt": [
+         0,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_responses decode",
+        "base_ms": 216.9,
+        "cand_ms": 216.7,
+        "cand_over_base": 0.999,
+        "gm_gfxclk": [
+         2576.5,
+         2563.2
+        ],
+        "gm_fclk": [
+         1870.8,
+         1834.2
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         102.7,
+         112.2
+        ],
+        "gm_gfx_w": [
+         37.1,
+         37.9
+        ],
+        "sclk_mhz": [
+         2578.2,
+         2566.2
+        ],
+        "ppt_w": [
+         102.8,
+         112.3
+        ],
+        "gpu_busy": [
+         83.5,
+         83.5
+        ],
+        "cpu_util": [
+         3.5,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         71.1,
+         66.2
+        ],
+        "gufo_cpu_pct": [
+         88.3,
+         93.5
+        ],
+        "psi_cpu_some_ms_per_s": [
+         2.3,
+         2.1
+        ],
+        "d_throttle_fppt": [
+         0,
+         38
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "state-edges:schema_payload_beta decode",
+        "base_ms": 551.6,
+        "cand_ms": 552.0,
+        "cand_over_base": 1.001,
+        "gm_gfxclk": [
+         2777.5,
+         2695.6
+        ],
+        "gm_fclk": [
+         1899.5,
+         1825.9
+        ],
+        "gm_uclk": [
+         1000,
+         994.7
+        ],
+        "gm_socket_w": [
+         108.6,
+         111.5
+        ],
+        "gm_gfx_w": [
+         40.2,
+         39.7
+        ],
+        "sclk_mhz": [
+         2777.5,
+         2694.3
+        ],
+        "ppt_w": [
+         108.7,
+         111.5
+        ],
+        "gpu_busy": [
+         92,
+         88.7
+        ],
+        "cpu_util": [
+         3.8,
+         3.9
+        ],
+        "cpu_util_max_core": [
+         96.8,
+         96.0
+        ],
+        "gufo_cpu_pct": [
+         114.4,
+         117.0
+        ],
+        "psi_cpu_some_ms_per_s": [
+         1.1,
+         0.4
+        ],
+        "d_throttle_fppt": [
+         1,
+         11
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "long-context:long_schema_cached decode",
+        "base_ms": 162.2,
+        "cand_ms": 162.3,
+        "cand_over_base": 1.001,
+        "gm_gfxclk": [
+         2638,
+         2586.8
+        ],
+        "gm_fclk": [
+         1850.3,
+         1837
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         126.1,
+         129.9
+        ],
+        "gm_gfx_w": [
+         40.8,
+         39.9
+        ],
+        "sclk_mhz": [
+         2641.7,
+         2590.2
+        ],
+        "ppt_w": [
+         126.6,
+         130.2
+        ],
+        "gpu_busy": [
+         90,
+         90.5
+        ],
+        "cpu_util": [
+         3.8,
+         5.0
+        ],
+        "cpu_util_max_core": [
+         83.3,
+         83.4
+        ],
+        "gufo_cpu_pct": [
+         86.5,
+         118.7
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.2,
+         1.0
+        ],
+        "d_throttle_fppt": [
+         0,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_read_after_edit decode",
+        "base_ms": 338.1,
+        "cand_ms": 338.0,
+        "cand_over_base": 1.0,
+        "gm_gfxclk": [
+         2753.2,
+         2739.8
+        ],
+        "gm_fclk": [
+         1896.2,
+         1879.8
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         103.2,
+         112.9
+        ],
+        "gm_gfx_w": [
+         38.0,
+         38.4
+        ],
+        "sclk_mhz": [
+         2752.2,
+         2738.8
+        ],
+        "ppt_w": [
+         103.1,
+         112.9
+        ],
+        "gpu_busy": [
+         91.7,
+         91
+        ],
+        "cpu_util": [
+         3.5,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         90.3,
+         81.8
+        ],
+        "gufo_cpu_pct": [
+         102.2,
+         103.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.3,
+         2.7
+        ],
+        "d_throttle_fppt": [
+         0,
+         4
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_stop decode",
+        "base_ms": 220.5,
+        "cand_ms": 220.6,
+        "cand_over_base": 1.0,
+        "gm_gfxclk": [
+         2803.5,
+         2794.8
+        ],
+        "gm_fclk": [
+         1893,
+         1868.5
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         110.9,
+         121.9
+        ],
+        "gm_gfx_w": [
+         40.4,
+         41.4
+        ],
+        "sclk_mhz": [
+         2803,
+         2794.5
+        ],
+        "ppt_w": [
+         111.0,
+         122.0
+        ],
+        "gpu_busy": [
+         93.8,
+         93.8
+        ],
+        "cpu_util": [
+         3.5,
+         3.6
+        ],
+        "cpu_util_max_core": [
+         92.7,
+         83.2
+        ],
+        "gufo_cpu_pct": [
+         105.7,
+         101.3
+        ],
+        "psi_cpu_some_ms_per_s": [
+         4.2,
+         4.4
+        ],
+        "d_throttle_fppt": [
+         0,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_responses_False decode",
+        "base_ms": 965.4,
+        "cand_ms": 965.5,
+        "cand_over_base": 1.0,
+        "gm_gfxclk": [
+         2805,
+         2815.5
+        ],
+        "gm_fclk": [
+         1922.5,
+         1920.7
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         110.3,
+         112.7
+        ],
+        "gm_gfx_w": [
+         41.0,
+         42.2
+        ],
+        "sclk_mhz": [
+         2804.8,
+         2816.6
+        ],
+        "ppt_w": [
+         110.3,
+         112.8
+        ],
+        "gpu_busy": [
+         94.4,
+         94.8
+        ],
+        "cpu_util": [
+         3.5,
+         3.5
+        ],
+        "cpu_util_max_core": [
+         97.0,
+         95.8
+        ],
+        "gufo_cpu_pct": [
+         98.2,
+         103.1
+        ],
+        "psi_cpu_some_ms_per_s": [
+         0.9,
+         0.3
+        ],
+        "d_throttle_fppt": [
+         4,
+         0
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       },
+       {
+        "phase": "tool-agent:agent_json_responses prefill",
+        "base_ms": 520.8,
+        "cand_ms": 520.6,
+        "cand_over_base": 1.0,
+        "gm_gfxclk": [
+         2511.9,
+         2489.4
+        ],
+        "gm_fclk": [
+         1860.6,
+         1831.6
+        ],
+        "gm_uclk": [
+         1000,
+         1000
+        ],
+        "gm_socket_w": [
+         99.4,
+         107.4
+        ],
+        "gm_gfx_w": [
+         35.8,
+         36.4
+        ],
+        "sclk_mhz": [
+         2511.4,
+         2489.3
+        ],
+        "ppt_w": [
+         99.3,
+         107.3
+        ],
+        "gpu_busy": [
+         80.3,
+         79.9
+        ],
+        "cpu_util": [
+         3.5,
+         3.7
+        ],
+        "cpu_util_max_core": [
+         84.3,
+         77.3
+        ],
+        "gufo_cpu_pct": [
+         101.3,
+         102.2
+        ],
+        "psi_cpu_some_ms_per_s": [
+         5.9,
+         10.2
+        ],
+        "d_throttle_fppt": [
+         46,
+         343
+        ],
+        "d_throttle_sppt": [
+         0,
+         0
+        ],
+        "d_throttle_spl": [
+         0,
+         0
+        ],
+        "d_throttle_thm_core": [
+         0,
+         0
+        ],
+        "d_throttle_prochot": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "observed": "The slow phases are the same requests in both pairs (the first state-edges requests after server start: execution_mode_probe, schema_payload_alpha, zero_argument_tool_after_limit; +12-19%), on the base in pair 1 and on the candidate in pair 2. Slower phases ran at a lower average GPU clock (pair 2 gpu_metrics gfxclk ratio r=-0.81, fclk r=-0.63, socket power r=-0.72; pair 1 hwmon sclk r=-0.65, PPT r=-0.59). execution_mode_probe ran with the GPU near idle clocks (845-1422 MHz, 32-52 W). Thermal, sustained-power (SPL) and slow-PPT throttle counters did not advance during these phases; fast-PPT residency advanced in many phases on both builds and not in the slowest one. CPU was 3-5% utilized with no CPU pressure and the gufo process near one core on both builds.",
+     "not_proven": "That the GPU/SoC DVFS clock choice causes the slowdown: clocks could only be pinned by writing power_dpm_force_performance_level (a power-configuration change, not permitted). CPU scheduling contention is not supported by the telemetry but per-thread scheduling latency was not measured."
+    },
+    "focused_and_gate": {
+     "decision": "Not run. Stable conditions require fixed GPU clocks, which needs a power-configuration change outside the permissions; the predefined criterion (no candidate-only flag with clean unchanged-base controls) cannot be met while the speed state is uncontrolled, as rounds 13, 17, 21 and 22 show.",
+     "agent_read_after_edit_estimate": {
+      "samples": {
+       "base_or_main": 18,
+       "candidate": 14
+      },
+      "mean_ms": [
+       342.2,
+       348.9
+      ],
+      "candidate_minus_base_ms": 6.7,
+      "candidate_minus_base_pct": 1.95,
+      "bootstrap_95ci_ms": [
+       -0.1,
+       13.6
+      ],
+      "bootstrap_95ci_pct": [
+       -0.04,
+       3.99
+      ],
+      "p_candidate_slower_pairwise": 0.645,
+      "note": "samples span uncontrolled machine states and are not independent; this bounds, not excludes, a small regression (one-sided Fisher p=0.10 for the slow-mode rate is not evidence of no regression)"
+     }
+    },
+    "host_disk": {
+     "status": "blocked",
+     "inspection": "one physical drive (Kingston OM8TAP4 NVMe, XFS on LVM, 94% used, 127 GB free); /tmp and /dev/shm are RAM (not acceptable); no other block device or healthy scratch location",
+     "requirement": "a non-RAM filesystem with at least ~10 GiB free (8 GiB disk-cache budget + 1 GiB staging + ~1.1 GB written per cache-suite run) that sustains direct writes well above ~300 MB/s after several GB of writes (measured here: ~800 MB/s fresh, 130-235 MB/s after the suite; cache saves then stall 5-10 s); e.g. a second NVMe, or this drive with substantial free space restored",
+     "smallest_action": "attach or free a healthy disk location, then rerun the cache suite (thinking-tool-cancel-disk, disk-spacing-disk) base,cand,cand,base with --output on it and a dd oflag=direct probe before and after"
+    },
+    "nix": {
+     "environment": "disposable rootless podman container docker.io/nixos/nix:2.28.4 (sha256:85169a7f...) with /nix on podman volume gufo-nix-store (7.0 GB); no host Nix installation; flake.lock nixpkgs 2fcb964de67fcf60b43471c55d5d99e61a9ccb5a, ROCm 7.2.3 from the binary cache; only gufo compiled",
+     "builds": {
+      "v013-base": {
+       "revision": "fcf8bf706f31da3d5c79a3a7da402354cde308a7",
+       "drv": "/nix/store/6dgp43vajc1gf6h21576dkwrbzhcd0gf-gufo-0-unstable-fcf8bf7.drv",
+       "out": "/nix/store/j2asy1i348wya37b8cq78f1fpxn7vp92-gufo-0-unstable-fcf8bf7",
+       "gufo_sha256": "c4c55240897392e0ca78e8e37ad014f45814abccce4285e2248cc535b12f193e"
+      },
+      "v013-cand": {
+       "revision": "a0aee0264ecf065e80d486acf9b61f9aca23b356",
+       "drv": "/nix/store/h79zlcgyx4l1nrqf878yk65rp7aq2931-gufo-0-unstable-a0aee02.drv",
+       "out": "/nix/store/hwhzd8njd8vwq3a111vr4l4dsr8133ph-gufo-0-unstable-a0aee02",
+       "gufo_sha256": "5ba35a3b996d46c9fdd16b8079914a08bb443e357c66ad5364b49a2821599f2f"
+      }
+     },
+     "checks_pr": {
+      "command": "nix build git+file://<tree>#checks.x86_64-linux.pr (AGENTS.md bounded hosted checks)",
+      "v013-cand": {
+       "revision": "a0aee0264ecf065e80d486acf9b61f9aca23b356",
+       "drv": "/nix/store/2ayzi421h4pfw092p62bzq6ln2ig7dpl-check-pr.drv",
+       "rc": 0,
+       "result": "format (566 C++ files), dependency inventory, docs, hosted CPU contract suite (56/56 tests), mkGufoServe CLI string check all PASS"
+      },
+      "v013-base": {
+       "revision": "fcf8bf706f31da3d5c79a3a7da402354cde308a7",
+       "drv": "/nix/store/6b6p0nhbpjawk3p4iicv4080p7cs3z0k-check-pr.drv",
+       "rc": 0,
+       "result": "same five checks PASS; hosted CPU contract suite 56/56"
+      },
+      "coverage_note": "the hosted suite includes text_generation_scheduler_test (builds under Nix without the unistd fix: the getpid failure is container-toolchain specific) and qwen38_flash_next.config/continuation_layout/mtp_sampling, but not qwen38_flash_next.prompt_lookup or the GPU session/snapshot tests, which ran only in the container gpu-test build"
+     },
+     "abba": {
+      "method": "decode_ab.py default workloads via the harness container with the Nix store mounted read-only; nix-base,nix-cand,nix-cand,nix-base; uninstrumented",
+      "cells": [
+       {
+        "depth": "32k",
+        "workload": "diagnose",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 59.67,
+         "samples_tok_s": [
+          59.68,
+          59.66
+         ],
+         "completion_tokens": [
+          248,
+          248
+         ],
+         "accepted": 382,
+         "drafted": 444,
+         "max_inter_token_ms": 101.9,
+         "prefill_ms_mean": 2298.9
+        },
+        "nix-cand": {
+         "completed_tok_s": 59.49,
+         "samples_tok_s": [
+          59.52,
+          59.45
+         ],
+         "completion_tokens": [
+          248,
+          248
+         ],
+         "accepted": 364,
+         "drafted": 428,
+         "max_inter_token_ms": 100.2,
+         "prefill_ms_mean": 2295.3
+        },
+        "nix-cand_vs_nix-base_pct": -0.3,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "01b0db2e0271ac1a"
+         ],
+         "nix-cand": [
+          "01b0db2e0271ac1a"
+         ]
+        }
+       },
+       {
+        "depth": "32k",
+        "workload": "diagnose",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 53.74,
+         "samples_tok_s": [
+          53.78,
+          53.69
+         ],
+         "completion_tokens": [
+          239,
+          239
+         ],
+         "accepted": 342,
+         "drafted": 404,
+         "max_inter_token_ms": 106.5,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 58.47,
+         "samples_tok_s": [
+          58.46,
+          58.47
+         ],
+         "completion_tokens": [
+          224,
+          224
+         ],
+         "accepted": 330,
+         "drafted": 396,
+         "max_inter_token_ms": 104.8,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": 8.8
+       },
+       {
+        "depth": "32k",
+        "workload": "fresh-code",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 50.89,
+         "samples_tok_s": [
+          50.89,
+          50.89
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 868,
+         "drafted": 1266,
+         "max_inter_token_ms": 104.3,
+         "prefill_ms_mean": 1228.5
+        },
+        "nix-cand": {
+         "completed_tok_s": 51.11,
+         "samples_tok_s": [
+          51.24,
+          50.97
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 868,
+         "drafted": 1264,
+         "max_inter_token_ms": 101.8,
+         "prefill_ms_mean": 1230.4
+        },
+        "nix-cand_vs_nix-base_pct": 0.4,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "cdf3cd9094d37350"
+         ],
+         "nix-cand": [
+          "cdf3cd9094d37350"
+         ]
+        }
+       },
+       {
+        "depth": "32k",
+        "workload": "fresh-code",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 51.33,
+         "samples_tok_s": [
+          51.37,
+          51.28
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 840,
+         "drafted": 1100,
+         "max_inter_token_ms": 102.1,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 50.31,
+         "samples_tok_s": [
+          50.43,
+          50.19
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 832,
+         "drafted": 1124,
+         "max_inter_token_ms": 108.5,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": -2.0
+       },
+       {
+        "depth": "32k",
+        "workload": "prose",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 37.55,
+         "samples_tok_s": [
+          37.55,
+          37.56
+         ],
+         "completion_tokens": [
+          400,
+          400
+         ],
+         "accepted": 382,
+         "drafted": 614,
+         "max_inter_token_ms": 146.9,
+         "prefill_ms_mean": 28004.2
+        },
+        "nix-cand": {
+         "completed_tok_s": 37.58,
+         "samples_tok_s": [
+          37.56,
+          37.6
+         ],
+         "completion_tokens": [
+          400,
+          400
+         ],
+         "accepted": 382,
+         "drafted": 614,
+         "max_inter_token_ms": 149.9,
+         "prefill_ms_mean": 28131.2
+        },
+        "nix-cand_vs_nix-base_pct": 0.1,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "04beb339c0d8cc54"
+         ],
+         "nix-cand": [
+          "04beb339c0d8cc54"
+         ]
+        }
+       },
+       {
+        "depth": "32k",
+        "workload": "prose",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 38.9,
+         "samples_tok_s": [
+          38.86,
+          38.93
+         ],
+         "completion_tokens": [
+          400,
+          400
+         ],
+         "accepted": 402,
+         "drafted": 626,
+         "max_inter_token_ms": 97.2,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 38.85,
+         "samples_tok_s": [
+          38.78,
+          38.93
+         ],
+         "completion_tokens": [
+          400,
+          400
+         ],
+         "accepted": 402,
+         "drafted": 626,
+         "max_inter_token_ms": 97.3,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": -0.1
+       },
+       {
+        "depth": "32k",
+        "workload": "rewrite",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 68.37,
+         "samples_tok_s": [
+          68.38,
+          68.37
+         ],
+         "completion_tokens": [
+          1949,
+          1949
+         ],
+         "accepted": 3226,
+         "drafted": 3408,
+         "max_inter_token_ms": 108.4,
+         "prefill_ms_mean": 1354.7
+        },
+        "nix-cand": {
+         "completed_tok_s": 101.39,
+         "samples_tok_s": [
+          101.39,
+          101.38
+         ],
+         "completion_tokens": [
+          1949,
+          1949
+         ],
+         "accepted": 3408,
+         "drafted": 3416,
+         "max_inter_token_ms": 99.4,
+         "prefill_ms_mean": 1355.9
+        },
+        "nix-cand_vs_nix-base_pct": 48.3,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "80de947fd55e3098"
+         ],
+         "nix-cand": [
+          "80de947fd55e3098"
+         ]
+        }
+       },
+       {
+        "depth": "32k",
+        "workload": "rewrite",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 66.84,
+         "samples_tok_s": [
+          66.82,
+          66.86
+         ],
+         "completion_tokens": [
+          1949,
+          1949
+         ],
+         "accepted": 3222,
+         "drafted": 3496,
+         "max_inter_token_ms": 124.3,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 100.61,
+         "samples_tok_s": [
+          100.61,
+          100.61
+         ],
+         "completion_tokens": [
+          1949,
+          1949
+         ],
+         "accepted": 3408,
+         "drafted": 3416,
+         "max_inter_token_ms": 99.0,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": 50.5
+       },
+       {
+        "depth": "32k",
+        "workload": "small-edit",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 67.38,
+         "samples_tok_s": [
+          67.31,
+          67.46
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 986,
+         "drafted": 1042,
+         "max_inter_token_ms": 109.1,
+         "prefill_ms_mean": 3526.2
+        },
+        "nix-cand": {
+         "completed_tok_s": 93.83,
+         "samples_tok_s": [
+          93.62,
+          94.05
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 1046,
+         "drafted": 1064,
+         "max_inter_token_ms": 103.8,
+         "prefill_ms_mean": 3524.4
+        },
+        "nix-cand_vs_nix-base_pct": 39.3,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "9671798dd54078b7"
+         ],
+         "nix-cand": [
+          "9671798dd54078b7"
+         ]
+        }
+       },
+       {
+        "depth": "32k",
+        "workload": "small-edit",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 52.0,
+         "samples_tok_s": [
+          52.01,
+          51.98
+         ],
+         "completion_tokens": [
+          137,
+          137
+         ],
+         "accepted": 188,
+         "drafted": 216,
+         "max_inter_token_ms": 103.9,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 64.82,
+         "samples_tok_s": [
+          64.89,
+          64.74
+         ],
+         "completion_tokens": [
+          131,
+          131
+         ],
+         "accepted": 202,
+         "drafted": 246,
+         "max_inter_token_ms": 92.9,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": 24.7
+       },
+       {
+        "depth": "shallow",
+        "workload": "diagnose",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 55.48,
+         "samples_tok_s": [
+          55.48,
+          55.48
+         ],
+         "completion_tokens": [
+          258,
+          258
+         ],
+         "accepted": 372,
+         "drafted": 432,
+         "max_inter_token_ms": 103.6,
+         "prefill_ms_mean": 2249.1
+        },
+        "nix-cand": {
+         "completed_tok_s": 62.02,
+         "samples_tok_s": [
+          61.96,
+          62.09
+         ],
+         "completion_tokens": [
+          258,
+          258
+         ],
+         "accepted": 388,
+         "drafted": 454,
+         "max_inter_token_ms": 109.3,
+         "prefill_ms_mean": 2243.5
+        },
+        "nix-cand_vs_nix-base_pct": 11.8,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "ff39dea217a99933"
+         ],
+         "nix-cand": [
+          "ff39dea217a99933"
+         ]
+        }
+       },
+       {
+        "depth": "shallow",
+        "workload": "diagnose",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 49.25,
+         "samples_tok_s": [
+          49.31,
+          49.2
+         ],
+         "completion_tokens": [
+          500,
+          500
+         ],
+         "accepted": 668,
+         "drafted": 856,
+         "max_inter_token_ms": 97.1,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 60.38,
+         "samples_tok_s": [
+          60.36,
+          60.41
+         ],
+         "completion_tokens": [
+          395,
+          395
+         ],
+         "accepted": 576,
+         "drafted": 664,
+         "max_inter_token_ms": 100.9,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": 22.6
+       },
+       {
+        "depth": "shallow",
+        "workload": "fresh-code",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 52.05,
+         "samples_tok_s": [
+          52.05,
+          52.05
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 840,
+         "drafted": 1196,
+         "max_inter_token_ms": 117.1,
+         "prefill_ms_mean": 155.4
+        },
+        "nix-cand": {
+         "completed_tok_s": 52.41,
+         "samples_tok_s": [
+          52.4,
+          52.41
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 842,
+         "drafted": 1198,
+         "max_inter_token_ms": 97.1,
+         "prefill_ms_mean": 155.3
+        },
+        "nix-cand_vs_nix-base_pct": 0.7,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "666adccd7a8c0abd"
+         ],
+         "nix-cand": [
+          "666adccd7a8c0abd"
+         ]
+        }
+       },
+       {
+        "depth": "shallow",
+        "workload": "fresh-code",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 57.03,
+         "samples_tok_s": [
+          57.07,
+          56.98
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 888,
+         "drafted": 1130,
+         "max_inter_token_ms": 105.1,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 58.39,
+         "samples_tok_s": [
+          58.41,
+          58.37
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 896,
+         "drafted": 1124,
+         "max_inter_token_ms": 99.2,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": 2.4
+       },
+       {
+        "depth": "shallow",
+        "workload": "prose",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 39.77,
+         "samples_tok_s": [
+          39.83,
+          39.7
+         ],
+         "completion_tokens": [
+          400,
+          400
+         ],
+         "accepted": 394,
+         "drafted": 616,
+         "max_inter_token_ms": 75.9,
+         "prefill_ms_mean": 148.9
+        },
+        "nix-cand": {
+         "completed_tok_s": 39.76,
+         "samples_tok_s": [
+          39.76,
+          39.76
+         ],
+         "completion_tokens": [
+          400,
+          400
+         ],
+         "accepted": 394,
+         "drafted": 616,
+         "max_inter_token_ms": 75.2,
+         "prefill_ms_mean": 148.8
+        },
+        "nix-cand_vs_nix-base_pct": -0.0,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "6a4ed0dd650b426a"
+         ],
+         "nix-cand": [
+          "6a4ed0dd650b426a"
+         ]
+        }
+       },
+       {
+        "depth": "shallow",
+        "workload": "prose",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 39.85,
+         "samples_tok_s": [
+          39.94,
+          39.77
+         ],
+         "completion_tokens": [
+          400,
+          400
+         ],
+         "accepted": 376,
+         "drafted": 538,
+         "max_inter_token_ms": 71.4,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 39.87,
+         "samples_tok_s": [
+          39.86,
+          39.88
+         ],
+         "completion_tokens": [
+          400,
+          400
+         ],
+         "accepted": 376,
+         "drafted": 538,
+         "max_inter_token_ms": 68.9,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": 0.0
+       },
+       {
+        "depth": "shallow",
+        "workload": "rewrite",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 71.63,
+         "samples_tok_s": [
+          71.63,
+          71.62
+         ],
+         "completion_tokens": [
+          1949,
+          1949
+         ],
+         "accepted": 3278,
+         "drafted": 3544,
+         "max_inter_token_ms": 107.0,
+         "prefill_ms_mean": 1361.8
+        },
+        "nix-cand": {
+         "completed_tok_s": 100.38,
+         "samples_tok_s": [
+          100.36,
+          100.4
+         ],
+         "completion_tokens": [
+          1949,
+          1949
+         ],
+         "accepted": 3408,
+         "drafted": 3420,
+         "max_inter_token_ms": 106.1,
+         "prefill_ms_mean": 1340.2
+        },
+        "nix-cand_vs_nix-base_pct": 40.1,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "80de947fd55e3098"
+         ],
+         "nix-cand": [
+          "80de947fd55e3098"
+         ]
+        }
+       },
+       {
+        "depth": "shallow",
+        "workload": "rewrite",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 70.31,
+         "samples_tok_s": [
+          70.36,
+          70.26
+         ],
+         "completion_tokens": [
+          1949,
+          1949
+         ],
+         "accepted": 3262,
+         "drafted": 3538,
+         "max_inter_token_ms": 106.8,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 104.76,
+         "samples_tok_s": [
+          104.72,
+          104.8
+         ],
+         "completion_tokens": [
+          1949,
+          1949
+         ],
+         "accepted": 3408,
+         "drafted": 3416,
+         "max_inter_token_ms": 97.8,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": 49.0
+       },
+       {
+        "depth": "shallow",
+        "workload": "small-edit",
+        "mode": "greedy",
+        "nix-base": {
+         "completed_tok_s": 74.55,
+         "samples_tok_s": [
+          74.91,
+          74.19
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 1030,
+         "drafted": 1084,
+         "max_inter_token_ms": 126.2,
+         "prefill_ms_mean": 2797.6
+        },
+        "nix-cand": {
+         "completed_tok_s": 95.92,
+         "samples_tok_s": [
+          95.89,
+          95.94
+         ],
+         "completion_tokens": [
+          600,
+          600
+         ],
+         "accepted": 1044,
+         "drafted": 1066,
+         "max_inter_token_ms": 104.2,
+         "prefill_ms_mean": 2191.6
+        },
+        "nix-cand_vs_nix-base_pct": 28.7,
+        "greedy_output_identical_per_pass": true,
+        "greedy_sha256": {
+         "nix-base": [
+          "9671798dd54078b7"
+         ],
+         "nix-cand": [
+          "9671798dd54078b7"
+         ]
+        }
+       },
+       {
+        "depth": "shallow",
+        "workload": "small-edit",
+        "mode": "sampled",
+        "nix-base": {
+         "completed_tok_s": 51.1,
+         "samples_tok_s": [
+          51.08,
+          51.13
+         ],
+         "completion_tokens": [
+          91,
+          91
+         ],
+         "accepted": 124,
+         "drafted": 152,
+         "max_inter_token_ms": 104.3,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand": {
+         "completed_tok_s": 65.81,
+         "samples_tok_s": [
+          65.75,
+          65.87
+         ],
+         "completion_tokens": [
+          131,
+          131
+         ],
+         "accepted": 202,
+         "drafted": 246,
+         "max_inter_token_ms": 91.0,
+         "prefill_ms_mean": 0.0
+        },
+        "nix-cand_vs_nix-base_pct": 28.8
+       }
+      ]
+     },
+     "abba_summary": "greedy byte-identical between Nix builds 10/10. Rewrite +40.1%/+48.3% greedy and +49.0%/+50.5% sampled (shallow/32K); small edit +28.7%/+39.3% greedy, +28.8%/+24.7% sampled; prose 0.0%/+0.1% greedy, 0.0%/-0.1% sampled; fresh code +0.7%/+0.4% greedy, +2.4%/-2.0% sampled; log quoting +11.8%/-0.3% greedy, +22.6%/+8.8% sampled. Same-cell samples repeat within 0.05 tok/s. Nix and container greedy outputs agree in 5/10 cells (toolchain numerics), so Nix and container rows are not interchangeable",
+     "not_validated_with_nix": "the functional timing gate, the session/snapshot/CTest correctness suites on Nix gpu-test binaries, model-bench tables, concurrency, and cold-latency runs"
+    },
+    "gpu_fast_failures": {
+     "method": "the six previously failing gpu-fast tests on v0.13.0 + a3b4a77 (codex/scheduler-test-unistd), same container and gpu-test preset as the candidate run",
+     "result": "all six fail on the baseline with the same messages as on the candidate",
+     "classification": {
+      "kernel_resources_test": "reproduced on baseline (container compiler spills/scratch exceed Nix-pinned limits)",
+      "h3_preset_quality_test": "reproduced on baseline (numpy missing in container)",
+      "h3_latent_quality_test": "reproduced on baseline (numpy missing)",
+      "qwen3_tts_reference_artifacts_test": "reproduced on baseline (numpy missing)",
+      "minimax_h3_dit_analytic": "reproduced on baseline (exact check, container toolchain)",
+      "qwen27b.tools": "reproduced on baseline (Python import failure in container)"
+     }
+    }
    }
   }
  },
