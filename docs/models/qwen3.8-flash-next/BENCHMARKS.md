@@ -130,9 +130,12 @@ Multiple users, MTP, tg128, context 4096 per user. Gains are per pass.
 | 6 | 97.00 / 97.17 | 97.11 / 97.28 | +0.1% / +0.1% | 132.58 / 148.81 | 199.90 / 215.00 | +50.8% / +44.5% |
 | 8 | 111.67 / 112.34 | 111.16 / 111.43 | −0.5% / −0.8% | 177.16 / 163.64 | 219.29 / 231.05 | +23.8% / +41.2% |
 
-Mixed C2 and C4 are unresolved:
-- Batched greedy draft counts change from run to run on both builds.
-- At equal C2 drafts, one pair is equal and the other is −14.7%.
+Mixed C2 and C4 swings are machine state, not lookup:
+- Traces show no copies in either workload.
+- Three alternating untraced C2 pairs: base 53.03 / 51.07 / 44.41, candidate
+  51.07 / 51.05 / 47.79 tok/s.
+- At identical drafts the builds matched (51.05 vs 51.07).
+- Slow runs on either build have every cycle about 12% slower.
 
 Token gaps come from the HTTP A/B runs, not this driver:
 - **ABBA runs:** the largest gap was 166 ms on the candidate and 158 ms on
