@@ -39,14 +39,9 @@ Context capacities differ between engines; see the measurement details.
 pp is the highest measured rate per engine and depth across mixed/repetitive
 text, including Gufo predictor catch-up.
 
-Prompt lookup (October 12) is not reflected in these Nix-build rows yet. On a
-matched ROCm 10 container build of main `f37fb012` and the branch before copies
-were gated on expected acceptance, this table's workloads measured repetitive
-tg 64.40 → 109.14 tok/s at d0 and 44.42 → 104.94 at d32K; mixed tg 30.55 →
-30.56 and 38.66 → 38.64; pp within 1.1%. The retained build was not rerun on
-this table; its HTTP rewrites are 1.2–1.8% slower than that branch. That
-toolchain's absolute rates differ from this table, so the Nix refresh is
-pending. [Evidence](artifacts/decode-prompt-lookup.json).
+Prompt lookup (October 12) is not reflected in these Nix-build rows; their
+refresh is pending. See [Prompt lookup, ROCm container build](#prompt-lookup-rocm-container-build)
+for matched measurements of the final candidate.
 
 <!-- bench:single-mtp -->
 | Flash-Next Q4 MTP<br>Depth (tokens) | Gufo pp (tok/s) | llama.cpp pp (tok/s) | Gain pp | Gufo tg mixed (tok/s) | llama.cpp tg mixed (tok/s) | Gain mixed | Gufo tg repetitive (tok/s) | llama.cpp tg repetitive (tok/s) | Gain repetitive |
@@ -98,6 +93,55 @@ request decode rates. C1 cross-checks the single-user table.
 <!-- /bench -->
 
 ![Multiple users, MTP](artifacts/charts/multi-mtp.svg)
+
+## Prompt lookup, ROCm container build
+
+Not comparable with the Nix tables above: matched ROCm 10 container builds,
+GCC host compiler, October 12, 2026.
+- **Base:** v0.13.0 `fcf8bf7`, binary `d781bceb`.
+- **Candidate:** `a0aee02`, binary `14a7cc1f`.
+
+Same workloads, `tools/bench/model-bench.py`. Each cell is two passes in
+alternating order (pass 1 / pass 2). Greedy outputs are byte-identical
+between builds, and every multi-user completion matches the same-toolchain
+AR reference. Nix cells for the candidate are pending.
+
+Single user, MTP, pp2048/tg128. The gain is from pass 2.
+
+| Depth (tokens) | Text | Base pp (tok/s) | Candidate pp (tok/s) | Base tg (tok/s) | Candidate tg (tok/s) | Gain tg |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 0 | mixed | 1,552.10 / 1,570.17 | 1,573.79 / 1,565.18 | 30.54 / 30.51 | 30.57 / 30.53 | +0.1% |
+| 0 | repetitive | 884.34¹ / 1,566.59 | 1,561.11 / 1,567.07 | 59.21¹ / 64.55 | 100.25 / 100.11 | +55.1% |
+| 32,768 | mixed | 1,437.77 / 1,430.71 | 1,438.90 / 1,441.10 | 33.16¹ / 38.67 | 38.63 / 38.39 | −0.7% |
+| 32,768 | repetitive | 971.67¹ / 1,450.06 | 1,381.75 / 1,446.12 | 41.49¹ / 44.49 | 98.13 / 98.01 | +120.3% |
+
+¹ This base pass ran in a slow machine state:
+- Its first 2K prefill took 3,065 ms against 2,038 ms, and lookup does not
+  run during prefill.
+- Its 32K mixed run had identical drafts.
+
+Multiple users, MTP, tg128, context 4096 per user. Gains are per pass.
+
+| Users | Base mixed (tok/s) | Candidate mixed (tok/s) | Gain | Base repetitive (tok/s) | Candidate repetitive (tok/s) | Gain |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 27.83 / 30.44 | 30.43 / 30.40 | +9.3% / −0.1% | 60.75 / 63.60 | 98.98 / 101.22 | +62.9% / +59.2% |
+| 2 | 52.90 / 50.77 | 50.67 / 45.11 | −4.2% / −11.1% | 78.79 / 81.95 | 140.76 / 144.46 | +78.7% / +76.3% |
+| 4 | 75.92 / 70.36 | 84.13 / 69.68 | +10.8% / −1.0% | 136.94 / 126.80 | 183.37 / 200.18 | +33.9% / +57.9% |
+| 6 | 97.00 / 97.17 | 97.11 / 97.28 | +0.1% / +0.1% | 132.58 / 148.81 | 199.90 / 215.00 | +50.8% / +44.5% |
+| 8 | 111.67 / 112.34 | 111.16 / 111.43 | −0.5% / −0.8% | 177.16 / 163.64 | 219.29 / 231.05 | +23.8% / +41.2% |
+
+Mixed C2 and C4 are unresolved:
+- Batched greedy draft counts change from run to run on both builds.
+- At equal C2 drafts, one pair is equal and the other is −14.7%.
+
+Token gaps come from the HTTP A/B runs, not this driver:
+- **ABBA runs:** the largest gap was 166 ms on the candidate and 158 ms on
+  base (both 32K prose). On rewrites and small edits it was 111 ms against
+  126 ms.
+- **Cold 2-session run** (262K context, disk cache): 194 ms on the
+  candidate, against 197 ms on base and 283 ms on an unchanged-base control.
+
+[Evidence](artifacts/decode-prompt-lookup.json) (`final_v013`).
 
 ## Loading time
 
