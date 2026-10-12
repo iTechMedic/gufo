@@ -9733,7 +9733,7 @@
    }
   },
   "final_v013": {
-   "status": "not fully qualified: correctness passes; timing gate inconclusive (see functional_timing_gate.verdict)",
+   "status": "not qualified: correctness passes; C2 mixed resolved (no copies, equal cycle costs); the final timing gate is inconclusive because of discrete machine performance states that also affect unchanged-base runs; host-disk cache failures are storage (both builds)",
    "source": {
     "upstream_checked": "2026-10-12, origin/main = v0.13.0 fcf8bf7 (f37fb01 plus 956f3d6 raw-completion cache_prompt, 1834991 docs, release)",
     "baseline": {
@@ -14688,7 +14688,7 @@
       "multi_repetitive_revision": "a0aee0264ecf065e80d486acf9b61f9aca23b356"
      }
     },
-    "unresolved": "multi-mixed C2: draft counts alternate between 74/130 and 88/146 from run to run on both builds (timing-based batched greedy controller); at equal drafts one pair is equal (50.67 vs 50.77 tok/s) and one is -14.7% (45.11 vs 52.90). C4 mixed +10.8%/-1.0%, C6/C8 within 0.8%. Smallest next experiment: multi-mtp C2 mixed only, three alternating base/cand pairs, with the cycle trace to count batched copies",
+    "unresolved": "resolved in followup_rounds_16_22.c2_mixed: no lookup copies at C2 or C4 mixed; equal cycle costs and depth choices when both builds are in the same machine state",
     "slow_pass": "round 10 base single-user repetitive ran in a slow machine state (2K prefill 3065 vs 2038 ms, 32K prefill 26.1 vs 20.5 s; lookup does not run during prefill) and its mixed 32K decode was 33.16 vs 38.67 tok/s with identical drafts; round 14 repeated both builds"
    },
    "functional_timing_gate": {
@@ -16777,6 +16777,2714 @@
      "inconclusive": "the gate has no clean candidate run: candidate reruns raised 21 and 6 flags, the unchanged-base control 18; startup 79-108 s and restart 26-74 s vary on both builds",
      "storage": "host-disk cache writes stall at ~18 MB/s on this 93%-full disk; the unchanged-base control failed thinking-tool-cancel-disk and disk-spacing-disk; restart_ms 25.7-41.7 s on base vs 40.7-73.7 s on the candidate across four disk runs; RAM-backed runs do not establish host-disk behavior"
     }
+   },
+   "followup_rounds_16_22": {
+    "date": "2026-10-12 evening, same binaries (v013-base d781bceb, v013-cand 14a7cc1f), same container toolchain; upstream main 8d4e1a2 adds only a README change, so the v0.13.0 baseline stays",
+    "machine": "before GPU work: load 0.00, IO pressure 0, the live server the only GPU client (idle, /v1/models only); disk 94% full (127-132 GB free); machine state logged before each run",
+    "diagnostic_binaries_sha256": {
+     "v013-base-trace2": "d40021623fc71527",
+     "v013-cand-trace2": "86e7a155ffd68cf5",
+     "v013-base-trace3": "08fa5b21b1b6501c",
+     "v013-cand-trace3": "bb4ef554339771e8",
+     "note": "env-gated stderr traces only (scratch trace_patch2/3); each tree was reverted and rebuilt to the measured hashes d781bceb/14a7cc1f"
+    },
+    "c2_mixed": {
+     "method": "model-bench multi-mtp mixed workload at C2 only (bench.json with concurrency [2]), fresh server per run, AR reference rows from round 10; untraced order base,cand,cand,base,base,cand; traced base,cand,cand,base",
+     "untraced": {
+      "c2p-1-v013-base": {
+       "decode_tok_s_sum": 53.03,
+       "per_request_tok_s": 26.51,
+       "drafted": 156,
+       "accepted": 92,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 4832.6,
+       "client_ttft_ms_max": 4.4,
+       "client_inter_token_ms_max": 38.0,
+       "plans": [
+        "batched-w2"
+       ]
+      },
+      "c2p-2-v013-cand": {
+       "decode_tok_s_sum": 51.07,
+       "per_request_tok_s": 25.53,
+       "drafted": 132,
+       "accepted": 76,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5018.0,
+       "client_ttft_ms_max": 4.8,
+       "client_inter_token_ms_max": 39.5,
+       "plans": [
+        "batched-w2"
+       ]
+      },
+      "c2p-3-v013-cand": {
+       "decode_tok_s_sum": 51.05,
+       "per_request_tok_s": 25.53,
+       "drafted": 134,
+       "accepted": 76,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5019.5,
+       "client_ttft_ms_max": 4.7,
+       "client_inter_token_ms_max": 39.5,
+       "plans": [
+        "batched-w2"
+       ]
+      },
+      "c2p-4-v013-base": {
+       "decode_tok_s_sum": 51.07,
+       "per_request_tok_s": 25.54,
+       "drafted": 134,
+       "accepted": 76,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5018.0,
+       "client_ttft_ms_max": 4.9,
+       "client_inter_token_ms_max": 39.5,
+       "plans": [
+        "batched-w2"
+       ]
+      },
+      "c2p-5-v013-base": {
+       "decode_tok_s_sum": 44.41,
+       "per_request_tok_s": 22.21,
+       "drafted": 128,
+       "accepted": 74,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5769.2,
+       "client_ttft_ms_max": 4.9,
+       "client_inter_token_ms_max": 45.4,
+       "plans": [
+        "batched-w2"
+       ]
+      },
+      "c2p-6-v013-cand": {
+       "decode_tok_s_sum": 47.79,
+       "per_request_tok_s": 23.89,
+       "drafted": 182,
+       "accepted": 102,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5362.4,
+       "client_ttft_ms_max": 4.8,
+       "client_inter_token_ms_max": 42.2,
+       "plans": [
+        "batched-w2"
+       ]
+      }
+     },
+     "traced": {
+      "c2t-1-v013-base-trace2": {
+       "decode_tok_s_sum": 48.45,
+       "per_request_tok_s": 24.23,
+       "drafted": 176,
+       "accepted": 102,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5288.3,
+       "client_ttft_ms_max": 4.4,
+       "client_inter_token_ms_max": 41.6,
+       "plans": [
+        "batched-w2"
+       ],
+       "batched_cycles": 77,
+       "lookup_copy_events": 0,
+       "cycles_with_copies": 0,
+       "depth_sequence": [
+        2,
+        1,
+        0,
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        4,
+        3,
+        3,
+        2,
+        1,
+        0,
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ],
+       "median_cycle_ms_by_depth": {
+        "0": 53.9,
+        "1": 66.4,
+        "2": 79.7,
+        "3": 92.1,
+        "4": 111.7
+       },
+       "cycles_by_depth": {
+        "0": 6,
+        "1": 59,
+        "2": 8,
+        "3": 3,
+        "4": 1
+       }
+      },
+      "c2t-2-v013-cand-trace2": {
+       "decode_tok_s_sum": 44.8,
+       "per_request_tok_s": 22.4,
+       "drafted": 146,
+       "accepted": 78,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5719.3,
+       "client_ttft_ms_max": 4.9,
+       "client_inter_token_ms_max": 45.0,
+       "plans": [
+        "batched-w2"
+       ],
+       "batched_cycles": 89,
+       "lookup_copy_events": 0,
+       "cycles_with_copies": 0,
+       "depth_sequence": [
+        2,
+        1,
+        0,
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        4,
+        7,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+       ],
+       "median_cycle_ms_by_depth": {
+        "0": 52.4,
+        "1": 66.6,
+        "2": 80.8,
+        "4": 102.6,
+        "7": 162.2
+       },
+       "cycles_by_depth": {
+        "0": 37,
+        "1": 38,
+        "2": 12,
+        "4": 1,
+        "7": 1
+       }
+      },
+      "c2t-3-v013-cand-trace2": {
+       "decode_tok_s_sum": 51.09,
+       "per_request_tok_s": 25.55,
+       "drafted": 132,
+       "accepted": 76,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5015.3,
+       "client_ttft_ms_max": 4.4,
+       "client_inter_token_ms_max": 39.5,
+       "plans": [
+        "batched-w2"
+       ],
+       "batched_cycles": 90,
+       "lookup_copy_events": 0,
+       "cycles_with_copies": 0,
+       "depth_sequence": [
+        2,
+        1,
+        0,
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        4,
+        3,
+        3,
+        1,
+        1,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        3,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        3,
+        2,
+        2,
+        1,
+        2,
+        0
+       ],
+       "median_cycle_ms_by_depth": {
+        "0": 46.9,
+        "1": 58.5,
+        "2": 70.0,
+        "3": 82.2,
+        "4": 101.6
+       },
+       "cycles_by_depth": {
+        "0": 43,
+        "1": 34,
+        "2": 8,
+        "3": 4,
+        "4": 1
+       }
+      },
+      "c2t-4-v013-base-trace2": {
+       "decode_tok_s_sum": 50.76,
+       "per_request_tok_s": 25.38,
+       "drafted": 130,
+       "accepted": 74,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        2
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5048.3,
+       "client_ttft_ms_max": 4.5,
+       "client_inter_token_ms_max": 39.7,
+       "plans": [
+        "batched-w2"
+       ],
+       "batched_cycles": 91,
+       "lookup_copy_events": 0,
+       "cycles_with_copies": 0,
+       "depth_sequence": [
+        2,
+        1,
+        0,
+        0,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        4,
+        3,
+        3,
+        1,
+        1,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        3,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        3,
+        1,
+        1,
+        1,
+        1,
+        1
+       ],
+       "median_cycle_ms_by_depth": {
+        "0": 46.8,
+        "1": 58.4,
+        "2": 70.2,
+        "3": 82.0,
+        "4": 101.5
+       },
+       "cycles_by_depth": {
+        "0": 42,
+        "1": 39,
+        "2": 5,
+        "3": 4,
+        "4": 1
+       }
+      }
+     },
+     "c4_traced": {
+      "c4t-v013-base-trace2": {
+       "decode_tok_s_sum": 76.31,
+       "per_request_tok_s": 19.08,
+       "drafted": 132,
+       "accepted": 72,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        4
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 6718.6,
+       "client_ttft_ms_max": 7.8,
+       "client_inter_token_ms_max": 52.8,
+       "plans": [
+        "batched-w4"
+       ],
+       "batched_cycles": 110,
+       "lookup_copy_events": 0,
+       "cycles_with_copies": 0,
+       "depth_sequence": [
+        1,
+        1,
+        0,
+        0,
+        2,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        2,
+        4,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "median_cycle_ms_by_depth": {
+        "0": 54.1,
+        "1": 74.9,
+        "2": 95.7,
+        "4": 136.7
+       },
+       "cycles_by_depth": {
+        "0": 82,
+        "1": 25,
+        "2": 2,
+        "4": 1
+       }
+      },
+      "c4t-v013-cand-trace2": {
+       "decode_tok_s_sum": 87.11,
+       "per_request_tok_s": 21.78,
+       "drafted": 132,
+       "accepted": 72,
+       "matches_ar_reference": true,
+       "matches_c1": true,
+       "completion_hash_counts": [
+        4
+       ],
+       "completion_tokens_per_request": 128,
+       "request_ms_max": 5886.6,
+       "client_ttft_ms_max": 7.7,
+       "client_inter_token_ms_max": 46.3,
+       "plans": [
+        "batched-w4"
+       ],
+       "batched_cycles": 110,
+       "lookup_copy_events": 0,
+       "cycles_with_copies": 0,
+       "depth_sequence": [
+        1,
+        1,
+        0,
+        0,
+        2,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        2,
+        4,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "median_cycle_ms_by_depth": {
+        "0": 47.9,
+        "1": 64.3,
+        "2": 85.0,
+        "4": 123.3
+       },
+       "cycles_by_depth": {
+        "0": 82,
+        "1": 25,
+        "2": 2,
+        "4": 1
+       }
+      }
+     },
+     "conclusion": "Lookup proposes no copies in this workload (0 copy events in all traced C2 and C4 runs), so the candidate's batched path differs from base only by index bookkeeping. Untraced pairs: -3.7%, 0.0% (identical drafts 134/76: 51.05 vs 51.07 tok/s), +7.6%; pooled base 49.50, candidate 49.97 tok/s (+0.9%). Traced runs in the same machine state have the same depth sequence and per-depth cycle cost (d0 46.9/46.8 ms, d1 58.5/58.4 ms; 51.09 vs 50.76 tok/s); slow runs on both builds have every depth about 12% slower (d1 66.4/66.6 ms), and the timing-based batch controller then chooses different depths. The earlier -14.7% equal-draft pair matches an unchanged-base sample (44.41 tok/s at 128/74 vs 50.76 at 130/74). All completions match the AR reference."
+    },
+    "agent_read_after_edit": {
+     "untraced_decode_ms": {
+      "base_or_main": [
+       337.1,
+       337.7,
+       337.9,
+       342.4,
+       340.6,
+       337.7,
+       337.3,
+       352.6,
+       348.7,
+       338.1,
+       344.9,
+       338.2,
+       338.9,
+       353.8,
+       360.0,
+       338.1,
+       337.7,
+       338.1
+      ],
+      "candidate_final5_or_v013": [
+       340.5,
+       366.1,
+       349.0,
+       337.1,
+       353.0,
+       338.8,
+       358.0,
+       366.2,
+       366.9,
+       338.0,
+       337.9,
+       337.9,
+       337.8,
+       357.1
+      ],
+      "slow_mode_count_ge_348ms": {
+       "base_or_main": "4/18",
+       "candidate": "7/14"
+      }
+     },
+     "traced_round19": {
+      "tr19-1-v013-base-trace3": {
+       "decode_ms": 343.0,
+       "cycle_ms": [
+        53.7,
+        80.2,
+        96.9,
+        111.7
+       ],
+       "index_sync_us": [],
+       "lookup_call_us_max": 0,
+       "lookup_calls": 0,
+       "matches": []
+      },
+      "tr19-2-v013-cand-trace3": {
+       "decode_ms": 343.0,
+       "cycle_ms": [
+        53.8,
+        79.3,
+        96.8,
+        112.5
+       ],
+       "index_sync_us": [
+        7.1,
+        0.5,
+        0.6,
+        1.6
+       ],
+       "lookup_call_us_max": 2.7,
+       "lookup_calls": 20,
+       "matches": [
+        "len=13 start=458 chain=2 width=8",
+        "len=14 start=459 chain=3 width=8"
+       ]
+      },
+      "tr19-3-v013-cand-trace3": {
+       "decode_ms": 353.0,
+       "cycle_ms": [
+        53.8,
+        90.2,
+        96.9,
+        111.6
+       ],
+       "index_sync_us": [
+        8.9,
+        0.7,
+        1.0,
+        0.7
+       ],
+       "lookup_call_us_max": 1.2,
+       "lookup_calls": 20,
+       "matches": [
+        "len=13 start=458 chain=2 width=8",
+        "len=14 start=459 chain=3 width=8"
+       ]
+      },
+      "tr19-4-v013-base-trace3": {
+       "decode_ms": 342.0,
+       "cycle_ms": [
+        53.9,
+        79.3,
+        96.9,
+        111.4
+       ],
+       "index_sync_us": [],
+       "lookup_call_us_max": 0,
+       "lookup_calls": 0,
+       "matches": []
+      },
+      "tr19-5-v013-base-trace3": {
+       "decode_ms": 363.5,
+       "cycle_ms": [
+        53.8,
+        100.3,
+        96.9,
+        111.8
+       ],
+       "index_sync_us": [],
+       "lookup_call_us_max": 0,
+       "lookup_calls": 0,
+       "matches": []
+      },
+      "tr19-6-v013-cand-trace3": {
+       "decode_ms": 339.0,
+       "cycle_ms": [
+        53.9,
+        76.1,
+        96.9,
+        111.5
+       ],
+       "index_sync_us": [
+        10.1,
+        0.7,
+        0.8,
+        0.5
+       ],
+       "lookup_call_us_max": 1.3,
+       "lookup_calls": 20,
+       "matches": [
+        "len=13 start=458 chain=2 width=8",
+        "len=14 start=459 chain=3 width=8"
+       ]
+      }
+     },
+     "conclusion": "Every run has 4 cycles, 20/20 drafts and identical output. Untraced samples fall in a fast mode (337-345 ms) or a slow mode (348-367 ms) on both builds: slow in 4/18 base and 7/14 candidate runs (one-sided Fisher exact p=0.10). Round 17 put all three candidate samples in the slow mode; round 21 reversed it (candidate 337.8-338.0 ms in four runs, base 353.8/360.0 in two). Traced: lookup costs about 10 us of index sync and under 3 us per lookup call; the variance is all in cycle 2 on both builds (base 79.3-100.3 ms, candidate 76.1-90.2 ms). No candidate mechanism was found, but a small increase in the slow-mode rate is not excluded by these samples."
+    },
+    "focused_round17": {
+     "fq17-1-v013-base": {
+      "binary": "v013-base",
+      "status": "passed",
+      "functional_status": "passed",
+      "startup_ms": 102320,
+      "restart_ms": 0,
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 456.3,
+        "prefill_ms": 369.2,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 42.3,
+        "prefill_ms": 817.9,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 595.2,
+        "prefill_ms": 612.3,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 79.1,
+        "prefill_ms": 526.8,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 832.0,
+        "prefill_ms": 704.8,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 338.1,
+        "prefill_ms": 239.8,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1607.3,
+        "prefill_ms": 143.9,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     },
+     "fq17-2-v013-cand": {
+      "binary": "v013-cand",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 99390,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 405,
+       "inconclusive": 64
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "long-context:long_schema_cold:0 cache_snapshot_ms 63.6->70.6 +11.1%",
+       "state-edges:quoted_call_argument_complete:0 max_inter_token_ms 94.4->104.8 +11.0%",
+       "state-edges:execution_mode_probe:0 client_ttft_ms 390.9->424.5 +8.6%",
+       "state-edges:execution_mode_probe:0 prefill_ms 369.2->400.7 +8.5%",
+       "state-edges:execution_mode_probe:0 prefill_ms_per_token 13.2->14.3 +8.5%",
+       "state-edges:execution_mode_probe:0 ttft_ms 389.5->423.1 +8.6%",
+       "tool-agent:agent_finish_stop:0 wall_ms 277.1->327.7 +18.3%",
+       "tool-agent:agent_finish_stop:0 prefill_ms 258.5->309.5 +19.7%",
+       "tool-agent:agent_finish_stop:0 prefill_ms_per_token 5.3->6.3 +19.7%",
+       "tool-agent:agent_finish_stop:0 server_duration_ms 276.4->327.1 +18.3%",
+       "tool-agent:agent_finish_stop:0 ttft_ms 275.9->326.7 +18.4%",
+       "tool-agent:agent_json_chat:0 wall_ms 763.9->848.4 +11.1%",
+       "tool-agent:agent_json_chat:0 cache_snapshot_ms 30.3->34.3 +13.0%",
+       "tool-agent:agent_json_chat:0 client_ttft_ms 515.4->576.5 +11.9%",
+       "tool-agent:agent_json_chat:0 decode_ms 238.1->261.4 +9.8%",
+       "tool-agent:agent_json_chat:0 decode_ms_per_token 26.5->29.0 +9.8%",
+       "tool-agent:agent_json_chat:0 max_inter_token_ms 96.5->115.1 +19.3%",
+       "tool-agent:agent_json_chat:0 prefill_ms 405.0->461.9 +14.1%",
+       "tool-agent:agent_json_chat:0 prefill_ms_per_token 4.1->4.7 +14.1%",
+       "tool-agent:agent_json_chat:0 server_duration_ms 763.3->847.7 +11.1%",
+       "tool-agent:agent_json_chat:0 ttft_ms 514.4->575.7 +11.9%",
+       "tool-agent:agent_sampled_peers:0 max_inter_token_ms 163.4->180.5 +10.5%",
+       "tool-agent:agent_edit:0 wall_ms 1570.7->1769.4 +12.6%",
+       "tool-agent:agent_edit:0 client_ttft_ms 872.5->978.0 +12.1%",
+       "tool-agent:agent_edit:0 decode_ms 832.0->936.8 +12.6%",
+       "tool-agent:agent_edit:0 decode_ms_per_token 13.6->15.4 +12.6%",
+       "tool-agent:agent_edit:0 max_inter_token_ms 117.8->148.0 +25.7%",
+       "tool-agent:agent_edit:0 prefill_ms 704.8->797.2 +13.1%",
+       "tool-agent:agent_edit:0 prefill_ms_per_token 1.6->1.8 +13.1%",
+       "tool-agent:agent_edit:0 server_duration_ms 1570.2->1769.0 +12.7%",
+       "tool-agent:agent_edit:0 ttft_ms 728.1->821.1 +12.8%",
+       "tool-agent:agent_retry:1 max_inter_token_ms 100.7->126.8 +26.0%",
+       "tool-agent:agent_open_schema:0 wall_ms 638.3->748.2 +17.2%",
+       "tool-agent:agent_open_schema:0 decode_ms 79.1->97.4 +23.1%",
+       "tool-agent:agent_open_schema:0 decode_ms_per_token 79.1->97.4 +23.1%",
+       "tool-agent:agent_open_schema:0 prefill_ms 526.8->623.5 +18.4%",
+       "tool-agent:agent_open_schema:0 prefill_ms_per_token 1.4->1.6 +18.4%",
+       "tool-agent:agent_open_schema:0 server_duration_ms 636.2->746.4 +17.3%",
+       "tool-agent:agent_open_schema:0 ttft_ms 557.7->653.6 +17.2%",
+       "tool-agent:agent_limit:0 wall_ms 807.4->862.2 +6.8%",
+       "tool-agent:agent_limit:0 prefill_ms 725.2->780.3 +7.6%",
+       "tool-agent:agent_limit:0 prefill_ms_per_token 1.6->1.7 +7.6%",
+       "tool-agent:agent_limit:0 server_duration_ms 806.5->861.3 +6.8%",
+       "tool-agent:agent_limit:0 ttft_ms 748.6->803.5 +7.3%",
+       "tool-agent:agent_json_responses:0 wall_ms 852.7->1022.9 +20.0%",
+       "tool-agent:agent_json_responses:0 client_ttft_ms 626.1->795.0 +27.0%",
+       "tool-agent:agent_json_responses:0 prefill_ms 518.5->687.6 +32.6%",
+       "tool-agent:agent_json_responses:0 prefill_ms_per_token 1.5->2.0 +32.6%",
+       "tool-agent:agent_json_responses:0 server_duration_ms 851.3->1021.3 +20.0%",
+       "tool-agent:agent_json_responses:0 ttft_ms 624.8->793.6 +27.0%",
+       "tool-agent:agent_stop:0 wall_ms 229.6->254.4 +10.8%",
+       "tool-agent:agent_stop:0 client_ttft_ms 136.0->160.8 +18.2%",
+       "tool-agent:agent_stop:0 decode_ms 221.2->246.7 +11.5%",
+       "tool-agent:agent_stop:0 decode_ms_per_token 14.7->16.4 +11.5%",
+       "tool-agent:agent_stop:0 server_duration_ms 229.1->253.8 +10.8%",
+       "tool-agent:agent_read_after_edit:0 wall_ms 603.3->660.8 +9.5%",
+       "tool-agent:agent_read_after_edit:0 decode_ms 338.1->358.0 +5.9%",
+       "tool-agent:agent_read_after_edit:0 decode_ms_per_token 14.1->14.9 +5.9%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms 239.8->278.1 +15.9%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms_per_token 6.0->7.0 +15.9%",
+       "tool-agent:agent_read_after_edit:0 server_duration_ms 602.2->659.8 +9.6%",
+       "tool-agent:agent_read_after_edit:0 ttft_ms 254.0->291.9 +14.9%",
+       "tool-agent:agent_sampled_peers:0 cache_snapshot_ms 239.4->251.5 +5.1%",
+       "tool-agent:agent_sampled_peers:0 max_inter_token_ms 163.4->180.5 +10.5%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 462.3,
+        "prefill_ms": 400.7,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 42.3,
+        "prefill_ms": 827.8,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 596.4,
+        "prefill_ms": 606.0,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 97.4,
+        "prefill_ms": 623.5,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 936.8,
+        "prefill_ms": 797.2,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 358.0,
+        "prefill_ms": 278.1,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1615.6,
+        "prefill_ms": 140.7,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     },
+     "fq17-3-v013-cand": {
+      "binary": "v013-cand",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 83672,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 438,
+       "inconclusive": 31
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "long-context:long_schema_cold:0 max_inter_token_ms 94.1->101.2 +7.6%",
+       "long-context:long_cancel_resume:0 max_inter_token_ms 111.7->119.2 +6.7%",
+       "tool-agent:agent_finish_stop:0 wall_ms 277.1->295.8 +6.7%",
+       "tool-agent:agent_finish_stop:0 prefill_ms 258.5->278.0 +7.5%",
+       "tool-agent:agent_finish_stop:0 prefill_ms_per_token 5.3->5.7 +7.5%",
+       "tool-agent:agent_finish_stop:0 server_duration_ms 276.4->295.1 +6.8%",
+       "tool-agent:agent_finish_stop:0 ttft_ms 275.9->294.6 +6.8%",
+       "tool-agent:agent_json_chat:0 cache_restore_ms 96.2->107.8 +12.0%",
+       "tool-agent:agent_json_chat:0 queue_ms 98.6->110.4 +12.0%",
+       "tool-agent:agent_edit:0 wall_ms 1570.7->1653.0 +5.2%",
+       "tool-agent:agent_edit:0 client_ttft_ms 872.5->918.1 +5.2%",
+       "tool-agent:agent_edit:0 max_inter_token_ms 117.8->140.8 +19.6%",
+       "tool-agent:agent_edit:0 prefill_ms 704.8->751.5 +6.6%",
+       "tool-agent:agent_edit:0 prefill_ms_per_token 1.6->1.7 +6.6%",
+       "tool-agent:agent_edit:0 server_duration_ms 1570.2->1652.5 +5.2%",
+       "tool-agent:agent_edit:0 ttft_ms 728.1->775.6 +6.5%",
+       "tool-agent:agent_open_schema:0 wall_ms 638.3->685.3 +7.4%",
+       "tool-agent:agent_open_schema:0 decode_ms 79.1->101.8 +28.7%",
+       "tool-agent:agent_open_schema:0 decode_ms_per_token 79.1->101.8 +28.7%",
+       "tool-agent:agent_open_schema:0 prefill_ms 526.8->553.7 +5.1%",
+       "tool-agent:agent_open_schema:0 prefill_ms_per_token 1.4->1.4 +5.1%",
+       "tool-agent:agent_open_schema:0 server_duration_ms 636.2->683.2 +7.4%",
+       "tool-agent:agent_read_after_edit:0 wall_ms 603.3->665.6 +10.3%",
+       "tool-agent:agent_read_after_edit:0 decode_ms 338.1->366.2 +8.3%",
+       "tool-agent:agent_read_after_edit:0 decode_ms_per_token 14.1->15.3 +8.3%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms 239.8->271.7 +13.3%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms_per_token 6.0->6.8 +13.3%",
+       "tool-agent:agent_read_after_edit:0 server_duration_ms 602.2->664.6 +10.4%",
+       "tool-agent:agent_read_after_edit:0 ttft_ms 254.0->288.5 +13.6%",
+       "tool-agent:agent_sampled_peers:0 cache_restore_ms 97.5->104.3 +6.9%",
+       "tool-agent:agent_sampled_peers:0 queue_ms 102.9->109.7 +6.5%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 396.9,
+        "prefill_ms": 349.7,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.4,
+        "prefill_ms": 535.1,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 568.4,
+        "prefill_ms": 536.2,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 101.8,
+        "prefill_ms": 553.7,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 865.9,
+        "prefill_ms": 751.5,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 366.2,
+        "prefill_ms": 271.7,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1617.9,
+        "prefill_ms": 138.9,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     },
+     "fq17-4-v013-base": {
+      "binary": "v013-base",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 98808,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 439,
+       "inconclusive": 30
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "long-context:long_thinking_cancel:0 server_duration_ms 66.0->70.4 +6.7%",
+       "long-context:long_cancel_resume:0 client_ttft_ms 161.4->171.9 +6.5%",
+       "long-context:long_cancel_resume:0 queue_ms 16.5->20.3 +23.1%",
+       "long-context:long_cancel_resume:0 ttft_ms 160.7->171.2 +6.5%",
+       "state-edges:tool_argument_stop_retry:0 max_inter_token_ms 91.5->97.3 +6.3%",
+       "tool-agent:agent_finish_stop:0 wall_ms 277.1->294.5 +6.3%",
+       "tool-agent:agent_finish_stop:0 prefill_ms 258.5->276.4 +6.9%",
+       "tool-agent:agent_finish_stop:0 prefill_ms_per_token 5.3->5.6 +6.9%",
+       "tool-agent:agent_finish_stop:0 server_duration_ms 276.4->293.9 +6.3%",
+       "tool-agent:agent_finish_stop:0 ttft_ms 275.9->293.5 +6.4%",
+       "tool-agent:agent_sampled_peers:0 cache_snapshot_ms 113.7->241.7 +112.6%",
+       "tool-agent:agent_sampled_peers:0 max_inter_token_ms 163.4->173.4 +6.1%",
+       "tool-agent:agent_edit:0 wall_ms 1570.7->1659.0 +5.6%",
+       "tool-agent:agent_edit:0 decode_ms 832.0->884.2 +6.3%",
+       "tool-agent:agent_edit:0 decode_ms_per_token 13.6->14.5 +6.3%",
+       "tool-agent:agent_edit:0 max_inter_token_ms 117.8->142.5 +21.0%",
+       "tool-agent:agent_edit:0 server_duration_ms 1570.2->1658.5 +5.6%",
+       "tool-agent:agent_open_schema:0 wall_ms 638.3->687.6 +7.7%",
+       "tool-agent:agent_open_schema:0 decode_ms 79.1->104.7 +32.3%",
+       "tool-agent:agent_open_schema:0 decode_ms_per_token 79.1->104.7 +32.3%",
+       "tool-agent:agent_open_schema:0 prefill_ms 526.8->554.1 +5.2%",
+       "tool-agent:agent_open_schema:0 prefill_ms_per_token 1.4->1.4 +5.2%",
+       "tool-agent:agent_open_schema:0 server_duration_ms 636.2->685.8 +7.8%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms 239.8->260.0 +8.4%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms_per_token 6.0->6.5 +8.4%",
+       "tool-agent:agent_read_after_edit:0 ttft_ms 254.0->273.9 +7.8%",
+       "tool-agent:agent_sampled_peers:0 max_inter_token_ms 163.4->173.4 +6.1%",
+       "tool-agent:agent_sampled_peers:0 prefill_ms 278.1->294.8 +6.0%",
+       "tool-agent:agent_sampled_peers:0 prefill_ms_per_token 4.1->4.3 +6.0%",
+       "tool-agent:agent_sampled_peers:0 queue_ms 102.9->203.1 +97.3%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 397.4,
+        "prefill_ms": 347.3,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.4,
+        "prefill_ms": 547.9,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 568.4,
+        "prefill_ms": 538.0,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 104.7,
+        "prefill_ms": 554.1,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 884.2,
+        "prefill_ms": 739.2,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 344.9,
+        "prefill_ms": 260.0,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1589.1,
+        "prefill_ms": 150.6,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     },
+     "fq17-5-v013-base": {
+      "binary": "v013-base",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 111612,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 441,
+       "inconclusive": 28
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "long-context:long_schema_cold:0 decode_ms 221.1->256.7 +16.1%",
+       "long-context:long_schema_cold:0 decode_ms_per_token 31.6->36.7 +16.1%",
+       "long-context:long_schema_cold:0 max_inter_token_ms 94.1->114.1 +21.3%",
+       "long-context:long_schema_cold:0 mean_inter_token_ms 41.0->46.9 +14.5%",
+       "state-edges:tool_argument_stop_retry:0 max_inter_token_ms 91.5->96.7 +5.7%",
+       "tool-agent:agent_finish_stop:0 wall_ms 277.1->296.0 +6.8%",
+       "tool-agent:agent_finish_stop:0 prefill_ms 258.5->277.0 +7.1%",
+       "tool-agent:agent_finish_stop:0 prefill_ms_per_token 5.3->5.7 +7.1%",
+       "tool-agent:agent_finish_stop:0 server_duration_ms 276.4->295.3 +6.8%",
+       "tool-agent:agent_finish_stop:0 ttft_ms 275.9->294.8 +6.9%",
+       "tool-agent:agent_json_chat:0 cache_restore_ms 96.2->105.2 +9.4%",
+       "tool-agent:agent_json_chat:0 queue_ms 98.6->107.9 +9.4%",
+       "tool-agent:agent_sampled_peers:0 cache_restore_ms 96.1->101.7 +5.8%",
+       "tool-agent:agent_sampled_peers:0 cache_snapshot_ms 113.7->246.7 +116.9%",
+       "tool-agent:agent_edit:0 max_inter_token_ms 117.8->141.5 +20.1%",
+       "tool-agent:agent_open_schema:0 wall_ms 638.3->684.4 +7.2%",
+       "tool-agent:agent_open_schema:0 decode_ms 79.1->104.2 +31.7%",
+       "tool-agent:agent_open_schema:0 decode_ms_per_token 79.1->104.2 +31.7%",
+       "tool-agent:agent_open_schema:0 server_duration_ms 636.2->682.6 +7.3%",
+       "tool-agent:agent_read_after_edit:0 wall_ms 603.3->643.2 +6.6%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms 239.8->279.0 +16.3%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms_per_token 6.0->7.0 +16.3%",
+       "tool-agent:agent_read_after_edit:0 server_duration_ms 602.2->642.1 +6.6%",
+       "tool-agent:agent_read_after_edit:0 ttft_ms 254.0->293.0 +15.3%",
+       "tool-agent:agent_sampled_peers:0 prefill_ms 278.1->296.5 +6.6%",
+       "tool-agent:agent_sampled_peers:0 prefill_ms_per_token 4.1->4.4 +6.6%",
+       "tool-agent:agent_sampled_peers:0 queue_ms 102.9->211.5 +105.5%",
+       "server startup_ms 102319.6->111611.9 +9.1%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 395.9,
+        "prefill_ms": 350.0,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.7,
+        "prefill_ms": 531.0,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 566.6,
+        "prefill_ms": 538.4,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 104.2,
+        "prefill_ms": 551.7,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 867.5,
+        "prefill_ms": 736.5,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 338.2,
+        "prefill_ms": 279.0,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1589.7,
+        "prefill_ms": 146.8,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     },
+     "fq17-6-v013-cand": {
+      "binary": "v013-cand",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 109221,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 449,
+       "inconclusive": 20
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "tool-agent:agent_finish_stop:0 wall_ms 277.1->308.1 +11.2%",
+       "tool-agent:agent_finish_stop:0 prefill_ms 258.5->289.4 +11.9%",
+       "tool-agent:agent_finish_stop:0 prefill_ms_per_token 5.3->5.9 +11.9%",
+       "tool-agent:agent_finish_stop:0 server_duration_ms 276.4->307.4 +11.2%",
+       "tool-agent:agent_finish_stop:0 ttft_ms 275.9->306.9 +11.2%",
+       "tool-agent:agent_edit:0 max_inter_token_ms 117.8->140.7 +19.5%",
+       "tool-agent:agent_open_schema:0 wall_ms 638.3->683.7 +7.1%",
+       "tool-agent:agent_open_schema:0 decode_ms 79.1->104.8 +32.4%",
+       "tool-agent:agent_open_schema:0 decode_ms_per_token 79.1->104.8 +32.4%",
+       "tool-agent:agent_open_schema:0 server_duration_ms 636.2->682.0 +7.2%",
+       "tool-agent:agent_json_responses:0 cache_restore_ms 92.9->97.7 +5.3%",
+       "tool-agent:agent_json_responses:0 queue_ms 95.6->100.7 +5.3%",
+       "tool-agent:agent_read_after_edit:0 wall_ms 603.3->667.5 +10.6%",
+       "tool-agent:agent_read_after_edit:0 decode_ms 338.1->366.9 +8.5%",
+       "tool-agent:agent_read_after_edit:0 decode_ms_per_token 14.1->15.3 +8.5%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms 239.8->273.0 +13.8%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms_per_token 6.0->6.8 +13.8%",
+       "tool-agent:agent_read_after_edit:0 server_duration_ms 602.2->666.4 +10.7%",
+       "tool-agent:agent_read_after_edit:0 ttft_ms 254.0->289.5 +14.0%",
+       "server startup_ms 102319.6->109221.4 +6.7%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 396.8,
+        "prefill_ms": 348.1,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.1,
+        "prefill_ms": 534.3,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 566.7,
+        "prefill_ms": 538.3,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 104.8,
+        "prefill_ms": 551.7,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 866.6,
+        "prefill_ms": 737.0,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 366.9,
+        "prefill_ms": 273.0,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1595.5,
+        "prefill_ms": 140.8,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     }
+    },
+    "focused_round21": {
+     "fq21-1-v013-base": {
+      "binary": "v013-base",
+      "status": "passed",
+      "functional_status": "passed",
+      "startup_ms": 98585,
+      "restart_ms": 0,
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 398.0,
+        "prefill_ms": 319.4,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.0,
+        "prefill_ms": 518.2,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 535.8,
+        "prefill_ms": 509.4,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 77.9,
+        "prefill_ms": 525.6,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 834.6,
+        "prefill_ms": 707.3,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 338.9,
+        "prefill_ms": 240.7,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       }
+      }
+     },
+     "fq21-2-v013-cand": {
+      "binary": "v013-cand",
+      "status": "passed",
+      "functional_status": "passed",
+      "startup_ms": 85351,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 227
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 396.0,
+        "prefill_ms": 319.3,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.6,
+        "prefill_ms": 521.3,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 536.6,
+        "prefill_ms": 510.4,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 77.3,
+        "prefill_ms": 522.3,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 830.3,
+        "prefill_ms": 706.1,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 338.0,
+        "prefill_ms": 240.8,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       }
+      }
+     },
+     "fq21-3-v013-cand": {
+      "binary": "v013-cand",
+      "status": "passed",
+      "functional_status": "passed",
+      "startup_ms": 82259,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 227
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 397.1,
+        "prefill_ms": 318.9,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.5,
+        "prefill_ms": 518.3,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 536.7,
+        "prefill_ms": 510.9,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 77.8,
+        "prefill_ms": 524.6,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 830.1,
+        "prefill_ms": 708.4,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 337.9,
+        "prefill_ms": 239.9,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       }
+      }
+     },
+     "fq21-4-v013-base": {
+      "binary": "v013-base",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 71141,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 165,
+       "inconclusive": 62
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "state-edges:zero_argument_tool_after_limit:0 decode_ms 228.2->244.2 +7.0%",
+       "state-edges:zero_argument_tool_after_limit:0 decode_ms_per_token 17.6->18.8 +7.0%",
+       "state-edges:thinking_tool_one_token:0 wall_ms 620.0->860.9 +38.9%",
+       "state-edges:thinking_tool_one_token:0 client_ttft_ms 569.3->806.5 +41.7%",
+       "state-edges:thinking_tool_one_token:0 prefill_ms 518.2->754.6 +45.6%",
+       "state-edges:thinking_tool_one_token:0 prefill_ms_per_token 1.7->2.5 +45.6%",
+       "state-edges:thinking_tool_one_token:0 server_duration_ms 619.1->860.1 +38.9%",
+       "state-edges:thinking_tool_one_token:0 ttft_ms 568.5->805.7 +41.7%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 wall_ms 1113.0->1257.4 +13.0%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 decode_ms 594.0->666.6 +12.2%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 decode_ms_per_token 18.0->20.2 +12.2%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 max_inter_token_ms 100.9->123.9 +22.9%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 prefill_ms 492.2->561.6 +14.1%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 prefill_ms_per_token 1.5->1.7 +14.1%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 server_duration_ms 1112.0->1256.6 +13.0%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 ttft_ms 506.2->578.0 +14.2%",
+       "state-edges:execution_mode_probe:0 wall_ms 758.4->924.1 +21.8%",
+       "state-edges:execution_mode_probe:0 client_ttft_ms 343.4->455.5 +32.7%",
+       "state-edges:execution_mode_probe:0 decode_ms 398.0->451.6 +13.5%",
+       "state-edges:execution_mode_probe:0 decode_ms_per_token 12.4->14.1 +13.5%",
+       "state-edges:execution_mode_probe:0 max_inter_token_ms 92.8->104.8 +13.0%",
+       "state-edges:execution_mode_probe:0 prefill_ms 319.4->431.7 +35.2%",
+       "state-edges:execution_mode_probe:0 prefill_ms_per_token 11.4->15.4 +35.2%",
+       "state-edges:execution_mode_probe:0 server_duration_ms 756.1->922.2 +22.0%",
+       "state-edges:execution_mode_probe:0 ttft_ms 341.9->454.2 +32.9%",
+       "state-edges:tool_argument_stop_retry:0 max_inter_token_ms 91.5->105.4 +15.2%",
+       "state-edges:schema_payload_beta:0 client_ttft_ms 662.4->700.9 +5.8%",
+       "state-edges:schema_payload_beta:0 prefill_ms 504.7->542.0 +7.4%",
+       "state-edges:schema_payload_beta:0 prefill_ms_per_token 1.5->1.6 +7.4%",
+       "state-edges:schema_payload_beta:0 ttft_ms 522.2->559.2 +7.1%",
+       "state-edges:schema_payload_alpha:0 wall_ms 1073.0->1207.7 +12.6%",
+       "state-edges:schema_payload_alpha:0 client_ttft_ms 664.7->771.9 +16.1%",
+       "state-edges:schema_payload_alpha:0 decode_ms 535.8->584.5 +9.1%",
+       "state-edges:schema_payload_alpha:0 decode_ms_per_token 14.5->15.8 +9.1%",
+       "state-edges:schema_payload_alpha:0 prefill_ms 509.4->593.4 +16.5%",
+       "state-edges:schema_payload_alpha:0 prefill_ms_per_token 1.5->1.7 +16.5%",
+       "state-edges:schema_payload_alpha:0 server_duration_ms 1071.3->1206.1 +12.6%",
+       "state-edges:schema_payload_alpha:0 ttft_ms 523.3->608.4 +16.3%",
+       "tool-agent:agent_edit:0 wall_ms 1578.1->1744.6 +10.6%",
+       "tool-agent:agent_edit:0 client_ttft_ms 878.7->973.4 +10.8%",
+       "tool-agent:agent_edit:0 decode_ms 834.6->912.3 +9.3%",
+       "tool-agent:agent_edit:0 decode_ms_per_token 13.7->15.0 +9.3%",
+       "tool-agent:agent_edit:0 max_inter_token_ms 117.8->139.6 +18.5%",
+       "tool-agent:agent_edit:0 prefill_ms 707.3->796.0 +12.5%",
+       "tool-agent:agent_edit:0 prefill_ms_per_token 1.6->1.8 +12.5%",
+       "tool-agent:agent_edit:0 server_duration_ms 1577.6->1744.1 +10.6%",
+       "tool-agent:agent_edit:0 ttft_ms 732.1->820.8 +12.1%",
+       "tool-agent:agent_open_schema:0 wall_ms 632.5->743.2 +17.5%",
+       "tool-agent:agent_open_schema:0 decode_ms 77.9->96.5 +23.9%",
+       "tool-agent:agent_open_schema:0 decode_ms_per_token 77.9->96.5 +23.9%",
+       "tool-agent:agent_open_schema:0 prefill_ms 525.6->618.9 +17.8%",
+       "tool-agent:agent_open_schema:0 prefill_ms_per_token 1.4->1.6 +17.8%",
+       "tool-agent:agent_open_schema:0 server_duration_ms 630.5->741.3 +17.6%",
+       "tool-agent:agent_open_schema:0 ttft_ms 556.9->649.3 +16.6%",
+       "tool-agent:agent_closed_schema:0 prefill_ms 536.2->565.5 +5.5%",
+       "tool-agent:agent_closed_schema:0 prefill_ms_per_token 1.4->1.4 +5.5%",
+       "tool-agent:agent_closed_schema:0 ttft_ms 566.6->596.9 +5.3%",
+       "tool-agent:agent_read_after_edit:0 wall_ms 608.7->667.5 +9.7%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms 240.7->288.7 +19.9%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms_per_token 6.0->7.2 +19.9%",
+       "tool-agent:agent_read_after_edit:0 server_duration_ms 607.7->666.5 +9.7%",
+       "tool-agent:agent_read_after_edit:0 ttft_ms 257.7->302.5 +17.4%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 451.6,
+        "prefill_ms": 431.7,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 38.6,
+        "prefill_ms": 754.6,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 584.5,
+        "prefill_ms": 593.4,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 96.5,
+        "prefill_ms": 618.9,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 912.3,
+        "prefill_ms": 796.0,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 353.8,
+        "prefill_ms": 288.7,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       }
+      }
+     },
+     "fq21-5-v013-base": {
+      "binary": "v013-base",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 88264,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 166,
+       "inconclusive": 61
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "state-edges:zero_argument_tool_after_limit:0 wall_ms 770.3->816.1 +5.9%",
+       "state-edges:zero_argument_tool_after_limit:0 decode_ms 228.2->258.6 +13.3%",
+       "state-edges:zero_argument_tool_after_limit:0 decode_ms_per_token 17.6->19.9 +13.3%",
+       "state-edges:zero_argument_tool_after_limit:0 server_duration_ms 728.0->769.2 +5.7%",
+       "state-edges:thinking_tool_one_token:0 wall_ms 620.0->924.0 +49.0%",
+       "state-edges:thinking_tool_one_token:0 client_ttft_ms 569.3->866.7 +52.2%",
+       "state-edges:thinking_tool_one_token:0 decode_ms 37.0->43.6 +17.7%",
+       "state-edges:thinking_tool_one_token:0 decode_ms_per_token 37.0->43.6 +17.7%",
+       "state-edges:thinking_tool_one_token:0 prefill_ms 518.2->815.4 +57.3%",
+       "state-edges:thinking_tool_one_token:0 prefill_ms_per_token 1.7->2.7 +57.3%",
+       "state-edges:thinking_tool_one_token:0 server_duration_ms 619.1->923.2 +49.1%",
+       "state-edges:thinking_tool_one_token:0 ttft_ms 568.5->865.9 +52.3%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 wall_ms 1113.0->1271.8 +14.3%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 decode_ms 594.0->656.8 +10.6%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 decode_ms_per_token 18.0->19.9 +10.6%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 max_inter_token_ms 100.9->129.7 +28.6%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 prefill_ms 492.2->588.1 +19.5%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 prefill_ms_per_token 1.5->1.8 +19.5%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 server_duration_ms 1112.0->1271.0 +14.3%",
+       "state-edges:quoted_call_argument_stop_streamFalse:0 ttft_ms 506.2->603.3 +19.2%",
+       "state-edges:execution_mode_probe:0 wall_ms 758.4->882.6 +16.4%",
+       "state-edges:execution_mode_probe:0 client_ttft_ms 343.4->402.4 +17.2%",
+       "state-edges:execution_mode_probe:0 decode_ms 398.0->464.2 +16.6%",
+       "state-edges:execution_mode_probe:0 decode_ms_per_token 12.4->14.5 +16.6%",
+       "state-edges:execution_mode_probe:0 max_inter_token_ms 92.8->104.9 +13.1%",
+       "state-edges:execution_mode_probe:0 prefill_ms 319.4->381.6 +19.5%",
+       "state-edges:execution_mode_probe:0 prefill_ms_per_token 11.4->13.6 +19.5%",
+       "state-edges:execution_mode_probe:0 server_duration_ms 756.1->880.7 +16.5%",
+       "state-edges:execution_mode_probe:0 ttft_ms 341.9->401.0 +17.3%",
+       "state-edges:tool_argument_stop_retry:0 max_inter_token_ms 91.5->99.5 +8.8%",
+       "state-edges:schema_payload_alpha:0 wall_ms 1073.0->1243.3 +15.9%",
+       "state-edges:schema_payload_alpha:0 client_ttft_ms 664.7->788.7 +18.7%",
+       "state-edges:schema_payload_alpha:0 decode_ms 535.8->609.9 +13.8%",
+       "state-edges:schema_payload_alpha:0 decode_ms_per_token 14.5->16.5 +13.8%",
+       "state-edges:schema_payload_alpha:0 prefill_ms 509.4->604.4 +18.7%",
+       "state-edges:schema_payload_alpha:0 prefill_ms_per_token 1.5->1.7 +18.7%",
+       "state-edges:schema_payload_alpha:0 server_duration_ms 1071.3->1241.4 +15.9%",
+       "state-edges:schema_payload_alpha:0 ttft_ms 523.3->618.4 +18.2%",
+       "tool-agent:agent_edit:0 wall_ms 1578.1->1743.6 +10.5%",
+       "tool-agent:agent_edit:0 client_ttft_ms 878.7->972.2 +10.6%",
+       "tool-agent:agent_edit:0 decode_ms 834.6->911.5 +9.2%",
+       "tool-agent:agent_edit:0 decode_ms_per_token 13.7->14.9 +9.2%",
+       "tool-agent:agent_edit:0 max_inter_token_ms 117.8->133.2 +13.1%",
+       "tool-agent:agent_edit:0 prefill_ms 707.3->794.1 +12.3%",
+       "tool-agent:agent_edit:0 prefill_ms_per_token 1.6->1.8 +12.3%",
+       "tool-agent:agent_edit:0 server_duration_ms 1577.6->1743.2 +10.5%",
+       "tool-agent:agent_edit:0 ttft_ms 732.1->820.6 +12.1%",
+       "tool-agent:agent_open_schema:0 wall_ms 632.5->752.2 +18.9%",
+       "tool-agent:agent_open_schema:0 decode_ms 77.9->95.2 +22.3%",
+       "tool-agent:agent_open_schema:0 decode_ms_per_token 77.9->95.2 +22.3%",
+       "tool-agent:agent_open_schema:0 prefill_ms 525.6->626.6 +19.2%",
+       "tool-agent:agent_open_schema:0 prefill_ms_per_token 1.4->1.6 +19.2%",
+       "tool-agent:agent_open_schema:0 server_duration_ms 630.5->750.0 +19.0%",
+       "tool-agent:agent_open_schema:0 ttft_ms 556.9->659.3 +18.4%",
+       "tool-agent:agent_read_after_edit:0 wall_ms 608.7->670.6 +10.2%",
+       "tool-agent:agent_read_after_edit:0 decode_ms 338.9->360.0 +6.2%",
+       "tool-agent:agent_read_after_edit:0 decode_ms_per_token 14.1->15.0 +6.2%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms 240.7->285.8 +18.7%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms_per_token 6.0->7.1 +18.7%",
+       "tool-agent:agent_read_after_edit:0 server_duration_ms 607.7->669.6 +10.2%",
+       "tool-agent:agent_read_after_edit:0 ttft_ms 257.7->299.8 +16.3%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 464.2,
+        "prefill_ms": 381.6,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 43.6,
+        "prefill_ms": 815.4,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 609.9,
+        "prefill_ms": 604.4,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 95.2,
+        "prefill_ms": 626.6,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 911.5,
+        "prefill_ms": 794.1,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 360.0,
+        "prefill_ms": 285.8,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       }
+      }
+     },
+     "fq21-6-v013-cand": {
+      "binary": "v013-cand",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 107505,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 192,
+       "inconclusive": 35
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "state-edges:zero_argument_tool_after_limit:0 wall_ms 770.3->811.0 +5.3%",
+       "state-edges:zero_argument_tool_after_limit:0 decode_ms 228.2->253.8 +11.2%",
+       "state-edges:zero_argument_tool_after_limit:0 decode_ms_per_token 17.6->19.5 +11.2%",
+       "state-edges:zero_argument_tool_after_limit:0 server_duration_ms 728.0->765.3 +5.1%",
+       "state-edges:thinking_tool_one_token:0 wall_ms 620.0->923.5 +49.0%",
+       "state-edges:thinking_tool_one_token:0 client_ttft_ms 569.3->865.5 +52.0%",
+       "state-edges:thinking_tool_one_token:0 decode_ms 37.0->43.6 +17.8%",
+       "state-edges:thinking_tool_one_token:0 decode_ms_per_token 37.0->43.6 +17.8%",
+       "state-edges:thinking_tool_one_token:0 prefill_ms 518.2->816.6 +57.6%",
+       "state-edges:thinking_tool_one_token:0 prefill_ms_per_token 1.7->2.7 +57.6%",
+       "state-edges:thinking_tool_one_token:0 server_duration_ms 619.1->922.9 +49.1%",
+       "state-edges:thinking_tool_one_token:0 ttft_ms 568.5->864.8 +52.1%",
+       "state-edges:execution_mode_probe:0 wall_ms 758.4->872.7 +15.1%",
+       "state-edges:execution_mode_probe:0 client_ttft_ms 343.4->395.1 +15.1%",
+       "state-edges:execution_mode_probe:0 decode_ms 398.0->461.4 +15.9%",
+       "state-edges:execution_mode_probe:0 decode_ms_per_token 12.4->14.4 +15.9%",
+       "state-edges:execution_mode_probe:0 max_inter_token_ms 92.8->102.1 +10.0%",
+       "state-edges:execution_mode_probe:0 prefill_ms 319.4->374.4 +17.2%",
+       "state-edges:execution_mode_probe:0 prefill_ms_per_token 11.4->13.4 +17.2%",
+       "state-edges:execution_mode_probe:0 server_duration_ms 756.1->870.6 +15.1%",
+       "state-edges:execution_mode_probe:0 ttft_ms 341.9->393.8 +15.2%",
+       "state-edges:schema_payload_beta:0 client_ttft_ms 662.4->706.9 +6.7%",
+       "state-edges:schema_payload_beta:0 prefill_ms 504.7->544.1 +7.8%",
+       "state-edges:schema_payload_beta:0 prefill_ms_per_token 1.5->1.6 +7.8%",
+       "state-edges:schema_payload_beta:0 ttft_ms 522.2->564.1 +8.0%",
+       "state-edges:schema_payload_alpha:0 wall_ms 1073.0->1234.8 +15.1%",
+       "state-edges:schema_payload_alpha:0 cache_snapshot_ms 24.6->27.6 +12.3%",
+       "state-edges:schema_payload_alpha:0 client_ttft_ms 664.7->781.6 +17.6%",
+       "state-edges:schema_payload_alpha:0 decode_ms 535.8->600.6 +12.1%",
+       "state-edges:schema_payload_alpha:0 decode_ms_per_token 14.5->16.2 +12.1%",
+       "state-edges:schema_payload_alpha:0 prefill_ms 509.4->603.2 +18.4%",
+       "state-edges:schema_payload_alpha:0 prefill_ms_per_token 1.5->1.7 +18.4%",
+       "state-edges:schema_payload_alpha:0 server_duration_ms 1071.3->1232.9 +15.1%",
+       "state-edges:schema_payload_alpha:0 ttft_ms 523.3->618.2 +18.1%",
+       "server startup_ms 98584.8->107504.7 +9.0%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 461.4,
+        "prefill_ms": 374.4,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 43.6,
+        "prefill_ms": 816.6,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 600.6,
+        "prefill_ms": 603.2,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 77.2,
+        "prefill_ms": 526.1,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 829.7,
+        "prefill_ms": 703.2,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 337.9,
+        "prefill_ms": 239.4,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       }
+      }
+     },
+     "fq21-7-v013-cand": {
+      "binary": "v013-cand",
+      "status": "passed",
+      "functional_status": "passed",
+      "startup_ms": 103126,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 227
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 396.0,
+        "prefill_ms": 321.2,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.5,
+        "prefill_ms": 517.6,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 533.7,
+        "prefill_ms": 510.6,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 77.6,
+        "prefill_ms": 524.8,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 829.2,
+        "prefill_ms": 707.5,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 337.8,
+        "prefill_ms": 239.8,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       }
+      }
+     },
+     "fq21-8-v013-base": {
+      "binary": "v013-base",
+      "status": "passed",
+      "functional_status": "passed",
+      "startup_ms": 85059,
+      "restart_ms": 0,
+      "measurements": {
+       "passed": 227
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 397.0,
+        "prefill_ms": 318.6,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.7,
+        "prefill_ms": 519.4,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 537.6,
+        "prefill_ms": 510.7,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 79.5,
+        "prefill_ms": 527.7,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 830.0,
+        "prefill_ms": 705.6,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 338.1,
+        "prefill_ms": 239.8,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       }
+      }
+     }
+    },
+    "focused_verdict": "Round 21 candidate runs 2, 3 and 7 raised no timing flags; base controls 4 and 5 raised 62 and 61 (prefill/decode on identical work). long_cancel_resume: candidate 1595.5-1617.9 ms vs base 1589.1-1607.3 ms (round 17), no decode flag; thinking_tool_one_token and agent_open_schema flag equally on base controls (agent_open_schema's recorded baseline 79.1 ms is the outlier in round 17).",
+    "storage_round18": {
+     "probe_before_suite": [
+      "direct-1GiB-s=1.24",
+      "buffered-fsync-1GiB-s=1.34",
+      "direct-1GiB-s=1.25",
+      "buffered-fsync-1GiB-s=1.33"
+     ],
+     "runs": {
+      "dc18-1-v013-base": {
+       "binary": "v013-base",
+       "status": "passed",
+       "functional_status": "passed",
+       "startup_ms": 91924,
+       "restart_ms": 42104,
+       "requests": {},
+       "disk_cache_write_ms_max3": [
+        143.482,
+        147.153,
+        214.936
+       ],
+       "skipped_staging": 0,
+       "failed_suites": {}
+      },
+      "dc18-2-v013-cand": {
+       "binary": "v013-cand",
+       "status": "inconclusive",
+       "functional_status": "passed",
+       "startup_ms": 99514,
+       "restart_ms": 42403,
+       "measurements": {
+        "passed": 418,
+        "inconclusive": 61
+       },
+       "quality_or_coverage_changes": [],
+       "flags": [
+        "disk-spacing-disk:1:0 cache_restore_ms 126.1->136.7 +8.4%",
+        "disk-spacing-disk:1:0 prefill_ms 768.3->809.3 +5.3%",
+        "disk-spacing-disk:1:0 prefill_ms_per_token 1.3->1.3 +5.3%",
+        "disk-spacing-disk:1:0 queue_ms 128.9->139.5 +8.2%",
+        "disk-spacing-disk:0:0 wall_ms 805.4->858.9 +6.6%",
+        "disk-spacing-disk:0:0 cache_restore_ms 193.5->205.6 +6.2%",
+        "disk-spacing-disk:0:0 cache_snapshot_ms 67.4->72.1 +7.0%",
+        "disk-spacing-disk:0:0 prefill_ms 503.4->537.3 +6.7%",
+        "disk-spacing-disk:0:0 prefill_ms_per_token 1.6->1.7 +6.7%",
+        "disk-spacing-disk:0:0 queue_ms 198.1->209.8 +5.9%",
+        "disk-spacing-disk:0:0 server_duration_ms 803.8->857.3 +6.7%",
+        "disk-spacing-disk:0:0 ttft_ms 719.7->774.7 +7.7%",
+        "disk-spacing:3:0 cache_snapshot_ms 26.7->31.7 +18.8%",
+        "legacy-tool-cancel-disk:0:0 wall_ms 442.3->466.8 +5.5%",
+        "legacy-tool-cancel-disk:0:0 decode_ms 74.8->100.9 +34.9%",
+        "legacy-tool-cancel-disk:0:0 decode_ms_per_token 74.8->100.9 +34.9%",
+        "legacy-tool-cancel-disk:0:0 server_duration_ms 440.9->465.4 +5.6%",
+        "legacy-tool-cancel:5:0 cache_snapshot_ms 20.3->24.5 +20.5%",
+        "legacy-tool-cancel:4:2 wall_ms 71.0->74.7 +5.3%",
+        "legacy-tool-cancel:4:2 queue_ms 15.4->18.9 +22.7%",
+        "legacy-tool-cancel:4:2 ttft_ms 15.5->19.0 +22.5%",
+        "text-cancel-disk:1:0 wall_ms 390.4->437.2 +12.0%",
+        "text-cancel-disk:1:0 decode_ms 135.3->158.7 +17.4%",
+        "text-cancel-disk:1:0 decode_ms_per_token 16.9->19.8 +17.4%",
+        "text-cancel-disk:1:0 max_inter_token_ms 76.0->91.3 +20.1%",
+        "text-cancel-disk:1:0 mean_inter_token_ms 21.5->24.6 +14.8%",
+        "text-cancel-disk:1:0 prefill_ms 221.5->244.2 +10.2%",
+        "text-cancel-disk:1:0 prefill_ms_per_token 5.8->6.4 +10.2%",
+        "text-cancel-disk:1:0 server_duration_ms 389.8->436.6 +12.0%",
+        "text-cancel-disk:1:0 ttft_ms 239.3->263.9 +10.3%",
+        "text-cancel-disk:0:0 wall_ms 625.9->703.9 +12.5%",
+        "text-cancel-disk:0:0 decode_ms 187.5->227.3 +21.2%",
+        "text-cancel-disk:0:0 decode_ms_per_token 15.6->18.9 +21.2%",
+        "text-cancel-disk:0:0 max_inter_token_ms 69.8->88.0 +26.1%",
+        "text-cancel-disk:0:0 mean_inter_token_ms 18.4->22.0 +19.7%",
+        "text-cancel-disk:0:0 prefill_ms 307.4->344.9 +12.2%",
+        "text-cancel-disk:0:0 prefill_ms_per_token 23.6->26.5 +12.2%",
+        "text-cancel-disk:0:0 server_duration_ms 624.7->702.5 +12.5%",
+        "text-cancel-disk:0:0 ttft_ms 422.0->460.1 +9.0%",
+        "thinking-tool-cancel-disk:0:0 wall_ms 640.0->735.6 +14.9%",
+        "thinking-tool-cancel-disk:0:0 cache_snapshot_ms 36.9->43.1 +16.9%",
+        "thinking-tool-cancel-disk:0:0 decode_ms 238.3->281.7 +18.2%",
+        "thinking-tool-cancel-disk:0:0 decode_ms_per_token 19.9->23.5 +18.2%",
+        "thinking-tool-cancel-disk:0:0 max_inter_token_ms 75.6->95.5 +26.3%",
+        "thinking-tool-cancel-disk:0:0 mean_inter_token_ms 22.7->26.7 +17.8%",
+        "thinking-tool-cancel-disk:0:0 prefill_ms 230.4->278.7 +20.9%",
+        "thinking-tool-cancel-disk:0:0 prefill_ms_per_token 6.2->7.5 +20.9%",
+        "thinking-tool-cancel-disk:0:0 server_duration_ms 638.7->734.2 +15.0%",
+        "thinking-tool-cancel-disk:0:0 ttft_ms 389.1->440.3 +13.2%",
+        "thinking-tool-cancel-disk:1:0 wall_ms 495.5->576.9 +16.4%",
+        "thinking-tool-cancel-disk:1:0 cache_snapshot_ms 24.3->28.6 +17.6%",
+        "thinking-tool-cancel-disk:1:0 decode_ms 276.0->319.4 +15.7%",
+        "thinking-tool-cancel-disk:1:0 decode_ms_per_token 34.5->39.9 +15.7%",
+        "thinking-tool-cancel-disk:1:0 max_inter_token_ms 74.0->97.6 +31.9%",
+        "thinking-tool-cancel-disk:1:0 mean_inter_token_ms 41.1->47.3 +15.1%",
+        "thinking-tool-cancel-disk:1:0 prefill_ms 189.7->223.4 +17.8%",
+        "thinking-tool-cancel-disk:1:0 prefill_ms_per_token 7.6->8.9 +17.8%",
+        "thinking-tool-cancel-disk:1:0 server_duration_ms 494.9->576.1 +16.4%",
+        "thinking-tool-cancel-disk:1:0 ttft_ms 207.0->244.6 +18.2%",
+        "thinking-tool-cancel:1:0 cache_snapshot_ms 25.7->28.9 +12.5%",
+        "server startup_ms 91923.9->99513.9 +8.3%"
+       ],
+       "requests": {},
+       "disk_cache_write_ms_max3": [
+        135.806,
+        213.003,
+        6532.27
+       ],
+       "skipped_staging": 0,
+       "failed_suites": {}
+      },
+      "dc18-3-v013-cand": {
+       "binary": "v013-cand",
+       "status": "failed",
+       "functional_status": "failed",
+       "startup_ms": 167230,
+       "restart_ms": 49808,
+       "requests": {},
+       "disk_cache_write_ms_max3": [
+        5403.36,
+        6928.91,
+        10515.8
+       ],
+       "skipped_staging": 26,
+       "failed_suites": {
+        "thinking-tool-cancel-disk": "failed",
+        "disk-spacing-disk": "failed"
+       }
+      },
+      "dc18-4-v013-base": {
+       "binary": "v013-base",
+       "status": "inconclusive",
+       "functional_status": "passed",
+       "startup_ms": 96291,
+       "restart_ms": 23875,
+       "measurements": {
+        "passed": 469,
+        "inconclusive": 10
+       },
+       "quality_or_coverage_changes": [],
+       "flags": [
+        "disk-spacing-disk:1:0 cache_restore_ms 126.1->135.9 +7.8%",
+        "disk-spacing-disk:1:0 queue_ms 128.9->138.7 +7.6%",
+        "disk-spacing-disk:0:0 cache_restore_ms 193.5->205.0 +5.9%",
+        "disk-spacing-disk:0:0 queue_ms 198.1->209.3 +5.7%",
+        "disk-spacing:0:0 cache_snapshot_ms 31.6->35.9 +13.7%",
+        "legacy-tool-cancel:5:0 cache_snapshot_ms 20.3->26.7 +31.4%",
+        "text-cancel-disk:0:0 cache_restore_ms 99.2->105.7 +6.6%",
+        "text-cancel-disk:0:0 queue_ms 99.5->106.0 +6.5%",
+        "thinking-tool-cancel-disk:0:0 cache_snapshot_ms 36.9->40.9 +11.1%",
+        "thinking-tool-cancel-disk:1:0 max_inter_token_ms 74.0->78.1 +5.6%"
+       ],
+       "requests": {},
+       "disk_cache_write_ms_max3": [
+        137.926,
+        159.585,
+        211.887
+       ],
+       "skipped_staging": 0,
+       "failed_suites": {}
+      }
+     },
+     "probe_after_suite": [
+      "direct-256MiB-s=1.09",
+      "direct-256MiB-s=1.75",
+      "direct-256MiB-s=2.00"
+     ],
+     "conclusion": "Raw 1 GiB direct writes took 1.24-1.34 s (~800 MB/s) before the suite; 256 MiB took 1.09, 1.75 and 2.00 s afterwards (~235-130 MB/s). Cache writes stalled 5.4-10.5 s in candidate runs 2-3 (staging filled, saves skipped; run 3 failed thinking-tool-cancel-disk and disk-spacing-disk, as the unchanged base did in round 13), while base runs 1 and 4 stayed below 0.22 s. The drive (Kingston OM8TAP4, 94% full) loses write throughput after sustained writes; lookup does not touch the disk cache. Storage failure, not a timing-gate result; RAM-backed runs do not establish host-disk behavior."
+    },
+    "final_gate_round22": {
+     "g22-1-v013-base": {
+      "binary": "v013-base",
+      "status": "passed",
+      "functional_status": "passed",
+      "startup_ms": 76456,
+      "restart_ms": 25570,
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 456.7,
+        "prefill_ms": 380.3,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 44.0,
+        "prefill_ms": 778.4,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 579.0,
+        "prefill_ms": 611.8,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 78.0,
+        "prefill_ms": 530.6,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 829.5,
+        "prefill_ms": 703.3,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 337.7,
+        "prefill_ms": 240.3,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1462.9,
+        "prefill_ms": 133.7,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     },
+     "g22-2-v013-cand": {
+      "binary": "v013-cand",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 89887,
+      "restart_ms": 25677,
+      "measurements": {
+       "passed": 880,
+       "inconclusive": 96
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "disk-spacing-disk:1:0 cache_restore_ms 136.5->150.9 +10.6%",
+       "disk-spacing-disk:1:0 cache_snapshot_ms 41.9->51.5 +22.9%",
+       "disk-spacing-disk:1:0 queue_ms 139.2->153.7 +10.4%",
+       "disk-spacing-disk:0:0 cache_restore_ms 206.3->222.2 +7.7%",
+       "disk-spacing-disk:0:0 queue_ms 210.2->227.0 +8.0%",
+       "disk-spacing:1:0 cache_snapshot_ms 28.7->31.9 +11.1%",
+       "disk-spacing:6:0 cache_snapshot_ms 41.3->50.7 +22.7%",
+       "legacy-tool-cancel-disk:0:0 cache_restore_ms 106.1->115.1 +8.5%",
+       "legacy-tool-cancel-disk:0:0 queue_ms 108.3->117.3 +8.2%",
+       "long-context:long_schema_cold:0 decode_ms 208.4->240.2 +15.3%",
+       "long-context:long_schema_cold:0 decode_ms_per_token 29.8->34.3 +15.3%",
+       "long-context:long_schema_cold:0 max_inter_token_ms 92.4->109.0 +17.9%",
+       "long-context:long_schema_cold:0 mean_inter_token_ms 38.9->44.2 +13.8%",
+       "state-edges:quoted_call_argument_complete:0 max_inter_token_ms 94.4->105.5 +11.8%",
+       "state-edges:zero_argument_tool_after_limit:0 decode_ms 249.9->284.7 +14.0%",
+       "state-edges:zero_argument_tool_after_limit:0 decode_ms_per_token 19.2->21.9 +14.0%",
+       "state-edges:thinking_tool_one_token:0 wall_ms 888.7->970.7 +9.2%",
+       "state-edges:thinking_tool_one_token:0 client_ttft_ms 829.9->911.1 +9.8%",
+       "state-edges:thinking_tool_one_token:0 prefill_ms 778.4->861.4 +10.7%",
+       "state-edges:thinking_tool_one_token:0 prefill_ms_per_token 2.6->2.9 +10.7%",
+       "state-edges:thinking_tool_one_token:0 server_duration_ms 888.0->970.2 +9.3%",
+       "state-edges:thinking_tool_one_token:0 ttft_ms 829.2->910.4 +9.8%",
+       "state-edges:execution_mode_probe:0 decode_ms 456.7->483.2 +5.8%",
+       "state-edges:execution_mode_probe:0 decode_ms_per_token 14.3->15.1 +5.8%",
+       "state-edges:execution_mode_probe:0 max_inter_token_ms 104.1->110.3 +6.0%",
+       "state-edges:schema_payload_alpha:0 decode_ms 579.0->617.0 +6.6%",
+       "state-edges:schema_payload_alpha:0 decode_ms_per_token 15.6->16.7 +6.6%",
+       "thinking-tool-cancel:4:2 queue_ms 14.9->19.6 +31.8%",
+       "thinking-tool-cancel:4:2 ttft_ms 15.0->19.7 +31.5%",
+       "tool-agent:agent_responses_False:0 prefill_ms 774.2->826.6 +6.8%",
+       "tool-agent:agent_responses_False:0 prefill_ms_per_token 1.7->1.8 +6.8%",
+       "tool-agent:agent_responses_False:0 ttft_ms 796.3->849.8 +6.7%",
+       "tool-agent:agent_finish_stop:0 wall_ms 277.6->314.6 +13.3%",
+       "tool-agent:agent_finish_stop:0 prefill_ms 258.4->296.5 +14.8%",
+       "tool-agent:agent_finish_stop:0 prefill_ms_per_token 5.3->6.1 +14.8%",
+       "tool-agent:agent_finish_stop:0 server_duration_ms 276.9->314.1 +13.4%",
+       "tool-agent:agent_finish_stop:0 ttft_ms 276.4->313.6 +13.4%",
+       "tool-agent:agent_json_chat:0 wall_ms 671.1->803.2 +19.7%",
+       "tool-agent:agent_json_chat:0 client_ttft_ms 437.4->544.7 +24.5%",
+       "tool-agent:agent_json_chat:0 decode_ms 222.0->248.0 +11.8%",
+       "tool-agent:agent_json_chat:0 decode_ms_per_token 24.7->27.6 +11.8%",
+       "tool-agent:agent_json_chat:0 max_inter_token_ms 93.2->104.9 +12.5%",
+       "tool-agent:agent_json_chat:0 mean_inter_token_ms 29.2->32.3 +10.7%",
+       "tool-agent:agent_json_chat:0 prefill_ms 325.3->433.9 +33.4%",
+       "tool-agent:agent_json_chat:0 prefill_ms_per_token 3.3->4.4 +33.4%",
+       "tool-agent:agent_json_chat:0 server_duration_ms 670.5->802.7 +19.7%",
+       "tool-agent:agent_json_chat:0 ttft_ms 436.7->544.0 +24.6%",
+       "tool-agent:agent_sampled_peers:0 max_inter_token_ms 160.8->190.0 +18.2%",
+       "tool-agent:agent_sampled_peers:0 prefill_ms 273.7->315.1 +15.1%",
+       "tool-agent:agent_sampled_peers:0 prefill_ms_per_token 4.0->4.6 +15.1%",
+       "tool-agent:agent_sampled_peers:0 queue_ms 102.5->199.3 +94.6%",
+       "tool-agent:agent_sampled_peers:0 ttft_ms 765.5->806.3 +5.3%",
+       "tool-agent:agent_edit:0 wall_ms 1568.9->1953.5 +24.5%",
+       "tool-agent:agent_edit:0 client_ttft_ms 871.3->1181.0 +35.5%",
+       "tool-agent:agent_edit:0 decode_ms 829.5->924.1 +11.4%",
+       "tool-agent:agent_edit:0 decode_ms_per_token 13.6->15.1 +11.4%",
+       "tool-agent:agent_edit:0 max_inter_token_ms 117.6->135.1 +14.8%",
+       "tool-agent:agent_edit:0 prefill_ms 703.3->993.6 +41.3%",
+       "tool-agent:agent_edit:0 prefill_ms_per_token 1.6->2.3 +41.3%",
+       "tool-agent:agent_edit:0 server_duration_ms 1568.3->1953.0 +24.5%",
+       "tool-agent:agent_edit:0 ttft_ms 727.6->1017.9 +39.9%",
+       "tool-agent:agent_retry:1 max_inter_token_ms 100.1->118.1 +18.0%",
+       "tool-agent:agent_open_schema:0 wall_ms 637.3->759.1 +19.1%",
+       "tool-agent:agent_open_schema:0 decode_ms 78.0->97.6 +25.1%",
+       "tool-agent:agent_open_schema:0 decode_ms_per_token 78.0->97.6 +25.1%",
+       "tool-agent:agent_open_schema:0 prefill_ms 530.6->631.4 +19.0%",
+       "tool-agent:agent_open_schema:0 prefill_ms_per_token 1.4->1.6 +19.0%",
+       "tool-agent:agent_open_schema:0 server_duration_ms 635.5->757.4 +19.2%",
+       "tool-agent:agent_open_schema:0 ttft_ms 561.8->664.1 +18.2%",
+       "tool-agent:agent_limit:0 wall_ms 808.8->853.3 +5.5%",
+       "tool-agent:agent_limit:0 prefill_ms 725.7->770.6 +6.2%",
+       "tool-agent:agent_limit:0 prefill_ms_per_token 1.6->1.7 +6.2%",
+       "tool-agent:agent_limit:0 server_duration_ms 808.2->852.7 +5.5%",
+       "tool-agent:agent_limit:0 ttft_ms 750.1->794.9 +6.0%",
+       "tool-agent:agent_json_responses:0 cache_snapshot_ms 28.7->31.9 +11.1%",
+       "tool-agent:agent_json_responses:0 client_ttft_ms 626.6->661.8 +5.6%",
+       "tool-agent:agent_json_responses:0 prefill_ms 520.9->553.9 +6.3%",
+       "tool-agent:agent_json_responses:0 prefill_ms_per_token 1.5->1.6 +6.3%",
+       "tool-agent:agent_json_responses:0 ttft_ms 625.5->660.5 +5.6%",
+       "tool-agent:agent_stop:0 wall_ms 228.4->243.6 +6.7%",
+       "tool-agent:agent_stop:0 client_ttft_ms 134.9->150.0 +11.2%",
+       "tool-agent:agent_stop:0 decode_ms 220.5->235.9 +7.0%",
+       "tool-agent:agent_stop:0 decode_ms_per_token 14.7->15.7 +7.0%",
+       "tool-agent:agent_stop:0 server_duration_ms 227.8->243.1 +6.7%",
+       "tool-agent:agent_read_after_edit:0 wall_ms 604.0->684.6 +13.3%",
+       "tool-agent:agent_read_after_edit:0 cache_snapshot_ms 20.4->23.5 +15.3%",
+       "tool-agent:agent_read_after_edit:0 decode_ms 337.7->357.1 +5.8%",
+       "tool-agent:agent_read_after_edit:0 decode_ms_per_token 14.1->14.9 +5.8%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms 240.3->298.1 +24.0%",
+       "tool-agent:agent_read_after_edit:0 prefill_ms_per_token 6.0->7.5 +24.0%",
+       "tool-agent:agent_read_after_edit:0 server_duration_ms 603.0->683.5 +13.3%",
+       "tool-agent:agent_read_after_edit:0 ttft_ms 255.2->315.3 +23.5%",
+       "tool-agent:agent_sampled_peers:0 cache_snapshot_ms 114.4->261.4 +128.5%",
+       "tool-agent:agent_sampled_peers:0 max_inter_token_ms 160.8->190.0 +18.2%",
+       "tool-agent:agent_sampled_peers:0 ttft_ms 765.7->806.3 +5.3%",
+       "server startup_ms 76456.4->89887.1 +17.6%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 483.2,
+        "prefill_ms": 382.1,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 45.3,
+        "prefill_ms": 861.4,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 617.0,
+        "prefill_ms": 622.4,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 97.6,
+        "prefill_ms": 631.4,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 924.1,
+        "prefill_ms": 993.6,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 357.1,
+        "prefill_ms": 298.1,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1466.9,
+        "prefill_ms": 134.2,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     },
+     "g22-3-v013-base": {
+      "binary": "v013-base",
+      "status": "inconclusive",
+      "functional_status": "passed",
+      "startup_ms": 82662,
+      "restart_ms": 25579,
+      "measurements": {
+       "passed": 965,
+       "inconclusive": 11
+      },
+      "quality_or_coverage_changes": [],
+      "flags": [
+       "disk-spacing-disk:1:0 cache_shared_prefix_ms 12.8->17.5 +36.8%",
+       "disk-spacing:6:0 cache_snapshot_ms 41.3->49.7 +20.3%",
+       "disk-spacing:5:0 cache_snapshot_ms 45.0->50.4 +12.1%",
+       "disk-spacing:3:0 cache_snapshot_ms 29.7->32.7 +10.3%",
+       "legacy-tool-cancel:5:0 cache_snapshot_ms 21.1->24.3 +15.4%",
+       "state-edges:execution_mode_probe:0 cache_snapshot_ms 33.9->38.1 +12.2%",
+       "text-cancel-disk:0:0 cache_restore_ms 103.5->111.5 +7.7%",
+       "text-cancel-disk:0:0 queue_ms 103.9->111.8 +7.6%",
+       "thinking-tool-cancel-disk:0:0 cache_snapshot_ms 35.9->39.7 +10.5%",
+       "tool-agent:agent_sampled_peers:0 cache_snapshot_ms 114.4->120.4 +5.2%",
+       "server startup_ms 76456.4->82662.4 +8.1%"
+      ],
+      "requests": {
+       "execution_mode_probe": {
+        "decode_ms": 396.2,
+        "prefill_ms": 319.3,
+        "draft_rounds": 5,
+        "drafts": "27/27",
+        "output_sha256": "c984caed5f3378ec"
+       },
+       "thinking_tool_one_token": {
+        "decode_ms": 37.0,
+        "prefill_ms": 519.0,
+        "draft_rounds": 0,
+        "drafts": "0/0",
+        "output_sha256": "828db0c7c435b1ff"
+       },
+       "schema_payload_alpha": {
+        "decode_ms": 538.2,
+        "prefill_ms": 511.5,
+        "draft_rounds": 7,
+        "drafts": "30/33",
+        "output_sha256": "5b81941f67a7384a"
+       },
+       "agent_open_schema": {
+        "decode_ms": 78.0,
+        "prefill_ms": 525.5,
+        "draft_rounds": 1,
+        "drafts": "0/2",
+        "output_sha256": "a0824f70d7bdd055"
+       },
+       "agent_edit": {
+        "decode_ms": 830.7,
+        "prefill_ms": 707.9,
+        "draft_rounds": 9,
+        "drafts": "52/55",
+        "output_sha256": "d4cd1b1ab6c75156"
+       },
+       "agent_read_after_edit": {
+        "decode_ms": 338.1,
+        "prefill_ms": 239.9,
+        "draft_rounds": 4,
+        "drafts": "20/20",
+        "output_sha256": "a3906e4401c63624"
+       },
+       "long_cancel_resume": {
+        "decode_ms": 1463.9,
+        "prefill_ms": 134.8,
+        "draft_rounds": 25,
+        "drafts": "29/53",
+        "output_sha256": "b04ca66a901d976c"
+       }
+      }
+     }
+    },
+    "final_gate_verdict": "Inconclusive, not passed. Candidate vs base: 96 flags, mostly prefill/TTFT +5-41% and decode on identical drafts; unchanged-base control: 11 flags. Identical requests run in discrete speed states (execution_mode_probe prefill ~319, ~348 or 364-432 ms; schema_payload_alpha ~510, ~537 or 593-622 ms) that switch within runs and occur on both builds; the recorded base itself was partly slow. In the fast state the builds match within 1-2 ms. Machine state was not controlled: power configuration must not be changed.",
+    "gpu_fast_candfix": {
+     "summary": "96% tests passed, 6 tests failed out of 143",
+     "failed": [
+      "kernel_resources_test",
+      "h3_preset_quality_test",
+      "h3_latent_quality_test",
+      "qwen3_tts_reference_artifacts_test",
+      "minimax_h3_dit_analytic",
+      "qwen27b.tools"
+     ],
+     "tree": "v013-cand + a3b4a77 (codex/scheduler-test-unistd), container gpu-test preset, ctest -LE 'slow|external-model'",
+     "note": "all 15 qwen38_flash_next tests and text_generation_scheduler_test pass; failures are outside the patch: numpy missing in the container (4 Python tests), kernel_resources_test spill limits for DeepSeek/MMQ kernels under the container compiler, minimax_h3_dit_analytic exact check; not compared with a base gpu-fast run"
+    },
+    "getpid_fix": "tests/cli/text_generation_scheduler_test.cpp uses ::getpid (from #458) without <unistd.h>; the container's GCC 15 libstdc++ does not include it transitively. Test-only fix a3b4a77 on codex/scheduler-test-unistd (from v0.13.0); the full gpu-test build succeeds with it",
+    "nix": "unavailable: neither halo-llm1 nor the editing host has Nix; no Nix build or Nix check was run, and no result here is a Nix qualification"
    }
   }
  },
