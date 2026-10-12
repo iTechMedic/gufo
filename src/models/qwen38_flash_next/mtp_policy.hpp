@@ -231,8 +231,10 @@ public:
     return best;
   }
 
+  /// `copied` marks a cycle in which a row extended its chain with
+  /// prompt-lookup copies.
   void Observe(std::size_t concurrency, std::uint32_t context,
-               std::uint32_t drafts, float ms) noexcept {
+               std::uint32_t drafts, float ms, bool copied = false) noexcept {
     if (concurrency == 0 || concurrency > 8 || drafts > kMaxMtpDraftTokens ||
         !std::isfinite(ms) || ms <= 0)
       return;
@@ -242,11 +244,16 @@ public:
     stable_cycles_ = same_cohort ? std::min(stable_cycles_ + 1, 1000000U) : 1;
     last_concurrency_ = concurrency;
     last_context_bin_ = bin;
+    // Copies widen this cycle's verification beyond `drafts` proposals per
+    // row, and the next cycle replays the accepted copies in catch-up, so
+    // neither measures the cost of `drafts` proposals.
+    const bool after_copies = last_copied_;
+    last_copied_ = copied;
     auto& cell = CellFor(concurrency, context);
     // Catch-up belongs to the preceding chain. A transition from seven
     // proposals to three still replays the longer chain, so it cannot
     // measure the steady cost of three proposals (or of plain decoding).
-    if (!same_cohort || drafts != cell.last_drafts) {
+    if (!same_cohort || drafts != cell.last_drafts || copied || after_copies) {
       cell.last_drafts = drafts;
       ++cell.cycles;
       return;
@@ -287,6 +294,7 @@ private:
   std::size_t last_concurrency_{0};
   unsigned last_context_bin_{0};
   unsigned stable_cycles_{0};
+  bool last_copied_{false};
 };
 
 }  // namespace gufo::models::qwen38_flash_next

@@ -1339,7 +1339,9 @@ bool Session::DecodeBatchImpl(std::span<const DecodeRequest> requests,
     const auto ms = std::chrono::duration<float, std::milli>(
                         std::chrono::steady_clock::now() - cycle_start)
                         .count();
-    policy.Observe(requests.size(), batch_context, *batch_drafts, ms);
+    const bool copied = std::ranges::any_of(
+        pending, [](const auto& p) { return p.lookup != 0; });
+    policy.Observe(requests.size(), batch_context, *batch_drafts, ms, copied);
   }
   return true;
 }
