@@ -28,9 +28,10 @@ Adaptive MTP is default, with `--draft-tokens` capping 1–7 proposals. Sampled
 requests use deterministic acceptance/cost control for seeded replay; all-greedy
 C>1 batches may use measured cycle costs. Each request keeps private caches,
 rollback and RNG. After an MTP draft, a match of at least 12 committed tokens
-fills the rest of the chain with the tokens that followed it; copies are
-verified like drafts (point-mass proposals when sampling), in isolated and
-batched decoding alike. See [MTP qualification](QUALITY.md).
+fills the rest of the chain with the tokens that followed it when more of them
+are expected to be accepted than the pending MTP drafts; copies are verified
+like drafts (point-mass proposals when sampling), in isolated and batched
+decoding alike. See [MTP qualification](QUALITY.md).
 
 The official template defaults to thinking on, `xhigh` effort and preserving
 prior reasoning. Use the [reasoning controls](../../SERVER.md#reasoning-controls)

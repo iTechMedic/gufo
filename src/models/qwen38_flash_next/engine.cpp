@@ -780,6 +780,21 @@ bool Session::AppendLookup(PendingDecode& pending) const {
   std::size_t count = 0;
   while (count < limit) {
     const std::int32_t token = committed[match.start + count++];
+    if (pending.stop_at_eos && model_->IsStopToken(token))
+      break;
+  }
+  // Copies replace the MTP drafts this cycle has not proposed yet. Copy only
+  // if more of them are expected to be accepted than of those drafts, so a
+  // short match in repeated template text, such as an earlier tool call,
+  // does not displace a reliable MTP chain. Both estimates derive from
+  // committed tokens, not timings.
+  const auto drafted = static_cast<std::uint32_t>(pending.chain.size() - 1);
+  if (PromptLookup::ExpectedCopies(match.length, count) <=
+      draft_length_.ExpectedDrafts(
+          drafted, static_cast<std::uint32_t>(pending.width - 1)))
+    return false;
+  for (std::size_t i = 0; i < count; ++i) {
+    const std::int32_t token = committed[match.start + i];
     pending.chain.push_back(token);
     if (pending.sampled) {
       // A point-mass proposal: accepted with the target's p(token); a
@@ -792,8 +807,6 @@ bool Session::AppendLookup(PendingDecode& pending) const {
       proposal.probability = 1.0F;
       pending.proposals.push_back(proposal);
     }
-    if (pending.stop_at_eos && model_->IsStopToken(token))
-      break;
   }
   pending.lookup = static_cast<std::uint32_t>(count);
   pending.width = pending.chain.size();

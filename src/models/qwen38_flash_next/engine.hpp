@@ -281,7 +281,8 @@ private:
                      std::string* error_msg, bool defer_head = false,
                      std::optional<std::uint32_t> batch_drafts = {});
   static void AppendDraft(PendingDecode& pending);
-  /// Fills the chain with copied proposals after a long context match.
+  /// Fills the chain with copied proposals after a long context match when
+  /// they are expected to outlast the MTP drafts they replace.
   bool AppendLookup(PendingDecode& pending) const;
   bool FinishDecode(const DecodeRequest& request, const PendingDecode& pending,
                     std::string* error_msg);
