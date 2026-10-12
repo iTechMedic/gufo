@@ -137,6 +137,18 @@ Mixed C2 and C4 swings are machine state, not lookup:
 - At identical drafts the builds matched (51.05 vs 51.07).
 - Slow runs on either build have every cycle about 12% slower.
 
+Pinned Nix production builds (candidate `5ba35a3b`, base `c4c55240`;
+disposable container, not the build behind the Nix tables above) were checked
+over HTTP. Order was base, candidate, candidate, base, with greedy output
+byte-identical. Nix tables still need refreshing.
+
+| Workload | Greedy, shallow / 32K | Sampled, shallow / 32K |
+| --- | ---: | ---: |
+| Rewrite | +40.1% / +48.3% | +49.0% / +50.5% |
+| Small edit | +28.7% / +39.3% | +28.8% / +24.7% |
+| Mixed prose | 0.0% / +0.1% | 0.0% / −0.1% |
+| Fresh code | +0.7% / +0.4% | +2.4% / −2.0% |
+
 Token gaps come from the HTTP A/B runs, not this driver:
 - **ABBA runs:** the largest gap was 166 ms on the candidate and 158 ms on
   base (both 32K prose). On rewrites and small edits it was 111 ms against
