@@ -25934,7 +25934,8 @@
      "original": "auto (saved by the owner to /run/gufo-gpu-level.orig)",
      "change": "owner ran the authorized setting: power_dpm_force_performance_level=high, with a transient systemd timer gufo-gpu-level-restore (50 min) writing the saved value back; no clock, voltage, power-limit, firmware or persistent change",
      "effect": "idle and loaded GPU clock pinned (idle 2900 MHz; busy 2641-2900 MHz), fclk 2000 and uclk 1000 MHz fixed; fast-PPT residency still advanced (142769) and two of nine runs (fq31-4 base, g31-1 base) were still partly in the slow state, so 'high' reduced but did not remove timing variation",
-     "restoration": "see restoration field"
+     "restoration": "owner restored 'auto' manually at 21:51 EDT (before the 22:09 timer) and stopped the timer; verified: level auto, idle sclk 600 MHz, timer inactive; live server restarted with the identical command line and original binary 264f21ac, /v1/models 200",
+     "window": "21:20-21:43 EDT controlled runs (focused 21:20-21:33, gate 21:33-21:43), trace follow-up after; level set to high at about 21:20"
     },
     "controlled_runs": {
      "fq31-1-base": {
