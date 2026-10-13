@@ -531,9 +531,9 @@ void CheckPromptLookupReplay(const std::shared_ptr<qfn::Model>& model) {
           "stop-terminated prompt lookup differs from AR");
 
   // The reply repeats a long arbitrary value and then diverges from what
-  // followed it in the prompt. Draft models mispredict such values, and a
-  // wrong first draft must not hide the context match from the cycle:
-  // copies are also proposed at the anchor, replacing the whole MTP chain.
+  // followed it in the prompt. After rejected first drafts, a wrong first
+  // draft must not hide that context match: copies are then also proposed
+  // at the anchor, replacing the whole MTP chain.
   std::string value;
   std::uint32_t state = 12345;
   for (unsigned i = 0; i < 40; ++i) {
@@ -564,16 +564,60 @@ void CheckPromptLookupReplay(const std::shared_ptr<qfn::Model>& model) {
   Require(quoted_ar_run.tokens == quoted_mtp_run.tokens,
           "greedy anchor prompt lookup differs from AR");
   const auto quoted_stats = quoted_mtp->Statistics();
-  Require(quoted_stats.lookup_anchor > 0 && quoted_stats.lookup_accepted > 0,
-          "quoted value was not copied from the anchor (lookup=" +
-              std::to_string(quoted_stats.lookup) +
-              " anchor=" + std::to_string(quoted_stats.lookup_anchor) +
-              " accepted=" + std::to_string(quoted_stats.lookup_accepted) +
-              ")");
-  std::cout << "prompt lookup quoted_value cycles=" << quoted_stats.cycles
-            << " lookup=" << quoted_stats.lookup
-            << " anchor=" << quoted_stats.lookup_anchor
-            << " accepted=" << quoted_stats.lookup_accepted << "\n"
+  Require(quoted_stats.lookup_accepted > 0,
+          "greedy quoted value did not accept copied proposals");
+  // Sampled verification rejects first drafts, the condition under which an
+  // anchor match replaces the chain. Seeded runs over the quoted value and a
+  // long repetitive pattern each replay exactly; together they must copy
+  // from the anchor and accept copies.
+  const auto unit = model->Tokenize("Continue red, blue, blue, red,");
+  std::vector<std::int32_t> repeated(1024);
+  for (std::size_t t = 0; t < repeated.size(); ++t)
+    repeated[t] = unit[t % unit.size()];
+  const auto& pattern = repeated;
+  qfn::Session::SpeculativeStats sampled_totals;
+  for (const auto* context : {&quoted, &pattern}) {
+    const std::vector<sampling::TokenId> context_history(context->begin(),
+                                                         context->end());
+    for (const float temperature : {1.0F, 2.0F}) {
+      for (const std::int64_t seed : {11, 12}) {
+        const sampling::SamplingConfig sampled_config{
+            .temperature = temperature,
+            .top_k = 20,
+            .top_p = 0.95F,
+            .seed = seed};
+        std::array<Run, 2> runs;
+        std::array<qfn::Session::SpeculativeStats, 2> stats;
+        for (std::size_t r = 0; r < runs.size(); ++r) {
+          auto session = create(gufo::core::SessionMode::kSpeculative);
+          Require(session->Sync(*context, &error), error);
+          sampling::SamplerState sampler(sampled_config, context_history);
+          decode(*session, sampler, &runs[r], 64);
+          stats[r] = session->Statistics();
+        }
+        Require(runs[0].tokens == runs[1].tokens &&
+                    runs[0].widths == runs[1].widths &&
+                    runs[0].rng == runs[1].rng &&
+                    stats[0].lookup == stats[1].lookup &&
+                    stats[0].lookup_anchor == stats[1].lookup_anchor,
+                "sampled anchor prompt lookup does not replay exactly");
+        sampled_totals.lookup += stats[0].lookup;
+        sampled_totals.lookup_anchor += stats[0].lookup_anchor;
+        sampled_totals.lookup_accepted += stats[0].lookup_accepted;
+      }
+    }
+  }
+  Require(
+      sampled_totals.lookup_anchor > 0 && sampled_totals.lookup_accepted > 0,
+      "no copy from the anchor after rejected first drafts (lookup=" +
+          std::to_string(sampled_totals.lookup) +
+          " anchor=" + std::to_string(sampled_totals.lookup_anchor) +
+          " accepted=" + std::to_string(sampled_totals.lookup_accepted) + ")");
+  std::cout << "prompt lookup quoted_value greedy_lookup="
+            << quoted_stats.lookup
+            << " sampled_lookup=" << sampled_totals.lookup
+            << " sampled_anchor=" << sampled_totals.lookup_anchor
+            << " sampled_accepted=" << sampled_totals.lookup_accepted << "\n"
             << std::flush;
 
   const sampling::SamplingConfig config{
