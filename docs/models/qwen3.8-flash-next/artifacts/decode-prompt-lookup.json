@@ -9733,7 +9733,7 @@
    }
   },
   "final_v013": {
-   "status": "not qualified: correctness passes on v0.13.0 and after rebasing onto main 2599ad6 (pinned Nix); timing qualification remains inconclusive because no stable GPU clock state is available (level auto, no clock change authorized); host-disk restore failures are a shared staging-admission defect reproduced on main and fixed on a separate branch",
+   "status": "not qualified: correctness and combined cache compatibility pass for testing candidate a45a0d2 (testing 663d982 + lookup on main 9f55ebd + cache fix 7e72453); throughput gains are historical versus v0.13.0 and were not remeasured against main 2599ad6; overall per-request timing qualification remains unresolved without a stable GPU clock state",
    "source": {
     "upstream_checked": "2026-10-12, origin/main = v0.13.0 fcf8bf7 (f37fb01 plus 956f3d6 raw-completion cache_prompt, 1834991 docs, release)",
     "baseline": {
@@ -29154,6 +29154,35 @@
      "not_done": "no generic disk benchmark, no file deletion, no RAM-backed storage, no timeout change; the full cache-* suite family was not run because only the cache suite (and image-count, not loaded here) uses disk persistence"
     },
     "server_restoration": "live gufo-rocm-10.0 server stopped 00:58:55 EDT, restarted 01:09:23 with the saved command line (cmdline-identical), binary 264f21ac, /v1/models 200; GPU level auto throughout, TuneD accelerator-performance"
+   },
+   "combined_candidate_round_44": {
+    "date": "2026-10-13 (EDT)",
+    "candidate": {
+     "branch": "codex/testing-integration",
+     "revision": "a45a0d29fd367f39f7bb5d8f46c47af0f40e4a16",
+     "construction": "from testing 663d982: merge dc42139 of codex/flash-next-prompt-lookup-main 9f55ebd, then cherry-pick of 7e72453 as a45a0d2",
+     "merge_conflicts": "add/add docs/models/qwen3.8-flash-next/artifacts/decode-prompt-lookup.json and content conflicts in BENCHMARKS.md/QUALITY.md; testing's copies equal the cherry-picked 582aaf5 copies and 9f55ebd only adds to them, so all three resolve to the 9f55ebd files; merge tree == 9f55ebd tree; no source conflict",
+     "source_identity": "diff 9f55ebd..a45a0d2 equals diff 2599ad6..7e72453; src/tests diff 7e72453..a45a0d2 equals 2599ad6..9f55ebd; no other production difference",
+     "published_history": "testing 663d982 is an ancestor; validated fcf8bf7 unchanged"
+    },
+    "build": {
+     "toolchain": "pinned Nix (flake.lock), same container and store as round 42",
+     "drv": "/nix/store/l7zwfbrafbjja18n6dlb5brjz906xczk-gufo-0-unstable-a45a0d2.drv",
+     "out": "/nix/store/656kl9nvqccfps1kmxzs4hh2z98yjp61-gufo-0-unstable-a45a0d2",
+     "gufo_sha256": "b8f65914d2a0a7c31162bbbe09dfc0e3b47c6f2a3d8b068c5a3eaca91138c997"
+    },
+    "question": "does the integrated lookup candidate with the cache fix preserve and restore conversations during a stalled cache write?",
+    "check": {
+     "method": "round-43 reproducer unchanged: main-2599 tests/functional/run.py (4f60218e) --suite cache --baseline round43/gate43-fix, sessions 2, context 32768, MTP; LD_PRELOAD fsync gate libcache_disk_faults.so (e8166c8d) holds the first private cache fsync, released after 15 s (01:39:20.958-01:39:35.963 EDT); live server stopped 01:37 and restored 01:40",
+     "result": "functional_status passed: text-cancel, thinking-tool-cancel, legacy-tool-cancel, disk-spacing and all four disk restores pass (restored cached tokens 173 / 672 / 670 from disk, exact; disk-spacing exact); quality_or_coverage_changes empty",
+     "admission": "events identical to gate43-fix: 56 min_step, 6 saved, 6 disabled, 1 prefix_changed, 0 staging_capacity",
+     "outputs_and_work": "all 36 requests identical to gate43-fix (output sha256, prefill/cached/completion tokens, draft rounds, drafts proposed/accepted, status)",
+     "lookup": "lookup counters are not exposed over HTTP; identical drafts against the no-lookup cache-fix build show no copies occurred in this history, so copy coverage is not claimed here (covered by the round-43 session test)",
+     "request_path": "max cache_disk_enqueue_ms 0.340 (combined) vs 0.382 (gate43-fix); device footprint 88338 MiB",
+     "timing": "runner status inconclusive from two timing measurements only: disk-spacing cache_snapshot_ms 25.52->31.90 and 37.22->45.43 ms (+25%/+22%); 477 of 479 measurements pass; not a timing claim, not investigated in this task"
+    },
+    "reused_not_rerun": "unfixed baseline reproduction (round43 gate43-base, main 2599ad6); lookup session test, checks.pr and reviews of 9f55ebd/582aaf5; cache store test fail/pass and checks.pr of 7e72453; CodeRabbit reviews (no new code in the combination)",
+    "server_restoration": "live server restarted with the saved command line (cmdline-identical), binary 264f21ac, /v1/models 200, GPU level auto, TuneD accelerator-performance"
    }
   }
  },
