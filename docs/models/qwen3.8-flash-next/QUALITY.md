@@ -20,34 +20,55 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
-**Prompt lookup is not qualified: correctness passes, timing and host-disk
-validation are blocked by the environment.** Final source `9e7784f`
-(implementation `a0aee02` plus batch-cost accounting fix `3c7922f`) versus
-v0.13.0 `fcf8bf7`.
-- **Pinned Nix production build** (flake.lock nixpkgs `2fcb964d`):
-  `14dd312a` for the final source; `5ba35a3b` for `a0aee02`; base
-  `c4c55240`.
+**Prompt lookup is not qualified: a candidate-specific timing defect is
+reproduced; correctness passes.** Final source `9e7784f` (implementation
+`a0aee02` plus batch-cost accounting fix `3c7922f`) versus v0.13.0
+`fcf8bf7`.
+- **Pinned Nix production build** (flake.lock nixpkgs `2fcb964d`): final
+  `14dd312a`, `a0aee02` `5ba35a3b`, base `c4c55240`.
 - **ROCm container builds:** fix `3647d37e`, `a0aee02` `14a7cc1f`, base
   `d781bceb`.
 
 Correctness passes:
-- **Nix `nix develop` toolchain:** all 15 Flash-Next CTest cases (including
-  `prompt_lookup` and the new accounting test), the session test and the
-  snapshot test pass on both the Nix and container toolchains.
-- **Session test coverage:** greedy MTP-with-copies equals AR, including
+- **Tests, both toolchains:** the 15 Flash-Next CTest cases (including
+  `prompt_lookup` and the accounting test), the session test and the snapshot
+  test pass on the pinned `nix develop` toolchain and in the container.
+- **Session test coverage:** greedy MTP-with-copies equals AR including
   stop-terminated replies. Sampled replay is exact after restore and from a
   mid-copy snapshot, and so are cancellation and rollback. Batched C2–C8
-  logits, RNG, acceptance and lookup counters match isolated execution.
-- **Nix `checks.pr`:** passes for every revision (56/56 hosted CPU tests).
-- **Functional cases:** every case passes in every gate and focused run, with
-  outputs and cache/prefill counts unchanged.
+  logits, RNG, acceptance and lookup counters match isolated execution, and
+  batched sampled copies occur under both toolchains.
+- **Nix `checks.pr`:** passes, 56/56 hosted CPU tests.
+- **Functional cases:** every case passes in every gate and focused run;
+  host-disk failures are storage, above.
 - **HTTP output:** greedy output is byte-identical to the baseline within
   each toolchain, and every C1–C8 completion matches the AR reference.
 - **`gpu-fast`:** the six failures reproduce on the baseline.
-- **Fixture fix:** under Nix, the batched sampled fixture first made no
-  copies, a coverage failure. `9e7784f` adds a repeat-reward repetitive
-  member without changing the requirement. It now copies 5 times under Nix
-  and 13 times in the container.
+
+**Reproduced regression (controlled clocks).**
+- **Setup:** GPU performance level `high` (owner-authorized, timed automatic
+  restore), final Nix binaries.
+- **Result:** `state-edges` decode, with output unchanged:
+
+| Case | Base | Candidate | Change |
+| --- | ---: | ---: | ---: |
+| `quoted_call_argument_complete` | 855.4 ms | 928.6–929.3 ms | +8.6% |
+| `quoted_call_argument_stop_streamFalse` | 529.6 ms | 602.1–607.0 ms | +13.9% |
+| `quoted_call_argument_stop_streamTrue` | 517.8 ms | 592.3–592.5 ms | +14.4% |
+
+  The table holds for all three focused candidate runs, and the final gate
+  shows the same three flags. Unchanged-base controls do not show them.
+- **Cause (traced):** the candidate needs one extra cycle (8 vs 7, 12 vs 11).
+  After two cycles with nearly all MTP drafts rejected, an 18-token match
+  copies 6 tokens past the end of the quoted argument and only one is
+  accepted. The expected-acceptance gate admits it because recent rejections
+  lowered the MTP estimate.
+- **Resolved under controlled clocks:** `agent_read_after_edit`,
+  `long_cancel_resume`, `thinking_tool_one_token` and `agent_open_schema`
+  show no candidate-only flag.
+- **Caveat:** `high` pinned idle clocks, but busy clocks still dipped
+  (2641–2900 MHz, fast-PPT residency) and two of nine runs were partly in the
+  slow state.
 
 Batch-cost accounting (CodeRabbit, valid):
 - **Problem:** copy cycles, and the catch-up cycle after them, were learned
@@ -66,30 +87,22 @@ Confirmed improvements:
 - **`agent_read_after_edit`:** the extra cycle is gone.
 - **Mixed text and C2/C4 mixed:** unchanged.
 
-Blocked, timing gate:
-- **Observed correlation:** speed states correlate with GPU clock and
-  package power (r up to −0.81), with no thermal or sustained-power
-  throttling and no CPU contention.
-- **Not proven:** causation needs pinned clocks, a power-configuration
-  change that requires approval.
-- **`agent_read_after_edit` estimate:** +6.7 ms (+1.95%), 95% bootstrap
-  interval −0.1 to +13.6 ms.
-
-Blocked, host disk:
-- The single drive is 95% full. After sustained writes its direct-write
-  speed falls from ~800 to 130–235 MB/s, and two disk-cache cases then fail
-  on both builds.
-- Free space (115 GB) is not the limit, and no second disk exists. The
-  largest cleanup candidate is a 92.7 GB GPU core dump in the experiment
-  directory; deleting it needs approval.
+Host disk (storage, not the candidate):
+- An 8 GiB direct-write probe ran at 5.45 GB/s. Earlier ~800 MB/s figures
+  were limited by `/dev/urandom`.
+- The cache's own writes still stalled 4–8 s. The baseline then failed
+  `legacy-tool-cancel-disk` ("restart did not restore disk state"); the
+  final build passed all cases twice.
+- No candidate comparison exists because the recorded baseline failed.
+- Nothing was deleted.
 
 Evidence: [decode-prompt-lookup.json](artifacts/decode-prompt-lookup.json),
-`final_v013` (`batch_cost_accounting_fix`, `nix_gpu_correctness`,
-`environment_build_round_23_25`).
+`final_v013` (`final_validation_round_30_32`, `batch_cost_accounting_fix`,
+`nix_gpu_correctness`, `environment_build_round_23_25`).
 
 | Check | Result |
 | --- | --- |
-| Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Final source `9e7784f`: Nix production build and `checks.pr` pass, and Flash-Next CTest, session and snapshot tests pass on the pinned `nix develop` toolchain. The timing gate and host-disk validation are blocked by the environment (above). [Evidence](artifacts/decode-prompt-lookup.json). |
+| Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Final source `9e7784f`: Nix production build and `checks.pr` pass, and Flash-Next CTest, session and snapshot tests pass on the pinned `nix develop` toolchain. Under controlled clocks, `quoted_call_argument` cases regress 8.6–14.4% from one extra cycle; host-disk cases fail on the baseline (above). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Decode-kernel review, October 10 | All 13 operator tests and native snapshot/session/deep-execution checks pass. Independent MTP formulas: worst relative RMS 0.0007655 (limit 0.002), 41 reported comparisons over eight text/image states. Sampled replay, cancellation, C2/4/6/8 and RAM/disk restoration pass. [Evidence](artifacts/decode-kernels-review.json). |
 | Focused HTTP regression, October 10 | `state-edges`, `tool-agent`, `long-context`, `cache`, Flash AR/MTP only. Two main/PR pairs plus unchanged-main controls; no output or expected cache/prefill-work changes. Timing failures remain visible above and in the [evidence](artifacts/decode-kernels-review.json). |
 | Concurrency, October 10 | All 63 tg128 requests match fresh AR completions: 21 AR, 21 mixed MTP and 21 repetitive MTP at C1/2/4/6/8. Prepared prefixes are reused; mixed/repetitive MTP propose 882/2170 drafts and accept 517/1959. [Evidence](artifacts/decode-kernels-review.json). |
