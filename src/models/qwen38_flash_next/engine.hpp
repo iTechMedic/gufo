@@ -209,6 +209,8 @@ public:
     /// Of drafted/accepted: proposals copied by prompt lookup.
     std::uint64_t lookup{0};
     std::uint64_t lookup_accepted{0};
+    /// Of lookup: copies that replaced the whole MTP chain.
+    std::uint64_t lookup_anchor{0};
   };
   [[nodiscard]] const SpeculativeStats& Statistics() const noexcept {
     return stats_;
@@ -281,8 +283,9 @@ private:
                      std::string* error_msg, bool defer_head = false,
                      std::optional<std::uint32_t> batch_drafts = {});
   static void AppendDraft(PendingDecode& pending);
-  /// Fills the chain with copied proposals after a long context match when
-  /// they are expected to outlast the MTP drafts they replace.
+  /// Fills the chain with copied proposals after a long context match, at the
+  /// anchor or after an MTP draft, when they are expected to outlast the MTP
+  /// drafts they replace.
   bool AppendLookup(PendingDecode& pending) const;
   bool FinishDecode(const DecodeRequest& request, const PendingDecode& pending,
                     std::string* error_msg);
