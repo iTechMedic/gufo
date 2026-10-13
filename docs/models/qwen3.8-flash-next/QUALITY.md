@@ -20,55 +20,59 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
-**Prompt lookup is not qualified: a candidate-specific timing defect is
-reproduced; correctness passes.** Final source `9e7784f` (implementation
-`a0aee02` plus batch-cost accounting fix `3c7922f`) versus v0.13.0
-`fcf8bf7`.
-- **Pinned Nix production build** (flake.lock nixpkgs `2fcb964d`): final
-  `14dd312a`, `a0aee02` `5ba35a3b`, base `c4c55240`.
-- **ROCm container builds:** fix `3647d37e`, `a0aee02` `14a7cc1f`, base
-  `d781bceb`.
+**Prompt lookup is not qualified: the quoted-argument regression is fixed and
+correctness passes; timing qualification is inconclusive.** Final source
+`dcd7a8c`: implementation `a0aee02`, batch-cost accounting fix `3c7922f`,
+anchor-lookup fix `8297750` + `0821c8a`, tests `9e7784f`/`dcd7a8c`; versus
+v0.13.0 `fcf8bf7`.
+- **Pinned Nix production build** (flake.lock nixpkgs `2fcb964d`):
+  final `dcd7a8c` `5922399c` (`checks.pr` passes); timed binary `0821c8a`
+  `221ef3b5`, whose production sources are identical; base `c4c55240`.
 
 Correctness passes:
-- **Tests, both toolchains:** the 15 Flash-Next CTest cases (including
-  `prompt_lookup` and the accounting test), the session test and the snapshot
-  test pass on the pinned `nix develop` toolchain and in the container.
+- **Tests, both toolchains:** on the pinned `nix develop` toolchain, the 15
+  Flash-Next CTest cases and the snapshot test pass (`0821c8a`), and the
+  session test passes (`dcd7a8c`, 61 exact checks); the container session
+  test also passes.
 - **Session test coverage:** greedy MTP-with-copies equals AR including
   stop-terminated replies. Sampled replay is exact after restore and from a
   mid-copy snapshot, and so are cancellation and rollback. Batched C2–C8
-  logits, RNG, acceptance and lookup counters match isolated execution, and
-  batched sampled copies occur under both toolchains.
+  logits, RNG, acceptance and lookup counters match isolated execution.
 - **Nix `checks.pr`:** passes, 56/56 hosted CPU tests.
-- **Functional cases:** every case passes in every gate and focused run;
-  host-disk failures are storage, above.
 - **HTTP output:** greedy output is byte-identical to the baseline within
-  each toolchain, and every C1–C8 completion matches the AR reference.
-- **`gpu-fast`:** the six failures reproduce on the baseline.
+  each toolchain.
 
-**Reproduced regression (controlled clocks).**
-- **Setup:** GPU performance level `high` (owner-authorized, timed automatic
-  restore), final Nix binaries.
-- **Result:** `state-edges` decode, with output unchanged:
+**Quoted-argument regression: fixed.**
+- **Original defect** (controlled clocks): `quoted_call_argument_*` decode
+  was +8.6% to +14.4% from one extra cycle (8 vs 7 rounds; 12 vs 11).
+- **Cause (Nix traces):** after a fully accepted copy cycle, the next first
+  MTP draft was wrong. Lookup was only tried after a draft, so the wrong
+  draft hid a 16-token context match for that cycle.
+- **First attempt (`8297750`, superseded):** lookup also at the anchor. It
+  fixed the quoted cases but regressed `agent_read_after_edit` (+22%) and
+  four `state-edges` schema/tool cases (+13%), because 12–15-token template
+  matches displaced first drafts that had never been rejected.
+- **Final rule (`0821c8a`):** at the anchor a copy competes only when the
+  first copy's survival estimate exceeds the controller's first-draft
+  acceptance, so only after first drafts were rejected.
+- **Result** (Nix production binaries, GPU level `auto`, three alternating
+  pairs, same rounds/drafts as base everywhere checked):
 
-| Case | Base | Candidate | Change |
-| --- | ---: | ---: | ---: |
-| `quoted_call_argument_complete` | 855.4 ms | 928.6–929.3 ms | +8.6% |
-| `quoted_call_argument_stop_streamFalse` | 529.6 ms | 602.1–607.0 ms | +13.9% |
-| `quoted_call_argument_stop_streamTrue` | 517.8 ms | 592.3–592.5 ms | +14.4% |
+| Case | Base | Fix |
+| --- | ---: | ---: |
+| `quoted_call_argument_complete` | 857–858 ms | 857–859 ms |
+| `quoted_call_argument_stop_streamFalse` | 531–532 ms | 530–532 ms |
+| `quoted_call_argument_stop_streamTrue` | 519–524 ms | 519–520 ms |
+| `agent_read_after_edit` | 339–340 ms | 340 ms |
 
-  The table holds for all three focused candidate runs, and the final gate
-  shows the same three flags. Unchanged-base controls do not show them.
-- **Cause (traced):** the candidate needs one extra cycle (8 vs 7, 12 vs 11).
-  After two cycles with nearly all MTP drafts rejected, an 18-token match
-  copies 6 tokens past the end of the quoted argument and only one is
-  accepted. The expected-acceptance gate admits it because recent rejections
-  lowered the MTP estimate.
-- **Resolved under controlled clocks:** `agent_read_after_edit`,
-  `long_cancel_resume`, `thinking_tool_one_token` and `agent_open_schema`
-  show no candidate-only flag.
-- **Caveat:** `high` pinned idle clocks, but busy clocks still dipped
-  (2641–2900 MHz, fast-PPT residency) and two of nine runs were partly in the
-  slow state.
+- **Regression tests:**
+  - **Pass with the fix:** the unit anchor-gate checks, and a session
+    scenario that quotes an arbitrary value then diverges. In it, greedy
+    output equals AR and copies are accepted, and seeded sampled runs replay
+    exactly and must copy from the anchor after rejected first drafts.
+  - **Fail without the fix:** the same tests with only the anchor calls
+    removed.
+- **Review:** CodeRabbit raised no findings on these commits.
 
 Batch-cost accounting (CodeRabbit, valid):
 - **Problem:** copy cycles, and the catch-up cycle after them, were learned
@@ -80,12 +84,18 @@ Batch-cost accounting (CodeRabbit, valid):
 - **Measured impact:** none in these workloads; copies fill the chains
   whatever depth is chosen. See [EXPERIMENTS](EXPERIMENTS.md).
 
-Confirmed improvements:
-- **Rewrites:** +40–51%.
-- **Small edits:** faster.
-- **Repetitive C2–C8:** +24–79%.
-- **`agent_read_after_edit`:** the extra cycle is gone.
-- **Mixed text and C2/C4 mixed:** unchanged.
+Confirmed improvements (Nix, fix `0821c8a`):
+- **Rewrite:** +40.3% / +51.3% greedy and +48.9% / +48.0% sampled
+  (shallow / 32K).
+- **Small edit:** +28.0% / +34.2% greedy and +28.3% / +33.5% sampled.
+- **Prose:** within ±1.1%.
+- **Repetitive C2–C8 (earlier container runs):** +24–79%.
+
+Timing (inconclusive):
+- No repeatable candidate-only flag in the focused pairs. Remaining flags
+  are snapshot/startup/TTFT ones, also seen on base controls, and two decode
+  flags in one fix run against a partly slow recorded baseline.
+- GPU clocks were uncontrolled and no final timing gate was run this round.
 
 Host disk (storage, not the candidate):
 - An 8 GiB direct-write probe ran at 5.45 GB/s. Earlier ~800 MB/s figures
@@ -97,12 +107,13 @@ Host disk (storage, not the candidate):
 - Nothing was deleted.
 
 Evidence: [decode-prompt-lookup.json](artifacts/decode-prompt-lookup.json),
-`final_v013` (`final_validation_round_30_32`, `batch_cost_accounting_fix`,
+`final_v013` (`quoted_argument_fix_round_33_41`, `final_validation_round_30_32`,
+`batch_cost_accounting_fix`,
 `nix_gpu_correctness`, `environment_build_round_23_25`).
 
 | Check | Result |
 | --- | --- |
-| Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Final source `9e7784f`: Nix production build and `checks.pr` pass, and Flash-Next CTest, session and snapshot tests pass on the pinned `nix develop` toolchain. Under controlled clocks, `quoted_call_argument` cases regress 8.6–14.4% from one extra cycle; host-disk cases fail on the baseline (above). [Evidence](artifacts/decode-prompt-lookup.json). |
+| Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Final source `9e7784f`: Nix production build and `checks.pr` pass, and Flash-Next CTest, session and snapshot tests pass on the pinned `nix develop` toolchain. The quoted-argument regression is fixed (`0821c8a`); timing qualification is inconclusive and host-disk cases fail on the baseline (above). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Decode-kernel review, October 10 | All 13 operator tests and native snapshot/session/deep-execution checks pass. Independent MTP formulas: worst relative RMS 0.0007655 (limit 0.002), 41 reported comparisons over eight text/image states. Sampled replay, cancellation, C2/4/6/8 and RAM/disk restoration pass. [Evidence](artifacts/decode-kernels-review.json). |
 | Focused HTTP regression, October 10 | `state-edges`, `tool-agent`, `long-context`, `cache`, Flash AR/MTP only. Two main/PR pairs plus unchanged-main controls; no output or expected cache/prefill-work changes. Timing failures remain visible above and in the [evidence](artifacts/decode-kernels-review.json). |
 | Concurrency, October 10 | All 63 tg128 requests match fresh AR completions: 21 AR, 21 mixed MTP and 21 repetitive MTP at C1/2/4/6/8. Prepared prefixes are reused; mixed/repetitive MTP propose 882/2170 drafts and accept 517/1959. [Evidence](artifacts/decode-kernels-review.json). |

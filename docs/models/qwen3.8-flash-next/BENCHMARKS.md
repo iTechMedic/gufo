@@ -163,10 +163,18 @@ Batch-cost accounting fix (`3c7922f`, container binary `3647d37e`) versus
 within 0.2% apart from one slow sample per build. Mixed draft counts vary
 by run on both builds. Single-user rewrite and prose are within 0.2%.
 
-Final source `9e7784f` (Nix `14dd312a`): the throughput rows above still
-apply. The fix leaves single-user decoding unchanged and was measured at
-C2/C4. Under a controlled GPU level, three `quoted_call_argument` tool calls
-decode 8.6–14.4% slower; see [QUALITY](QUALITY.md).
+Final source `dcd7a8c` (timed Nix binary `221ef3b5` of `0821c8a`, base
+`c4c55240`):
+
+| Workload | Greedy, shallow / 32K | Sampled, shallow / 32K |
+| --- | ---: | ---: |
+| Rewrite | +40.3% / +51.3% | +48.9% / +48.0% |
+| Small edit | +28.0% / +34.2% | +28.3% / +33.5% |
+| Prose | −0.0% / +0.9% | −0.1% / −1.1% |
+
+The quoted-argument tool calls match the baseline again. Concurrency rows
+above predate the anchor fix, which does not change batched copying of
+repetitive text (no anchor copies there).
 
 Token gaps come from the HTTP A/B runs, not this driver:
 - **ABBA runs:** the largest gap was 166 ms on the candidate and 158 ms on
