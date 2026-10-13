@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -1202,11 +1203,88 @@ void TestMinimumCheckpointStep() {
       "zero disables the step");
 }
 
+void TestQueuedCheckpointsAreStepBases() {
+  // A stalled write must not let checkpoints the writer would discard fill
+  // staging and displace another conversation's only checkpoint.
+  TemporaryDirectory directory;
+  auto runner = std::make_shared<FakeRunner>("queued-step-model");
+  const auto identity_bytes =
+      runner->Descriptor().persistence->compatibility_identity.size();
+  std::vector<ContinuationDiskEvent> events;
+  std::mutex events_mutex;
+  // Room for exactly two two-token checkpoints.
+  auto options = StoreOptions(directory.path(), 4096,
+                              2 * ExpectedFileBytes(identity_bytes, 2));
+  options.min_checkpoint_step_tokens = 3;
+  std::binary_semaphore entered(0), release(0);
+  std::atomic<bool> stalled{false};
+  {
+    ContinuationDiskStore store(options, [&](const auto& event) {
+      const std::lock_guard lock(events_mutex);
+      events.push_back(event);
+    });
+    const auto last_reason = [&] {
+      const std::lock_guard lock(events_mutex);
+      return events.back().reason;
+    };
+    runner->before_stream = [&] {
+      if (stalled.exchange(true))
+        return;
+      entered.release();
+      release.acquire();
+    };
+    Expect(store.SaveAsync(runner, {1, 2}, MakeSnapshot(*runner, 1, 2)) != 0,
+           "the first checkpoint is queued");
+    const bool started = entered.try_acquire_for(std::chrono::seconds(2));
+    if (!started)
+      release.release();
+    Expect(started, "the first write stalls inside the writer");
+    Expect(
+        store.SaveAsync(runner, {1, 2, 3}, MakeSnapshot(*runner, 2, 3)) == 0 &&
+            last_reason() == ContinuationDiskEventReason::kMinStep,
+        "an extension within one step of the active write is not staged");
+    Expect(store.SaveAsync(runner, {1, 2}, MakeSnapshot(*runner, 3, 2)) == 0 &&
+               last_reason() == ContinuationDiskEventReason::kExactReplacement,
+           "a repeat of the active write is not staged");
+    Expect(store.WithinCheckpointStep(*runner,
+                                      std::vector<TextRunnerToken>{1, 2, 4}) &&
+               !store.WithinCheckpointStep(
+                   *runner, std::vector<TextRunnerToken>{1, 2, 3, 4, 5}) &&
+               !store.WithinCheckpointStep(*runner,
+                                           std::vector<TextRunnerToken>{1, 2},
+                                           std::vector<std::uint8_t>{9}),
+           "callers see queued step bases of the same input identity");
+    Expect(store.SaveAsync(runner, {8, 9}, MakeSnapshot(*runner, 4, 2)) != 0,
+           "another conversation's checkpoint still fits in staging");
+    Expect(store.SaveAsync(runner, {1, 2, 3}, MakeSnapshot(*runner, 5, 3), {},
+                           {}, /*shared_prefix=*/true) == 0 &&
+               last_reason() == ContinuationDiskEventReason::kStagingCapacity,
+           "shared prefixes are exempt from the step, not from staging");
+    release.release();
+    store.Flush();
+    runner->before_stream = {};
+    Expect(
+        store.SaveAsync(runner, {8, 9, 1}, MakeSnapshot(*runner, 6, 3)) == 0 &&
+            last_reason() == ContinuationDiskEventReason::kMinStep,
+        "stored checkpoints keep covering their extensions");
+    auto state = runner->CreateState();
+    Expect(RestoreTokens(store, *runner, *state, {1, 2, 3, 7}).restored &&
+               RequireFakeState(*state).value == 1,
+           "the stalled write completes");
+    Expect(RestoreTokens(store, *runner, *state, {8, 9, 7}).restored &&
+               RequireFakeState(*state).value == 4,
+           "the other conversation remains restorable");
+  }
+  ContinuationDiskStore restarted(StoreOptions(directory.path()));
+  Expect(restarted.entry_count() == 2, "only the two step bases are written");
+}
+
 int main() {
   TestAppendedImagePrefixesSurviveRestart();
   TestBoundedAsyncPersistenceDoesNotBlockLookup();
   TestIndexedPrefixLookup();
   TestMinimumCheckpointStep();
+  TestQueuedCheckpointsAreStepBases();
   TestImageIdentitySurvivesRestart();
   TestSharedPrefixBoundariesAndExactDedup();
   TestSha256KnownVector();
