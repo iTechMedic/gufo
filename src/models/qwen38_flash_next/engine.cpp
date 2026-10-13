@@ -789,6 +789,12 @@ bool Session::AppendLookup(PendingDecode& pending) const {
   // does not displace a reliable MTP chain. Both estimates derive from
   // committed tokens, not timings.
   const auto drafted = static_cast<std::uint32_t>(pending.chain.size() - 1);
+  // At the anchor the copy also replaces the first MTP draft, the best
+  // predicted one: only after first drafts have been rejected is the first
+  // copy more likely to be accepted.
+  if (drafted == 0 && PromptLookup::ExpectedCopies(match.length, 1) <=
+                          draft_length_.ExpectedDrafts(0, 1))
+    return false;
   if (PromptLookup::ExpectedCopies(match.length, count) <=
       draft_length_.ExpectedDrafts(
           drafted, static_cast<std::uint32_t>(pending.width - 1)))
