@@ -700,9 +700,11 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
                                   ": Continue red, blue, blue, red,");
     // One member crosses the sparse-attention boundary while the others
     // remain short; interleaving must not share positions or pooling state.
-    if (i == 1) {
+    // A short repetitive member samples with a repeat reward, so batched
+    // sampled copies do not hinge on one hot-temperature continuation.
+    if (i == 1 || i == 5) {
       const auto pattern = prompt;
-      prompt.resize(4095);
+      prompt.resize(i == 1 ? 4095 : 640);
       for (std::size_t t = pattern.size(); t < prompt.size(); ++t) {
         prompt[t] = pattern[t % pattern.size()];
       }
@@ -818,7 +820,10 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
   Require(
       sampled_acceptances > 0 && sampled_rejections > 0 && sampled_lookups > 0,
       "batch test must exercise sampled acceptance, prompt lookup and "
-      "residual correction");
+      "residual correction (accepted=" +
+          std::to_string(sampled_acceptances) +
+          " lookup=" + std::to_string(sampled_lookups) +
+          " rejected_cycles=" + std::to_string(sampled_rejections) + ")");
   std::cout << "batch sampled_accepted=" << sampled_acceptances
             << " sampled_lookup=" << sampled_lookups
             << " rejected_cycles=" << sampled_rejections
