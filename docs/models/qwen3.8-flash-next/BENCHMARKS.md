@@ -149,6 +149,20 @@ byte-identical. Nix tables still need refreshing.
 | Mixed prose | 0.0% / +0.1% | 0.0% / −0.1% |
 | Fresh code | +0.7% / +0.4% | +2.4% / −2.0% |
 
+Batch-cost accounting fix (`3c7922f`, container binary `3647d37e`) versus
+`a0aee02`, three alternating pairs (mean tok/s):
+
+| Case | `a0aee02` | Fix | Change |
+| --- | ---: | ---: | ---: |
+| Repetitive C2 | 151.16 | 149.06 | −1.4%¹ |
+| Repetitive C4 | 192.62 | 200.28 | +4.0%¹ |
+| Mixed C2 | 49.24 | 48.92 | −0.7% |
+| Mixed C4 | 78.11 | 80.56 | +3.1% |
+
+¹ Repetitive draft counts are identical in every run, and the samples agree
+within 0.2% apart from one slow sample per build. Mixed draft counts vary
+by run on both builds. Single-user rewrite and prose are within 0.2%.
+
 Token gaps come from the HTTP A/B runs, not this driver:
 - **ABBA runs:** the largest gap was 166 ms on the candidate and 158 ms on
   base (both 32K prose). On rewrites and small edits it was 111 ms against

@@ -9733,7 +9733,7 @@
    }
   },
   "final_v013": {
-   "status": "not qualified: correctness passes (container and Nix greedy identity); the functional timing gate is blocked by uncontrolled GPU clock states (fixing clocks needs a power-configuration change); host-disk validation is blocked by storage; Nix covers the production build, pr checks and representative throughput only",
+   "status": "not qualified: correctness passes on container and pinned Nix toolchains (Nix GPU tests now included); the batch-cost accounting fix is in with no measurable throughput change; the functional timing gate needs authorized clock control and host-disk validation needs healthier storage",
    "source": {
     "upstream_checked": "2026-10-12, origin/main = v0.13.0 fcf8bf7 (f37fb01 plus 956f3d6 raw-completion cache_prompt, 1834991 docs, release)",
     "baseline": {
@@ -25318,6 +25318,610 @@
       "qwen27b.tools": "reproduced on baseline (Python import failure in container)"
      }
     }
+   },
+   "batch_cost_accounting_fix": {
+    "issue": "CodeRabbit (minor): DecodeBatchImpl chooses batch_drafts, AppendLookup can extend a row's chain beyond it, and policy.Observe records the cycle time under batch_drafts. Valid: copy cycles verify up to 8 rows per row with fewer predictor forwards, and the next cycle's DraftReplay catch-up replays the accepted copies, so both cycles' times were learned as the cost of batch_drafts MTP proposals.",
+    "fix": {
+     "commit": "3c7922ff71d2226020beebba9568dc37d9c4ce83 fix(qwen-flash): keep prompt-lookup cycles out of batch MTP cost estimates",
+     "change": "MtpBatchController::Observe takes `copied`; a cycle with copies and the cycle after one (catch-up) are treated like width transitions: cohort tracking, stable_cycles, last_drafts and the cell cycle counter still advance (exploration and plain-control schedules unchanged), but no cost sample is recorded. DecodeBatchImpl passes whether any row copied. Measurement resumes at the next steady cycle. Greedy-only controller; sampled batches are unaffected.",
+     "test": "mtp_sampling_test CheckBatchLookupAccounting (hosted check-pr suite): a policy that sees a 10x copy cycle and its catch-up chooses identically to a clean policy for 40 cycles covering exploration and plain controls, and steady expensive cycles after copies move it off that width. A scratch variant that ignores `copied` fails it (\"prompt-lookup copies contaminated the measured batch cost\")"
+    },
+    "trace_diagnosis": {
+     "method": "trace2 builds of candidate (a76fa137... is the fix trace build; candidate trace 86e7a155) on model-bench multi-repetition C2/C4, one run each; diagnostic only",
+     "candidate": "C2: 15 of 19 cycles copied (rows 8/6), cost cell learned ms[5]=93.9 ms over 13 samples while regular cycles cost ~62 ms; C4: 15 of 20 copied, cells ms[4]=147.9 and ms[5]=146.7 ms",
+     "fix": "same copy cycles and cycle counts; depth 4/5 cells unsampled (n=0), no contaminated estimate; C4 chose depth 4 thirteen times where the candidate split 5/4",
+     "why_no_throughput_change": "copies fill every chain to 8 rows whichever MTP depth is chosen, so cycle cost and accepted tokens match; mixed text produces no copies, so the fix is a no-op there"
+    },
+    "uninstrumented_c2_c4": {
+     "method": "model-bench multi-mtp mixed + repetitive at C2/C4 (bench.json, concurrency [2,4]), driver warm-up, fresh server per level, order cand,acct,acct,cand,cand,acct",
+     "cells": {
+      "multi-mixed c2": {
+       "v013-cand": [
+        {
+         "run": "mb27-1-v013-cand",
+         "decode_tok_s_sum": 51.16,
+         "drafts": "76/132",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 39.4
+        },
+        {
+         "run": "mb27-4-v013-cand",
+         "decode_tok_s_sum": 45.47,
+         "drafts": "74/126",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 44.3
+        },
+        {
+         "run": "mb27-5-v013-cand",
+         "decode_tok_s_sum": 51.1,
+         "drafts": "76/134",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 39.4
+        }
+       ],
+       "v013-acct": [
+        {
+         "run": "mb27-2-v013-acct",
+         "decode_tok_s_sum": 45.3,
+         "drafts": "76/164",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 44.5
+        },
+        {
+         "run": "mb27-3-v013-acct",
+         "decode_tok_s_sum": 50.71,
+         "drafts": "74/130",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 39.7
+        },
+        {
+         "run": "mb27-6-v013-acct",
+         "decode_tok_s_sum": 50.76,
+         "drafts": "74/130",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 39.7
+        }
+       ],
+       "mean": [
+        49.24,
+        48.92
+       ],
+       "fix_vs_candidate_pct": -0.65
+      },
+      "multi-mixed c4": {
+       "v013-cand": [
+        {
+         "run": "mb27-1-v013-cand",
+         "decode_tok_s_sum": 76.19,
+         "drafts": "72/132",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 52.9
+        },
+        {
+         "run": "mb27-4-v013-cand",
+         "decode_tok_s_sum": 79.82,
+         "drafts": "112/188",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 50.5
+        },
+        {
+         "run": "mb27-5-v013-cand",
+         "decode_tok_s_sum": 78.33,
+         "drafts": "92/156",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 51.5
+        }
+       ],
+       "v013-acct": [
+        {
+         "run": "mb27-2-v013-acct",
+         "decode_tok_s_sum": 79.84,
+         "drafts": "112/188",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 50.5
+        },
+        {
+         "run": "mb27-3-v013-acct",
+         "decode_tok_s_sum": 78.38,
+         "drafts": "92/156",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 51.4
+        },
+        {
+         "run": "mb27-6-v013-acct",
+         "decode_tok_s_sum": 83.45,
+         "drafts": "152/252",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 48.3
+        }
+       ],
+       "mean": [
+        78.11,
+        80.56
+       ],
+       "fix_vs_candidate_pct": 3.13
+      },
+      "multi-repetition c2": {
+       "v013-cand": [
+        {
+         "run": "mb27-1-v013-cand",
+         "decode_tok_s_sum": 151.36,
+         "drafts": "218/218",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 13.3
+        },
+        {
+         "run": "mb27-4-v013-cand",
+         "decode_tok_s_sum": 150.99,
+         "drafts": "218/218",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 13.4
+        },
+        {
+         "run": "mb27-5-v013-cand",
+         "decode_tok_s_sum": 151.12,
+         "drafts": "218/218",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 13.3
+        }
+       ],
+       "v013-acct": [
+        {
+         "run": "mb27-2-v013-acct",
+         "decode_tok_s_sum": 151.16,
+         "drafts": "218/218",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 13.3
+        },
+        {
+         "run": "mb27-3-v013-acct",
+         "decode_tok_s_sum": 144.91,
+         "drafts": "218/218",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 13.9
+        },
+        {
+         "run": "mb27-6-v013-acct",
+         "decode_tok_s_sum": 151.1,
+         "drafts": "218/218",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 13.3
+        }
+       ],
+       "mean": [
+        151.16,
+        149.06
+       ],
+       "fix_vs_candidate_pct": -1.39
+      },
+      "multi-repetition c4": {
+       "v013-cand": [
+        {
+         "run": "mb27-1-v013-cand",
+         "decode_tok_s_sum": 200.28,
+         "drafts": "432/432",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 20.1
+        },
+        {
+         "run": "mb27-4-v013-cand",
+         "decode_tok_s_sum": 177.41,
+         "drafts": "432/432",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 22.7
+        },
+        {
+         "run": "mb27-5-v013-cand",
+         "decode_tok_s_sum": 200.16,
+         "drafts": "432/432",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 20.1
+        }
+       ],
+       "v013-acct": [
+        {
+         "run": "mb27-2-v013-acct",
+         "decode_tok_s_sum": 200.19,
+         "drafts": "432/432",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 20.1
+        },
+        {
+         "run": "mb27-3-v013-acct",
+         "decode_tok_s_sum": 200.22,
+         "drafts": "432/432",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 20.1
+        },
+        {
+         "run": "mb27-6-v013-acct",
+         "decode_tok_s_sum": 200.42,
+         "drafts": "432/432",
+         "matches_ar_reference": true,
+         "client_inter_token_ms_max": 20.1
+        }
+       ],
+       "mean": [
+        192.62,
+        200.28
+       ],
+       "fix_vs_candidate_pct": 3.98
+      }
+     },
+     "summary": "repetitive: identical drafts in all runs (218/218 C2, 432/432 C4); per-sample equal within 0.2% except one slow sample per build (cand C4 177.41, acct C2 144.91); means -1.39% C2, +3.98% C4 are those single samples. Mixed C2 -0.65%, C4 +3.13% with run-varying drafts on both builds. All completions match the AR reference."
+    },
+    "single_user": {
+     "method": "decode_ab rewrite + prose, shallow/32K-labeled, greedy + sampled seed 42, order cand,acct,acct,cand",
+     "cells": [
+      {
+       "depth": "32k",
+       "workload": "prose",
+       "mode": "greedy",
+       "v013-cand": {
+        "completed_tok_s": 37.49,
+        "samples_tok_s": [
+         37.49,
+         37.48
+        ],
+        "completion_tokens": [
+         400,
+         400
+        ],
+        "accepted": 374,
+        "drafted": 606,
+        "max_inter_token_ms": 137.6,
+        "prefill_ms_mean": 7759.5
+       },
+       "v013-acct": {
+        "completed_tok_s": 37.48,
+        "samples_tok_s": [
+         37.48,
+         37.47
+        ],
+        "completion_tokens": [
+         400,
+         400
+        ],
+        "accepted": 374,
+        "drafted": 606,
+        "max_inter_token_ms": 137.2,
+        "prefill_ms_mean": 7757.1
+       },
+       "v013-acct_vs_v013-cand_pct": -0.0,
+       "greedy_output_identical_per_pass": true,
+       "greedy_sha256": {
+        "v013-cand": [
+         "e47c11119fa23633"
+        ],
+        "v013-acct": [
+         "e47c11119fa23633"
+        ]
+       }
+      },
+      {
+       "depth": "32k",
+       "workload": "prose",
+       "mode": "sampled",
+       "v013-cand": {
+        "completed_tok_s": 38.66,
+        "samples_tok_s": [
+         38.67,
+         38.65
+        ],
+        "completion_tokens": [
+         400,
+         400
+        ],
+        "accepted": 406,
+        "drafted": 652,
+        "max_inter_token_ms": 123.6,
+        "prefill_ms_mean": 0.0
+       },
+       "v013-acct": {
+        "completed_tok_s": 38.65,
+        "samples_tok_s": [
+         38.66,
+         38.64
+        ],
+        "completion_tokens": [
+         400,
+         400
+        ],
+        "accepted": 406,
+        "drafted": 652,
+        "max_inter_token_ms": 124.0,
+        "prefill_ms_mean": 0.0
+       },
+       "v013-acct_vs_v013-cand_pct": -0.0
+      },
+      {
+       "depth": "32k",
+       "workload": "rewrite",
+       "mode": "greedy",
+       "v013-cand": {
+        "completed_tok_s": 102.48,
+        "samples_tok_s": [
+         102.46,
+         102.49
+        ],
+        "completion_tokens": [
+         1949,
+         1949
+        ],
+        "accepted": 3408,
+        "drafted": 3416,
+        "max_inter_token_ms": 99.1,
+        "prefill_ms_mean": 29763.8
+       },
+       "v013-acct": {
+        "completed_tok_s": 102.46,
+        "samples_tok_s": [
+         102.48,
+         102.45
+        ],
+        "completion_tokens": [
+         1949,
+         1949
+        ],
+        "accepted": 3408,
+        "drafted": 3416,
+        "max_inter_token_ms": 99.7,
+        "prefill_ms_mean": 29653.7
+       },
+       "v013-acct_vs_v013-cand_pct": -0.0,
+       "greedy_output_identical_per_pass": true,
+       "greedy_sha256": {
+        "v013-cand": [
+         "80de947fd55e3098"
+        ],
+        "v013-acct": [
+         "80de947fd55e3098"
+        ]
+       }
+      },
+      {
+       "depth": "32k",
+       "workload": "rewrite",
+       "mode": "sampled",
+       "v013-cand": {
+        "completed_tok_s": 101.73,
+        "samples_tok_s": [
+         101.75,
+         101.71
+        ],
+        "completion_tokens": [
+         1949,
+         1949
+        ],
+        "accepted": 3408,
+        "drafted": 3416,
+        "max_inter_token_ms": 98.2,
+        "prefill_ms_mean": 0.0
+       },
+       "v013-acct": {
+        "completed_tok_s": 101.7,
+        "samples_tok_s": [
+         101.74,
+         101.67
+        ],
+        "completion_tokens": [
+         1949,
+         1949
+        ],
+        "accepted": 3408,
+        "drafted": 3416,
+        "max_inter_token_ms": 98.4,
+        "prefill_ms_mean": 0.0
+       },
+       "v013-acct_vs_v013-cand_pct": -0.0
+      },
+      {
+       "depth": "shallow",
+       "workload": "prose",
+       "mode": "greedy",
+       "v013-cand": {
+        "completed_tok_s": 40.17,
+        "samples_tok_s": [
+         40.16,
+         40.18
+        ],
+        "completion_tokens": [
+         400,
+         400
+        ],
+        "accepted": 398,
+        "drafted": 568,
+        "max_inter_token_ms": 98.1,
+        "prefill_ms_mean": 143.1
+       },
+       "v013-acct": {
+        "completed_tok_s": 40.08,
+        "samples_tok_s": [
+         40.09,
+         40.07
+        ],
+        "completion_tokens": [
+         400,
+         400
+        ],
+        "accepted": 398,
+        "drafted": 568,
+        "max_inter_token_ms": 97.2,
+        "prefill_ms_mean": 143.6
+       },
+       "v013-acct_vs_v013-cand_pct": -0.2,
+       "greedy_output_identical_per_pass": true,
+       "greedy_sha256": {
+        "v013-cand": [
+         "c7bba110376f15f5"
+        ],
+        "v013-acct": [
+         "c7bba110376f15f5"
+        ]
+       }
+      },
+      {
+       "depth": "shallow",
+       "workload": "prose",
+       "mode": "sampled",
+       "v013-cand": {
+        "completed_tok_s": 38.77,
+        "samples_tok_s": [
+         38.78,
+         38.76
+        ],
+        "completion_tokens": [
+         400,
+         400
+        ],
+        "accepted": 362,
+        "drafted": 554,
+        "max_inter_token_ms": 78.1,
+        "prefill_ms_mean": 0.0
+       },
+       "v013-acct": {
+        "completed_tok_s": 38.77,
+        "samples_tok_s": [
+         38.76,
+         38.77
+        ],
+        "completion_tokens": [
+         400,
+         400
+        ],
+        "accepted": 362,
+        "drafted": 554,
+        "max_inter_token_ms": 77.7,
+        "prefill_ms_mean": 0.0
+       },
+       "v013-acct_vs_v013-cand_pct": -0.0
+      },
+      {
+       "depth": "shallow",
+       "workload": "rewrite",
+       "mode": "greedy",
+       "v013-cand": {
+        "completed_tok_s": 107.25,
+        "samples_tok_s": [
+         107.3,
+         107.19
+        ],
+        "completion_tokens": [
+         1949,
+         1949
+        ],
+        "accepted": 3408,
+        "drafted": 3416,
+        "max_inter_token_ms": 95.3,
+        "prefill_ms_mean": 1382.5
+       },
+       "v013-acct": {
+        "completed_tok_s": 107.28,
+        "samples_tok_s": [
+         107.33,
+         107.23
+        ],
+        "completion_tokens": [
+         1949,
+         1949
+        ],
+        "accepted": 3408,
+        "drafted": 3416,
+        "max_inter_token_ms": 95.3,
+        "prefill_ms_mean": 1367.5
+       },
+       "v013-acct_vs_v013-cand_pct": 0.0,
+       "greedy_output_identical_per_pass": true,
+       "greedy_sha256": {
+        "v013-cand": [
+         "80de947fd55e3098"
+        ],
+        "v013-acct": [
+         "80de947fd55e3098"
+        ]
+       }
+      },
+      {
+       "depth": "shallow",
+       "workload": "rewrite",
+       "mode": "sampled",
+       "v013-cand": {
+        "completed_tok_s": 106.36,
+        "samples_tok_s": [
+         106.4,
+         106.31
+        ],
+        "completion_tokens": [
+         1949,
+         1949
+        ],
+        "accepted": 3408,
+        "drafted": 3416,
+        "max_inter_token_ms": 98.6,
+        "prefill_ms_mean": 0.0
+       },
+       "v013-acct": {
+        "completed_tok_s": 106.41,
+        "samples_tok_s": [
+         106.39,
+         106.42
+        ],
+        "completion_tokens": [
+         1949,
+         1949
+        ],
+        "accepted": 3408,
+        "drafted": 3416,
+        "max_inter_token_ms": 96.3,
+        "prefill_ms_mean": 0.0
+       },
+       "v013-acct_vs_v013-cand_pct": 0.1
+      }
+     ],
+     "summary": "rewrite and prose within -0.2% to +0.1% with identical drafts and greedy output; the single-user path is unchanged by the fix"
+    },
+    "unmeasured_hypothesis": "workloads that alternate copy and non-copy phases at C>1 (e.g. batched edits) could choose shallower depths after copies under the contaminated estimates; not measured"
+   },
+   "batched_copy_fixture": {
+    "issue": "pinned Nix toolchain: the session test's batched sampled check found sampled_lookup=0 (accepted=10, rejected_cycles=10): only the hot-temperature (T=2) repetitive member could copy, and its continuation is numerics-dependent; the container toolchain had 8 copies. A coverage failure, not an exactness failure.",
+    "fix": "9e7784fac4f868919e3c840871d5c6bdbe5967ab test(qwen-flash): cover batched sampled copies without relying on one hot draw: a 640-token repetitive prompt for the repeat-reward sampled member (session 5); the requirement is unchanged and the failure message now reports the counts",
+    "result": {
+     "nix": "61 exact checks pass; batch sampled_accepted=17 sampled_lookup=5 rejected_cycles=7 history_and_residual_exact=1",
+     "container": "61 exact checks pass; batch sampled_accepted=32 sampled_lookup=13 rejected_cycles=3 history_and_residual_exact=1"
+    }
+   },
+   "nix_gpu_correctness": {
+    "toolchain": "pinned nix develop (devShells.default, /nix/store/9rhrdbggh8zm1nvf5qklrj7nylclzabf-nix-shell.drv -> /nix/store/c5bynj6bybqhyvs7kcq92c1paa17548z-nix-shell; flake.lock nixpkgs 2fcb964d, ROCm 7.2.3, host g++ /nix/store/l5qkpzsr...-gcc-wrapper-15.3.0, HIP /nix/store/dcy8iyr9...-hipClang/bin/clang++), in the disposable gufo-nix container; gpu-test preset cache variables (RelWithDebInfo, BUILD_TESTING, ENGINE_ENABLE_HIP, GUFO_BUILD_TOOLS, warnings), CMAKE_HIP_ARCHITECTURES gfx1151, out-of-source build, Flash-Next targets only; tests run through the harness container with the Nix store mounted read-only",
+    "revision": "3c7922f for CTest and snapshot; 9e7784f (test-only change) for the session test",
+    "binaries_sha256_prefix": {
+     "session_test": "a302b25f9c26a80a",
+     "snapshot_test": "0ae876df8d4b939d",
+     "prompt_lookup_test": "28d057b7ec679142",
+     "mtp_sampling_test": "db39391c3cd67310"
+    },
+    "results": {
+     "ctest": "15/15 qwen38_flash_next.* pass (operator tests, prompt_lookup, mtp_sampling with the new accounting test, ngram, config, continuation_layout)",
+     "session_test": "pass at 9e7784f: greedy MTP-with-copies equals AR incl. stop-terminated replies; sampled replay after restore and mid-copy snapshot; MTP cache replay exact; cancellation/rollback; batched C2-C8 AR/MTP logits, RNG, acceptance and lookup counters exact; sampled batched copies 5",
+     "snapshot_test": "snapshot round trips exact=1"
+    },
+    "container_same_revision": "15/15 CTest, session (61 exact, batch copies 13), snapshot exact; mtp_sampling scratch pre-fix variant fails as intended"
+   },
+   "nix_final_build": {
+    "revision": "9e7784fac4f868919e3c840871d5c6bdbe5967ab",
+    "drv": "/nix/store/f3rldwhpyb8b6yp50g9v51v14yliczl3-gufo-0-unstable-9e7784f.drv",
+    "out": "/nix/store/lhmji30zpjrvizwxz3j5iy50k3ajica5-gufo-0-unstable-9e7784f",
+    "gufo_sha256": "14dd312aa4cc4b7b1863bc3488f5d1347ddb04095cb9a53b51bc31c8cb3e1653",
+    "checks_pr": {
+     "drv": "/nix/store/vm50ikrfxgs4x8ggvm6hgrs7ay2rnxla-check-pr.drv",
+     "rc": 0,
+     "result": "format (566 files), dependency inventory, docs, hosted CPU suite 56/56 (includes qwen38_flash_next.mtp_sampling with the accounting regression test), mkGufoServe all PASS"
+    },
+    "container_binary": "bins/v013-acct 3647d37e22af6680f563a9350b3048b744ff7c649d4c8ec9898410b27fef27f1 (ROCm container release, configured at 3c7922f; production sources identical to 9e7784f)",
+    "not_remeasured": "the Nix ABBA throughput rows are from the a0aee02 Nix binary; the fix does not change the single-user path (container rewrite/prose within 0.2%), and C2/C4 were measured with container binaries"
+   },
+   "timing_and_storage_round_26_29": {
+    "timing": "not run: the GPU performance level is still 'auto' (DVFS); previous telemetry shows uncontrolled clock states, and no clock change is authorized. Approval package: capture power_dpm_force_performance_level (auto), pp_dpm_sclk/mclk/fclk/socclk and TuneD profile; temporarily `echo high | sudo tee /sys/class/drm/card0/device/power_dpm_force_performance_level` (or profile_standard for stable lower clocks); run <=45 min (three alternating focused pairs + one gate with an unchanged-base control, telemetry on); restore with `echo auto | sudo tee ...` in a trap, verify by reading back, then restart the live server",
+    "storage": "blocked: no second non-RAM location; / is 95% used (115 GB free) on the single Kingston OM8TAP4 NVMe whose direct writes fall to 130-235 MB/s after sustained writes. Free space already exceeds 10 GiB; the limiting factor is sustained write throughput. Cleanup candidates for approval (not deleted): ~/gufo-opt/gpucore.10.gpu 92.7 GB GPU core dump written 2026-10-12 01:35 by a crashed experiment process; podman reports 59.95 GB reclaimable images (mostly other campaigns' dangling/older images); the disposable Nix store volume gufo-nix-store (~16 GB) after this work. Whether freeing space restores sustained write speed is untested; re-probe with dd oflag=direct before the disk-cache rerun"
    }
   }
  },

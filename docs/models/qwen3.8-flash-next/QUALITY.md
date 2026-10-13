@@ -21,66 +21,75 @@ queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
 **Prompt lookup is not qualified: correctness passes, timing and host-disk
-validation are blocked by the environment.** Final candidate `a0aee02` versus
+validation are blocked by the environment.** Final source `9e7784f`
+(implementation `a0aee02` plus batch-cost accounting fix `3c7922f`) versus
 v0.13.0 `fcf8bf7`.
-- **Container build:** binaries `14a7cc1f` and `d781bceb`.
-- **Pinned Nix production build** (disposable container, flake.lock nixpkgs
-  `2fcb964d`): binaries `5ba35a3b` and `c4c55240`.
+- **Pinned Nix production build** (flake.lock nixpkgs `2fcb964d`):
+  `14dd312a` for the final source; `5ba35a3b` for `a0aee02`; base
+  `c4c55240`.
+- **ROCm container builds:** fix `3647d37e`, `a0aee02` `14a7cc1f`, base
+  `d781bceb`.
 
 Correctness passes:
-- The 15 Flash-Next CTest cases, session and snapshot tests pass (container
-  gpu-test).
-- The Nix `checks.x86_64-linux.pr` passes on both revisions: format, docs,
-  dependency inventory, 56/56 hosted CPU tests.
-- Every functional case passes on both builds in every gate and focused run,
-  with outputs and cache/prefill counts unchanged.
-- Greedy HTTP output is byte-identical to the baseline within each toolchain
-  (container and Nix).
-- Seeded sampled replay is exact within each build.
-- Every C1–C8 completion matches the AR reference.
-- The six `gpu-fast` failures reproduce on the baseline with identical
-  messages: four Python tests lack numpy in the container,
-  `kernel_resources_test` spills under the container compiler, and
-  `minimax_h3_dit_analytic` fails an exact check.
+- **Nix `nix develop` toolchain:** all 15 Flash-Next CTest cases (including
+  `prompt_lookup` and the new accounting test), the session test and the
+  snapshot test pass on both the Nix and container toolchains.
+- **Session test coverage:** greedy MTP-with-copies equals AR, including
+  stop-terminated replies. Sampled replay is exact after restore and from a
+  mid-copy snapshot, and so are cancellation and rollback. Batched C2–C8
+  logits, RNG, acceptance and lookup counters match isolated execution.
+- **Nix `checks.pr`:** passes for every revision (56/56 hosted CPU tests).
+- **Functional cases:** every case passes in every gate and focused run, with
+  outputs and cache/prefill counts unchanged.
+- **HTTP output:** greedy output is byte-identical to the baseline within
+  each toolchain, and every C1–C8 completion matches the AR reference.
+- **`gpu-fast`:** the six failures reproduce on the baseline.
+- **Fixture fix:** under Nix, the batched sampled fixture first made no
+  copies, a coverage failure. `9e7784f` adds a repeat-reward repetitive
+  member without changing the requirement. It now copies 5 times under Nix
+  and 13 times in the container.
 
-Confirmed improvements and fixes:
-- **Rewrites:** +40–51% on both builds (see [EXPERIMENTS](EXPERIMENTS.md)).
-- **Small edits:** faster on both builds.
-- **`agent_read_after_edit`:** the earlier extra cycle is gone, with base's 4
-  cycles and 20/20 drafts.
-- **C2/C4 mixed batches:** no copies, base cycle costs.
-- **Mixed prose (Nix):** unchanged, 0.0% / +0.1%.
+Batch-cost accounting (CodeRabbit, valid):
+- **Problem:** copy cycles, and the catch-up cycle after them, were learned
+  as the cost of the chosen MTP depth. The candidate learned depth 5 at
+  93.9 ms against ~62 ms ordinary cycles at C2, and ~147 ms at C4.
+- **Fix `3c7922f`:** skips the cost sample for both cycles while keeping
+  cycle counts, exploration and cohort tracking; a regression test is in the
+  hosted suite.
+- **Measured impact:** none in these workloads; copies fill the chains
+  whatever depth is chosen. See [EXPERIMENTS](EXPERIMENTS.md).
+
+Confirmed improvements:
+- **Rewrites:** +40–51%.
+- **Small edits:** faster.
+- **Repetitive C2–C8:** +24–79%.
+- **`agent_read_after_edit`:** the extra cycle is gone.
+- **Mixed text and C2/C4 mixed:** unchanged.
 
 Blocked, timing gate:
-- **Observed correlation, not a proven cause:** identical requests switch
-  between speed states on both builds, and the slower phases ran at lower
-  average GPU clock and package power.
-  - Pair 2: gfx clock r = −0.81, fabric clock r = −0.63, socket power
-    r = −0.72. Pair 1: sclk r = −0.68.
-  - The first `state-edges` requests sometimes ran near idle clocks
-    (845–1422 MHz).
-- **Ruled out:** thermal, sustained-power and slow-PPT throttle counters did
-  not advance; CPU stayed at 3–5% with no CPU pressure.
-- **Why it's blocked:** fixing clocks needs a power-configuration change,
-  so no further focused pairs or gates were run.
+- **Observed correlation:** speed states correlate with GPU clock and
+  package power (r up to −0.81), with no thermal or sustained-power
+  throttling and no CPU contention.
+- **Not proven:** causation needs pinned clocks, a power-configuration
+  change that requires approval.
 - **`agent_read_after_edit` estimate:** +6.7 ms (+1.95%), 95% bootstrap
-  interval −0.1 to +13.6 ms (−0.04% to +4.0%), over 18 base and 14 candidate
-  samples. This bounds the effect but does not show there is none.
+  interval −0.1 to +13.6 ms.
 
 Blocked, host disk:
-- The only drive is 94% full. After sustained writes, its direct-write speed
-  fell from ~800 to 130–235 MB/s.
-- Cache saves then stalled 5–10 s, and `thinking-tool-cancel-disk` and
-  `disk-spacing-disk` failed on both builds.
-- No healthy non-RAM location exists. A valid run needs ≥10 GiB free on
-  storage that sustains fast writes.
+- The single drive is 95% full. After sustained writes its direct-write
+  speed falls from ~800 to 130–235 MB/s, and two disk-cache cases then fail
+  on both builds.
+- Free space (115 GB) is not the limit, and no second disk exists. The
+  largest cleanup candidate is a 92.7 GB GPU core dump in the experiment
+  directory; deleting it needs approval.
 
 Evidence: [decode-prompt-lookup.json](artifacts/decode-prompt-lookup.json),
-`final_v013`, `followup_rounds_16_22` and `environment_build_round_23_25`.
+`final_v013` (`batch_cost_accounting_fix`, `nix_gpu_correctness`,
+`environment_build_round_23_25`).
 
 | Check | Result |
 | --- | --- |
-| Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Nix production builds and `checks.pr` pass for both revisions. The timing gate and host-disk validation are blocked by the environment (above). [Evidence](artifacts/decode-prompt-lookup.json). |
+| Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Final source `9e7784f`: Nix production build and `checks.pr` pass, and Flash-Next CTest, session and snapshot tests pass on the pinned `nix develop` toolchain. The timing gate and host-disk validation are blocked by the environment (above). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Decode-kernel review, October 10 | All 13 operator tests and native snapshot/session/deep-execution checks pass. Independent MTP formulas: worst relative RMS 0.0007655 (limit 0.002), 41 reported comparisons over eight text/image states. Sampled replay, cancellation, C2/4/6/8 and RAM/disk restoration pass. [Evidence](artifacts/decode-kernels-review.json). |
 | Focused HTTP regression, October 10 | `state-edges`, `tool-agent`, `long-context`, `cache`, Flash AR/MTP only. Two main/PR pairs plus unchanged-main controls; no output or expected cache/prefill-work changes. Timing failures remain visible above and in the [evidence](artifacts/decode-kernels-review.json). |
 | Concurrency, October 10 | All 63 tg128 requests match fresh AR completions: 21 AR, 21 mixed MTP and 21 repetitive MTP at C1/2/4/6/8. Prepared prefixes are reused; mixed/repetitive MTP propose 882/2170 drafts and accept 517/1959. [Evidence](artifacts/decode-kernels-review.json). |
