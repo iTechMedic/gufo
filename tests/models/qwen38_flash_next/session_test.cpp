@@ -530,6 +530,52 @@ void CheckPromptLookupReplay(const std::shared_ptr<qfn::Model>& model) {
   Require(!short_tokens[0].empty() && short_tokens[0] == short_tokens[1],
           "stop-terminated prompt lookup differs from AR");
 
+  // The reply repeats a long arbitrary value and then diverges from what
+  // followed it in the prompt. Draft models mispredict such values, and a
+  // wrong first draft must not hide the context match from the cycle:
+  // copies are also proposed at the anchor, replacing the whole MTP chain.
+  std::string value;
+  std::uint32_t state = 12345;
+  for (unsigned i = 0; i < 40; ++i) {
+    state = state * 1103515245U + 12345U;
+    value += "abcdefghjkmnpqrstuvwxyz23456789"[(state >> 16) % 31];
+  }
+  const std::array quoted_messages{qt::ChatMessage{
+      qt::ChatRole::kUser,
+      "Stored record: {\"token\": \"" + value +
+          "\"} (expired).\nReply with only the JSON object {\"token\": ..., "
+          "\"valid\": false}, using the same token."}};
+  const auto quoted_encoded = qt::QwenChatTemplate::RenderAndTokenize(
+      model->tokenizer(), quoted_messages, {.enable_thinking = false}, &error);
+  Require(quoted_encoded.has_value(), error);
+  const std::vector<std::int32_t> quoted(quoted_encoded->begin(),
+                                         quoted_encoded->end());
+  const std::vector<sampling::TokenId> quoted_history(quoted.begin(),
+                                                      quoted.end());
+  auto quoted_ar = create(gufo::core::SessionMode::kAutoregressive);
+  auto quoted_mtp = create(gufo::core::SessionMode::kSpeculative);
+  Require(quoted_ar->Sync(quoted, &error) && quoted_mtp->Sync(quoted, &error),
+          error);
+  Run quoted_ar_run, quoted_mtp_run;
+  sampling::SamplerState quoted_ar_sampler(greedy, quoted_history),
+      quoted_mtp_sampler(greedy, quoted_history);
+  decode(*quoted_ar, quoted_ar_sampler, &quoted_ar_run, 64);
+  decode(*quoted_mtp, quoted_mtp_sampler, &quoted_mtp_run, 64);
+  Require(quoted_ar_run.tokens == quoted_mtp_run.tokens,
+          "greedy anchor prompt lookup differs from AR");
+  const auto quoted_stats = quoted_mtp->Statistics();
+  Require(quoted_stats.lookup_anchor > 0 && quoted_stats.lookup_accepted > 0,
+          "quoted value was not copied from the anchor (lookup=" +
+              std::to_string(quoted_stats.lookup) +
+              " anchor=" + std::to_string(quoted_stats.lookup_anchor) +
+              " accepted=" + std::to_string(quoted_stats.lookup_accepted) +
+              ")");
+  std::cout << "prompt lookup quoted_value cycles=" << quoted_stats.cycles
+            << " lookup=" << quoted_stats.lookup
+            << " anchor=" << quoted_stats.lookup_anchor
+            << " accepted=" << quoted_stats.lookup_accepted << "\n"
+            << std::flush;
+
   const sampling::SamplingConfig config{
       .temperature = 0.8F, .top_k = 20, .top_p = 0.95F, .seed = 3};
   auto fresh = create(gufo::core::SessionMode::kSpeculative);
@@ -683,6 +729,7 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
   std::size_t sampled_rejections = 0;
   std::size_t sampled_acceptances = 0;
   std::size_t sampled_lookups = 0;
+  std::size_t sampled_anchor_lookups = 0;
   std::vector<std::unique_ptr<qfn::Session>> serial, batched;
   std::vector<sampling::SamplerState> serial_samplers, batch_samplers;
   const auto cases = gufo::test::QwenSamplingCases();
@@ -777,6 +824,7 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
                     a.cycles == b.cycles && a.drafted == b.drafted &&
                     a.accepted == b.accepted && a.lookup == b.lookup &&
                     a.lookup_accepted == b.lookup_accepted &&
+                    a.lookup_anchor == b.lookup_anchor &&
                     std::equal(serial[i]->Tokens().begin(),
                                serial[i]->Tokens().end(),
                                batched[i]->Tokens().begin(),
@@ -804,6 +852,7 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
           const auto accepted = a.accepted - before[i].accepted;
           sampled_acceptances += accepted;
           sampled_lookups += a.lookup - before[i].lookup;
+          sampled_anchor_lookups += a.lookup_anchor - before[i].lookup_anchor;
           if (accepted < drafted) {
             ++sampled_rejections;
             // stop_at_eos is false: a sampled rejection always defers its
@@ -826,6 +875,7 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
           " rejected_cycles=" + std::to_string(sampled_rejections) + ")");
   std::cout << "batch sampled_accepted=" << sampled_acceptances
             << " sampled_lookup=" << sampled_lookups
+            << " sampled_anchor=" << sampled_anchor_lookups
             << " rejected_cycles=" << sampled_rejections
             << " history_and_residual_exact=1\n"
             << std::flush;

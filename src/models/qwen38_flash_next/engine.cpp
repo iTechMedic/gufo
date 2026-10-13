@@ -892,7 +892,9 @@ bool Session::PrepareDecode(const DecodeRequest& request,
       verify_logits_.size() < exec.max_speculative() * model_->VocabSize()) {
     verify_logits_.resize(exec.max_speculative() * model_->VocabSize());
   }
-  if (!defer_head) {
+  // A context match is also tried before the first MTP draft: a
+  // mispredicted draft would otherwise hide it for the whole cycle.
+  if (!defer_head && !AppendLookup(*pending)) {
     while (pending->chain.size() < pending->width) {
       AppendDraft(*pending);
       if (AppendLookup(*pending))
@@ -1027,6 +1029,8 @@ bool Session::FinishDecode(const DecodeRequest& request,
   const std::uint32_t mtp_accepted = std::min(keep - 1, mtp_drafts);
   stats_.lookup += pending.lookup;
   stats_.lookup_accepted += keep - 1 - mtp_accepted;
+  if (mtp_drafts == 0)
+    stats_.lookup_anchor += pending.lookup;
   // A target stop ends the request; it does not classify the remaining
   // proposals as failed predictions.
   draft_length_.Observe(mtp_accepted, result->stop ? mtp_accepted : mtp_drafts,
@@ -1256,6 +1260,13 @@ bool Session::DecodeBatchImpl(std::span<const DecodeRequest> requests,
   }
   if (!DraftCatchUpBatch(catchup, error_msg))
     return false;
+  // As in isolated decoding, a context match is tried at the anchor first.
+  for (std::size_t i = 0; i < requests.size(); ++i) {
+    auto& p = pending[i];
+    if (!requests[i].session->session_->Cancelled() && p.speculative &&
+        p.chain.size() < p.width)
+      requests[i].session->AppendLookup(p);
+  }
   // Each round shares predictor projections across ready sessions.
   // Attention state, proposal distributions and RNG streams stay private.
   for (;;) {

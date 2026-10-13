@@ -5,6 +5,7 @@
 #include <iostream>
 #include <span>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "src/models/qwen38_flash_next/mtp_policy.hpp"
@@ -157,6 +158,24 @@ void CheckCopyEvidence() {
     rejected.Observe(accepted, 7);
   Require(Lookup::ExpectedCopies(64, 6) > rejected.ExpectedDrafts(1, 7),
           "a long match did not replace an uncertain MTP tail");
+
+  // At the anchor the whole chain is at stake: a fully accepted chain keeps
+  // it against the 12-token match left without its first draft, while
+  // recent first-draft rejections let a longer match replace it.
+  Require(perfect.ExpectedDrafts(0, 7) == 7.0F &&
+              Lookup::ExpectedCopies(12, 7) < perfect.ExpectedDrafts(0, 7),
+          "an anchor match displaced a fully accepted MTP chain");
+  qfn::MtpLengthController weak(7);
+  for (const auto [accepted, drafted] : {std::pair{2U, 2U},
+                                         {4U, 4U},
+                                         {5U, 7U},
+                                         {0U, 5U},
+                                         {5U, 5U},
+                                         {4U, 4U},
+                                         {0U, 5U}})
+    weak.Observe(accepted, drafted);
+  Require(Lookup::ExpectedCopies(16, 7) > weak.ExpectedDrafts(0, 7),
+          "an anchor match did not replace a recently rejected MTP chain");
 }
 
 int main() {
