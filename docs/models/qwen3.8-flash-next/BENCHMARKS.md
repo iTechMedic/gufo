@@ -183,6 +183,11 @@ Token gaps come from the HTTP A/B runs, not this driver:
 - **Cold 2-session run** (262K context, disk cache): 194 ms on the
   candidate, against 197 ms on base and 283 ms on an unchanged-base control.
 
+These gains are relative to v0.13.0 and were not remeasured on main
+`2599ad6`. The rebase leaves the lookup sources unchanged. Main's only
+decode-path change is allocation placement, which kept the same device
+footprint on this host; see [QUALITY](QUALITY.md).
+
 [Evidence](artifacts/decode-prompt-lookup.json) (`final_v013`).
 
 ## Loading time

@@ -9733,7 +9733,7 @@
    }
   },
   "final_v013": {
-   "status": "not qualified: the quoted-argument regression is fixed (cycle counts and focused timings match the baseline) with correctness passing on the pinned Nix and container toolchains; timing qualification remains inconclusive (uncontrolled GPU clocks, no final gate this round) and host-disk cache cases fail on the baseline",
+   "status": "not qualified: correctness passes on v0.13.0 and after rebasing onto main 2599ad6 (pinned Nix); timing qualification remains inconclusive because no stable GPU clock state is available (level auto, no clock change authorized); host-disk restore failures are a shared staging-admission defect reproduced on main and fixed on a separate branch",
    "source": {
     "upstream_checked": "2026-10-12, origin/main = v0.13.0 fcf8bf7 (f37fb01 plus 956f3d6 raw-completion cache_prompt, 1834991 docs, release)",
     "baseline": {
@@ -29043,6 +29043,117 @@
      "checks_pr": "/nix/store/pyi5db3g2vcc2x4wvn93n36zva7558zq-check-pr.drv: format (566), dependency inventory, docs, hosted CPU 56/56, mkGufoServe PASS",
      "timed_binary": "0821c8a 221ef3b5 (production sources identical to dcd7a8c, which changes only session_test.cpp); container builds of 0821c8a were not used for timing"
     }
+   },
+   "upstream_integration_round_42_43": {
+    "date": "2026-10-13 (EDT; server logs are UTC)",
+    "upstream": {
+     "fetched": "upstream/main = origin/main = 2599ad645276da0ab27bc4f189b4d929e26b2318",
+     "since_v0.13.0": [
+      "8d4e1a2 docs: update readme (#574)",
+      "248d902 feat(rocm): managed-alloc fallback (#460)",
+      "2599ad6 ci: select Flash-Next functional suites on the Devlab cluster (#577)"
+     ],
+     "interaction": "no common files with the lookup patch. 248d902 routes Flash-Next batch logits, rollback, scratch, verification-penalty and MMQ pool allocations through hip::AllocateDevice (hipMalloc unless the device heap would keep <4 GiB free, then coarse-grain managed memory) and decides weight placement once per load. Both builds share it; lookup adds no allocation",
+     "impact_planner": "tests/functional/impact.py selects every suite on every profile for both diffs (coverage plan, not a minimal check list)"
+    },
+    "candidate": {
+     "branch": "codex/flash-next-prompt-lookup-main",
+     "revision": "582aaf585435f6f1da0d23c91af313dc134f28e7",
+     "construction": "cherry-pick of fcf8bf7..testing (14 commits, conflict-free) onto 2599ad6; git diff 2599ad6..582aaf5 -- src tests is byte-identical to fcf8bf7..dcd7a8c",
+     "published_history": "testing 663d982 unchanged"
+    },
+    "build": {
+     "toolchain": "pinned Nix (flake.lock), podman docker.io/nixos/nix:2.28.4, store volume gufo-nix-store",
+     "main_2599ad6": {
+      "drv": "/nix/store/4yd8s8dy42pwp61snfqr1anmp097yg0r-gufo-0-unstable-2599ad6.drv",
+      "out": "/nix/store/xv1x17k0wgk2nrgyv0p6yq6wj9r4jcgw-gufo-0-unstable-2599ad6",
+      "gufo_sha256": "3fadd15726d49e6f1781f73d076cfb8b14459804c05f3c02acc009d3ea56c809"
+     },
+     "integrated_582aaf5": {
+      "drv": "/nix/store/y5ig8164j6hk2hb3da3xl3aicm4j4dn2-gufo-0-unstable-582aaf5.drv",
+      "out": "/nix/store/s0ns0x7s4bvp59yvn8sk0ydp8x64hl6x-gufo-0-unstable-582aaf5",
+      "gufo_sha256": "70315c244c3b7a608b46b460accc40c94497e56f34a545a225c667facbddb976",
+      "checks_pr": "/nix/store/fb3r98va7a51s8n143ab05blr41b747m-check-pr.drv: format (569), dependency inventory, docs, hosted CPU 57/57 (adds heap_placement_test), mkGufoServe PASS",
+      "session_test": "nix develop toolchain, gpu-test cache variables, out of source; sha256 7108cda101f47e42ea6f9398bae151c3419f38d80efabe919d2fbf48224fd060"
+     }
+    },
+    "tests_run": [
+     {
+      "question": "does the rebased tree build and pass the hosted contract suite, including main's new test?",
+      "check": "Nix production build + checks.pr on 582aaf5",
+      "result": "pass (57/57)"
+     },
+     {
+      "question": "do lookup copies, rollback, sampled replay and batching stay exact with main's allocation changes underneath?",
+      "check": "qwen38_flash_next_session_test on 582aaf5 (one run, live server stopped)",
+      "result": "pass; 147-line log identical to the dcd7a8c Nix run (results/session-nix-fix40.log) except the three snapshot_cache_configured budget lines that follow free host RAM; quoted_value greedy_lookup=17 sampled_lookup=174 sampled_anchor=83 sampled_accepted=152; batch sampled_lookup=5 anchor=0 history_and_residual_exact=1"
+     },
+     {
+      "question": "did the managed-allocation fallback change placement in the measured configuration?",
+      "check": "load_completed gpu_device_used_mib of the main-based cache runs below (no extra run)",
+      "result": "88338 MiB on 2599ad6 and 9afcd67, equal to v0.13.0 runs in the same sessions=2/context=32768 configuration: device placement unchanged"
+     }
+    ],
+    "not_rerun": "CTest operator cases, snapshot test, HTTP functional suites, decode_ab and model-bench: lookup sources and arguments are unchanged and main's allocation change kept the same device placement; the v0.13.0-relative throughput rows remain associated with 0821c8a/221ef3b5 vs c4c55240",
+    "timing_flags_resolved_from_existing_data": {
+     "flags": "fq37-6-fix state-edges zero_argument_tool_after_limit decode +6.9% (254.0->271.6 ms) and thinking_tool_one_token +7.0% (45.3->48.4 ms) against fq37-1-base",
+     "method": "33 retained state-edges request files (fq13/fq17/fq21/fq35/fq37/g22) classified by execution_mode_probe prefill: fast 318.6-351.0 ms (18 runs), slow 363.7-431.7 ms (15 runs)",
+     "zero_argument_tool_after_limit": {
+      "fast": {
+       "base": "227.1-232.3 ms (9)",
+       "candidates": "226.7-230.8 ms (9)"
+      },
+      "slow": {
+       "base": "244.2-272.4 ms (8)",
+       "candidates": "242.6-284.7 ms (7)"
+      },
+      "rounds_drafts_output": "3 rounds, 10/13 drafts, 480a13f7 on every run"
+     },
+     "thinking_tool_one_token": {
+      "fast": {
+       "base": "37.0-37.8 ms",
+       "candidates": "37.1-37.6 ms"
+      },
+      "slow": {
+       "base": "38.6-45.3 ms",
+       "candidates": "41.2-48.4 ms"
+      },
+      "rounds_drafts_output": "0 draft rounds (lookup cannot run), 828db0c7 on every run"
+     },
+     "conclusion": "machine-state variation: fq37-1-base and fq37-6-fix are both slow-state runs (probe 397.2/397.1 ms) and the fast-state values coincide; no candidate-only flag remains"
+    },
+    "timing_blocker": "per-request timing qualification needs a stable GPU clock state. With power_dpm_force_performance_level auto, DVFS speed states switch within runs on both builds (earlier telemetry: gfxclk r=-0.81); level high reduced but did not remove them (rounds 30-32). No clock change is authorized, so the final gate was not run: further uncontrolled runs cannot distinguish candidate effects at 5% and 3 ms",
+    "disk_cache": {
+     "existing_evidence": "six failed restore runs (functional-final2, fcache-main-a, fcache-final2-b, disk13/dc13-4-v013-base, storage18/dc18-3-v013-cand, storage30/dc30-1-nix-base) on main, base and candidate builds; each has 11-44 staging_capacity skips during a 4.0-18.5 s store write, the case whose checkpoints were skipped fails, and passing runs write 120-290 MB in 75-316 ms",
+     "mechanism": "ContinuationDiskStore admission compared checkpoints only with stored entries. While one write stalls, checkpoints of the same conversation within one min_checkpoint_step (2048 tokens) of it are staged (~125-145 MB each); the writer later discards them as min_step, but meanwhile they hold the 1 GiB staging budget and the next conversation's checkpoints are skipped for staging_capacity, so its restart restore misses ('restart did not restore disk state'). Shutdown drains the queue (SIGINT), so restart ordering and cancellation are not involved",
+     "classification": "shared cache defect (admission ignores queued and in-flight saves), triggered by intermittent environmental write/fsync stalls on this host; raw direct writes reach 5.45 GB/s; harness expectation is valid",
+     "reproducer": {
+      "method": "tests/functional/run.py --suite cache (2599ad6 harness, run.py 4f60218e), sessions 2, context 32768, MTP; the server is wrapped to LD_PRELOAD the cache_disk_faults fsync gate (libcache_disk_faults.so e8166c8d, pinned Nix cpu build), which holds the first private cache fsync; a host loop releases it after 15 s (within the observed 4-18.5 s stalls); GPU level auto, live server stopped",
+      "main_2599ad6": "failed: thinking-tool-cancel-disk and legacy-tool-cancel-disk 'restart did not restore disk state'; 36 staging_capacity skips, 17 min_step, 5 stored; held 01:05:36-01:05:51 EDT",
+      "fix_9afcd67": "functional_status passed: all cache cases and restores pass (legacy 670 and thinking 672 cached tokens from disk, exact); 0 staging_capacity skips, 56 min_step, 6 stored; held 01:08:02-01:08:17 EDT; the runner reports status failed only because the recorded baseline failed (comparison_error 'functional checks did not pass')",
+      "request_path_cost": "cache_disk_enqueue_ms max 0.38 ms (fix) vs 0.32 ms (main) per request"
+     },
+     "fix": {
+      "branch": "codex/disk-cache-pending-step",
+      "revision": "7e72453 fix(serve): treat queued disk checkpoints as checkpoint-step bases (based on 2599ad6)",
+      "change": "queued and in-flight saves stay in the queue while written and act as step bases; SaveAsync and WithinCheckpointStep drop a non-shared-prefix checkpoint that repeats (exact_replacement) or extends a queued base by less than one step, or that a stored entry already covers (min_step), before staging. Shared prefixes keep their exemption",
+      "tests": "new continuation_disk_store_test case TestQueuedCheckpointsAreStepBases: fails on the unfixed store ('an extension within one step of the active write is not staged'), passes with the fix",
+      "builds": {
+       "timed_9afcd67": {
+        "drv": "/nix/store/sphswk25ar07b49mhrg54hdnc8p7lwgr-gufo-0-unstable-9afcd67.drv",
+        "out": "/nix/store/i0j2p2jvn4a4g4xq03kgavvhrkk94mhx-gufo-0-unstable-9afcd67",
+        "gufo_sha256": "a723b461f1340ea745b0a2897e9159089462c6bf9365739e830caf9cd24ede2c",
+        "note": "production sources identical to 7e72453, which only reformats the test and releases the stalled writer before a failed barrier assertion (CodeRabbit)"
+       },
+       "final_7e72453": {
+        "checks_pr": "/nix/store/r8cha8j40g2vdq5w8yv5f5cqjs28vvlz-check-pr.drv: format (567), dependency inventory, docs, hosted CPU 57/57 (continuation_disk_store_test, text_model_runner_test), mkGufoServe PASS"
+       }
+      },
+      "review": "CodeRabbit (committed changes vs 2599ad6): one minor test-robustness finding, applied"
+     },
+     "not_done": "no generic disk benchmark, no file deletion, no RAM-backed storage, no timeout change; the full cache-* suite family was not run because only the cache suite (and image-count, not loaded here) uses disk persistence"
+    },
+    "server_restoration": "live gufo-rocm-10.0 server stopped 00:58:55 EDT, restarted 01:09:23 with the saved command line (cmdline-identical), binary 264f21ac, /v1/models 200; GPU level auto throughout, TuneD accelerator-performance"
    }
   }
  },

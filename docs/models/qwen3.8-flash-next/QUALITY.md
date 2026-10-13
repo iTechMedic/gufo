@@ -20,14 +20,27 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
-**Prompt lookup is not qualified: the quoted-argument regression is fixed and
-correctness passes; timing qualification is inconclusive.** Final source
-`dcd7a8c`: implementation `a0aee02`, batch-cost accounting fix `3c7922f`,
-anchor-lookup fix `8297750` + `0821c8a`, tests `9e7784f`/`dcd7a8c`; versus
-v0.13.0 `fcf8bf7`.
+**Prompt lookup is not qualified: correctness passes, including on current
+main; timing qualification is inconclusive.** Final source `dcd7a8c`:
+implementation `a0aee02`, batch-cost accounting fix `3c7922f`, anchor-lookup
+fix `8297750` + `0821c8a`, tests `9e7784f`/`dcd7a8c`; versus v0.13.0
+`fcf8bf7`.
 - **Pinned Nix production build** (flake.lock nixpkgs `2fcb964d`):
   final `dcd7a8c` `5922399c` (`checks.pr` passes); timed binary `0821c8a`
   `221ef3b5`, whose production sources are identical; base `c4c55240`.
+- **Rebased onto main `2599ad6`** (October 13): the same 14 commits apply
+  without conflicts. The `src/` and `tests/` diff is byte-identical to
+  `fcf8bf7..dcd7a8c`. Main adds managed-allocation fallback `248d902`
+  (Flash-Next rollback, batch-logit and scratch allocations), CI and README;
+  none touches the lookup files.
+- **Integrated build:** Nix production `70315c24`. `checks.pr` passes (57/57
+  hosted CPU tests, including main's `heap_placement_test`). The session test
+  on the pinned `nix develop` toolchain (`7108cda1`) passes. Its log matches
+  `dcd7a8c`'s line for line, including every lookup counter; only the
+  snapshot-budget lines, which follow free host RAM, differ. In the cache
+  runs below, both main-based builds report the v0.13.0 device footprint
+  (88,338 MiB), so the fallback did not change placement. The throughput
+  rows below are relative to v0.13.0 and were not remeasured on main.
 
 Correctness passes:
 - **Tests, both toolchains:** on the pinned `nix develop` toolchain, the 15
@@ -93,26 +106,57 @@ Confirmed improvements (Nix, fix `0821c8a`):
 
 Timing (inconclusive):
 - No repeatable candidate-only flag in the focused pairs. Remaining flags
-  are snapshot/startup/TTFT ones, also seen on base controls, and two decode
-  flags in one fix run against a partly slow recorded baseline.
-- GPU clocks were uncontrolled and no final timing gate was run this round.
+  are snapshot/startup/TTFT ones, also seen on base controls.
+- **The two decode flags are machine state** (fix run 6 of round 37, from
+  existing data): `zero_argument_tool_after_limit` +6.9% and
+  `thinking_tool_one_token` +7.0%. Both builds use identical rounds, drafts
+  and outputs, and `thinking_tool_one_token` has no draft round, so lookup
+  cannot run. 33 retained runs are classified by `execution_mode_probe`
+  prefill: 18 fast (319–351 ms) and 15 slow (364–432 ms). In the fast state
+  base takes 227.1–232.3 / 37.0–37.8 ms and the candidates 226.7–230.8 /
+  37.1–37.6 ms. In the slow state both builds spread widely: base
+  244.2–272.4 / 38.6–45.3 ms, candidates 242.6–284.7 / 41.2–48.4 ms. The
+  flagged run is slow-state, and so was its recorded baseline.
+- **Missing condition:** a stable GPU clock state. With level `auto`, DVFS
+  switches speed states within runs on both builds; level `high` reduced but
+  did not remove them. No clock change was authorized, so the final gate was
+  not run, as further uncontrolled runs cannot qualify per-request timing.
 
-Host disk (storage, not the candidate):
-- An 8 GiB direct-write probe ran at 5.45 GB/s. Earlier ~800 MB/s figures
-  were limited by `/dev/urandom`.
-- The cache's own writes still stalled 4–8 s. The baseline then failed
-  `legacy-tool-cancel-disk` ("restart did not restore disk state"); the
-  final build passed all cases twice.
-- No candidate comparison exists because the recorded baseline failed.
-- Nothing was deleted.
+Host-disk cache failures (a shared cache defect, exposed by write stalls):
+- **Trigger, environmental and on every build:** the store's own write and
+  `fsync` occasionally stalls 4–18.5 s. Normal writes of 120–290 MB take
+  75–300 ms. Across ~80 retained server logs, every failed restore follows
+  such a stall. An 8 GiB direct-write probe ran at 5.45 GB/s; nothing was
+  deleted.
+- **Defect:** admission ignored queued and in-flight saves. During a stall,
+  checkpoints within one step of the write in progress filled the 1 GiB
+  staging budget, about 125–145 MB each. The writer later discarded them as
+  `min_step`, but meanwhile the next conversation's only checkpoints were
+  skipped for `staging_capacity`, so its restart restore missed. This is the
+  same failure as v0.13.0 `legacy-tool-cancel-disk` and the earlier
+  `thinking-tool-cancel-disk` failures on main, base and candidate.
+- **Reproduced deterministically** with the `cache_disk_faults` fsync gate
+  holding the first cache write 15 s, `cache` suite, main `2599ad6`
+  (`3fadd157`): both `*-tool-cancel-disk` restores fail, with 36
+  `staging_capacity` skips.
+- **Fix (separate branch `codex/disk-cache-pending-step`, `7e72453`):**
+  queued saves are step bases. Admission drops a checkpoint that repeats or
+  extends one by less than a step, and applies the stored-entry rule before
+  staging. With the same held write (`9afcd67`, `a723b461`; production
+  sources identical to `7e72453`), every case passes with no staging skip.
+  Request-path enqueue stays ≤0.38 ms (main ≤0.32 ms). A new store test
+  fails on the unfixed store and passes with the fix. Prompt lookup does not
+  depend on this fix.
 
 Evidence: [decode-prompt-lookup.json](artifacts/decode-prompt-lookup.json),
-`final_v013` (`quoted_argument_fix_round_33_41`, `final_validation_round_30_32`,
+`final_v013` (`upstream_integration_round_42_43`,
+`quoted_argument_fix_round_33_41`, `final_validation_round_30_32`,
 `batch_cost_accounting_fix`,
 `nix_gpu_correctness`, `environment_build_round_23_25`).
 
 | Check | Result |
 | --- | --- |
+| Prompt lookup on main, October 13 | Rebased onto main `2599ad6` with an identical `src/`/`tests/` diff. Nix production build `70315c24` and `checks.pr` (57/57) pass. The pinned-toolchain session test matches the `dcd7a8c` log, including lookup counters. Timing remains inconclusive without stable GPU clocks. Host-disk restore failures are a shared staging-admission defect, reproduced on main and fixed separately (`7e72453`). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Final source `9e7784f`: Nix production build and `checks.pr` pass, and Flash-Next CTest, session and snapshot tests pass on the pinned `nix develop` toolchain. The quoted-argument regression is fixed (`0821c8a`); timing qualification is inconclusive and host-disk cases fail on the baseline (above). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Decode-kernel review, October 10 | All 13 operator tests and native snapshot/session/deep-execution checks pass. Independent MTP formulas: worst relative RMS 0.0007655 (limit 0.002), 41 reported comparisons over eight text/image states. Sampled replay, cancellation, C2/4/6/8 and RAM/disk restoration pass. [Evidence](artifacts/decode-kernels-review.json). |
 | Focused HTTP regression, October 10 | `state-edges`, `tool-agent`, `long-context`, `cache`, Flash AR/MTP only. Two main/PR pairs plus unchanged-main controls; no output or expected cache/prefill-work changes. Timing failures remain visible above and in the [evidence](artifacts/decode-kernels-review.json). |
