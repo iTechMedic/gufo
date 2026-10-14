@@ -141,8 +141,7 @@ public:
       std::span<const std::uint8_t> input_identity = {}) const;
 
   /// Enqueues immutable storage, retaining both model and snapshot until done.
-  /// The returned byte count is queued work, not completed disk I/O; zero
-  /// means the checkpoint was not queued.
+  /// The returned byte count is queued work, not completed disk I/O.
   [[nodiscard]] std::size_t SaveAsync(
       std::shared_ptr<const TextModelRunner> runner,
       std::vector<TextRunnerToken> checkpoint_tokens,
@@ -186,11 +185,9 @@ public:
                            std::span<const TextRunnerToken> tokens,
                            std::span<const std::uint8_t> input_identity = {});
 
-  /// True when a stored or queued prefix lies less than
-  /// min_checkpoint_step_tokens before tokens, so saving them as a
-  /// continuation would be skipped. Lets callers avoid capturing a snapshot
-  /// only to have it discarded. SaveAsync applies the same rule before
-  /// staging.
+  /// True when a stored prefix lies less than min_checkpoint_step_tokens
+  /// before tokens, so saving them as a continuation would be skipped. Lets
+  /// callers avoid capturing a snapshot only to have it discarded.
   [[nodiscard]] bool WithinCheckpointStep(
       const TextModelRunner& runner, std::span<const TextRunnerToken> tokens,
       std::span<const std::uint8_t> input_identity = {});

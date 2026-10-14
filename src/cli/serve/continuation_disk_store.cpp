@@ -569,10 +569,6 @@ struct ContinuationDiskStore::Impl {
     std::vector<std::uint8_t> identity;
     std::size_t retained_bytes;
     bool shared_prefix{false};
-    PersistenceKey key;
-    /// Admitted past every stored and queued step base, so the writer will
-    /// store it; later checkpoints may measure their step from it.
-    bool step_base{false};
   };
 
   Impl(ContinuationDiskStoreOptions store_options, EventSink sink,
@@ -607,31 +603,22 @@ struct ContinuationDiskStore::Impl {
 
   void PersistQueued() noexcept {
     for (;;) {
-      const PendingSave* active = nullptr;
+      PendingSave job;
       {
         std::unique_lock lock(queue_mutex);
         queue_changed.wait(lock,
                            [this] { return stopping || !pending.empty(); });
         if (pending.empty())
           return;
-        // The job stays queued while it is written, so admission still sees
-        // it as a step base. Producers only append, which keeps the
-        // reference valid.
-        active = &pending.front();
-      }
-      try {
-        (void)Save(*active->runner, active->tokens, *active->snapshot,
-                   active->identity, active->shared_prefix);
-      } catch (...) {
-        Emit(ContinuationDiskEventAction::kSkipped,
-             ContinuationDiskEventReason::kIoFailure, 0, 0,
-             active->tokens.size());
-      }
-      PendingSave job;
-      {
-        std::lock_guard lock(queue_mutex);
         job = std::move(pending.front());
         pending.pop_front();
+      }
+      try {
+        (void)Save(*job.runner, job.tokens, *job.snapshot, job.identity,
+                   job.shared_prefix);
+      } catch (...) {
+        Emit(ContinuationDiskEventAction::kSkipped,
+             ContinuationDiskEventReason::kIoFailure, 0, 0, job.tokens.size());
       }
       const auto released = job.retained_bytes;
       // Release GPU/host snapshot storage before making its budget available.
@@ -1458,26 +1445,6 @@ struct ContinuationDiskStore::Impl {
                options.min_checkpoint_step_tokens;
   }
 
-  /// Called with queue_mutex held. A queued or in-flight step base covers
-  /// tokens that repeat or extend it by less than one step: the writer stores
-  /// the base first and would then discard these tokens, so admitting them
-  /// only holds staging another conversation may need while a write stalls.
-  [[nodiscard]] const PendingSave* QueuedStepBase(
-      const PersistenceKey& key,
-      std::span<const TextRunnerToken> tokens) const {
-    if (options.min_checkpoint_step_tokens == 0)
-      return nullptr;
-    for (const auto& job : pending) {
-      if (job.step_base && job.key == key &&
-          job.tokens.size() <= tokens.size() &&
-          tokens.size() - job.tokens.size() <
-              options.min_checkpoint_step_tokens &&
-          std::equal(job.tokens.begin(), job.tokens.end(), tokens.begin()))
-        return &job;
-    }
-    return nullptr;
-  }
-
   [[nodiscard]] bool Touch(const TextModelRunner& runner,
                            std::span<const TextRunnerToken> tokens,
                            std::span<const std::uint8_t> input_identity) {
@@ -1584,25 +1551,6 @@ std::size_t ContinuationDiskStore::SaveAsync(
       checkpoint_tokens.size(),
       std::max(snapshot->PayloadBytes(),
                runner->PersistentSnapshotPayloadBytes(*snapshot)));
-  auto key = Impl::PrefixKey(*descriptor.persistence);
-  // Apply the writer's step rule before staging, so checkpoints it would
-  // discard do not hold staging while an earlier write is still running.
-  const bool stepped =
-      !shared_prefix && impl_->options.min_checkpoint_step_tokens != 0;
-  bool step_base = !stepped;
-  if (stepped) {
-    const ScopedOperationPermit permit(impl_->operation_gate, false);
-    if (permit) {
-      if (impl_->WithinCheckpointStep(*runner, checkpoint_tokens,
-                                      input_identity)) {
-        impl_->Emit(ContinuationDiskEventAction::kSkipped,
-                    ContinuationDiskEventReason::kMinStep, 0, 0,
-                    checkpoint_tokens.size());
-        return 0;
-      }
-      step_base = true;
-    }
-  }
   {
     std::lock_guard lock(impl_->queue_mutex);
     if (reservation) {
@@ -1610,23 +1558,12 @@ std::size_t ContinuationDiskStore::SaveAsync(
         return 0;
       reservation.reset();
     }
-    if (stepped) {
-      if (const auto* base = impl_->QueuedStepBase(key, checkpoint_tokens)) {
-        impl_->Emit(ContinuationDiskEventAction::kSkipped,
-                    base->tokens.size() == checkpoint_tokens.size()
-                        ? ContinuationDiskEventReason::kExactReplacement
-                        : ContinuationDiskEventReason::kMinStep,
-                    0, 0, checkpoint_tokens.size());
-        return 0;
-      }
-    }
     if (!impl_->CanStage(charge, snapshot->PayloadBytes(),
                          checkpoint_tokens.size()))
       return 0;
     impl_->pending.push_back({std::move(runner), std::move(checkpoint_tokens),
                               std::move(snapshot), std::move(input_identity),
-                              charge, shared_prefix, std::move(key),
-                              step_base});
+                              charge, shared_prefix});
     impl_->queued_bytes += charge;
   }
   impl_->queue_changed.notify_one();
@@ -1690,17 +1627,10 @@ bool ContinuationDiskStore::Touch(
 bool ContinuationDiskStore::WithinCheckpointStep(
     const TextModelRunner& runner, std::span<const TextRunnerToken> tokens,
     std::span<const std::uint8_t> input_identity) {
-  {
-    const ScopedOperationPermit permit(impl_->operation_gate, false);
-    if (permit && impl_->WithinCheckpointStep(runner, tokens, input_identity))
-      return true;
-  }
-  const auto descriptor = DescriptorForInput(runner, input_identity);
-  if (!descriptor.persistence)
+  const ScopedOperationPermit permit(impl_->operation_gate, false);
+  if (!permit)
     return false;
-  std::lock_guard lock(impl_->queue_mutex);
-  return impl_->QueuedStepBase(Impl::PrefixKey(*descriptor.persistence),
-                               tokens) != nullptr;
+  return impl_->WithinCheckpointStep(runner, tokens, input_identity);
 }
 
 std::size_t ContinuationDiskStore::entry_count() const noexcept {

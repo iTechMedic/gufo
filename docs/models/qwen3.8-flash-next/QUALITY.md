@@ -1,5 +1,20 @@
 # Qwen3.8 Flash-Next quality
 
+**PR #571's wave-owned prefill weights retain byte-exact logits:**
+99,328,000 F32 values after a 34,159-token code/prose prompt and 400 fixed
+continuation steps, batch 4096, capacity 65536, match the original PR control
+`f06f32b9`. October 13, 2026 (Europe/Paris), kernel snapshot `a772fae6` atop
+`33a91366`, with the same pinned toolchain. Independent FP64 routed checks,
+unsaturated activations, odd outputs and guarded partial tiles pass. Fused SSM
+convolution, output, state and replay remain exact, including 2049-token tails.
+Deferred residual, F16 norm, packed Q8 bytes and independent host FP32 inject
+checks pass unchanged. All 16 measured AR/MTP HTTP completions at d0/d32K
+retain exact outputs and token/cache/draft counts, with no per-request
+prefill/decode timing flag. The first unusually slow mixed-MTP control is
+excluded as effect-size evidence.
+These are regression checks. The older functional timing failures below remain
+unresolved, and upstream model/conversion accuracy is not requalified.
+
 **PR #518 retains main's full logits at 64K/128K:** 512 fixed code/prose token
 positions, each checked at verification widths 1–8; all 1,017,118,720 logit
 comparisons are byte-exact (KL/TV 0, top-1 agreement 100%). Prefill and 56
@@ -20,27 +35,8 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
-**Prompt lookup is not qualified: correctness and combined cache
-compatibility pass, but timing qualification is inconclusive.** The combined
-testing candidate is `a45a0d2`: testing `663d982`, merged with lookup on main
-`9f55ebd`, plus the cache fix `7e72453` as its own commit. Its Nix
-production binary is `b8f65914`.
-- **Correctness passes:** see below and the rebase notes. The candidate's
-  lookup sources match the reviewed `9f55ebd` and its cache sources match
-  the reviewed `7e72453`; there are no other production differences.
-- **Combined cache compatibility passes** (round 44): the `cache` suite with
-  the first cache write held 15 s, on the round-43 harness and fsync gate.
-  Every case and every disk restore passes and is exact, with no staging
-  skips. All 36 requests match the round-43 cache-fix run in output, prefill,
-  cached and completion tokens, draft rounds and drafts, and in checkpoint
-  admission events. Matching drafts mean lookup made no copies in this
-  history, so this check does not cover copying; the session test does.
-- **Historical throughput gains versus v0.13.0** are below and were not
-  remeasured against main `2599ad6`.
-- **Overall timing qualification is unresolved:** it needs a stable GPU
-  clock state.
-
-Final lookup source `dcd7a8c`:
+**Prompt lookup is not qualified: correctness passes, including on current
+main; timing qualification is inconclusive.** Final source `dcd7a8c`:
 implementation `a0aee02`, batch-cost accounting fix `3c7922f`, anchor-lookup
 fix `8297750` + `0821c8a`, tests `9e7784f`/`dcd7a8c`; versus v0.13.0
 `fcf8bf7`.
@@ -116,8 +112,7 @@ Batch-cost accounting (CodeRabbit, valid):
 - **Measured impact:** none in these workloads; copies fill the chains
   whatever depth is chosen. See [EXPERIMENTS](EXPERIMENTS.md).
 
-Historical improvements versus v0.13.0 (Nix, fix `0821c8a`; not remeasured
-on main):
+Confirmed improvements (Nix, fix `0821c8a`):
 - **Rewrite:** +40.3% / +51.3% greedy and +48.9% / +48.0% sampled
   (shallow / 32K).
 - **Small edit:** +28.0% / +34.2% greedy and +28.3% / +33.5% sampled.
@@ -159,27 +154,24 @@ Host-disk cache failures (a shared cache defect, exposed by write stalls):
   holding the first cache write 15 s, `cache` suite, main `2599ad6`
   (`3fadd157`): both `*-tool-cancel-disk` restores fail, with 36
   `staging_capacity` skips.
-- **Fix (`7e72453` on `codex/disk-cache-pending-step`; in the testing
-  candidate as its own commit, `a45a0d2`):** queued saves are step bases. Admission drops a checkpoint that repeats or
+- **Fix (separate branch `codex/disk-cache-pending-step`, `7e72453`):**
+  queued saves are step bases. Admission drops a checkpoint that repeats or
   extends one by less than a step, and applies the stored-entry rule before
   staging. With the same held write (`9afcd67`, `a723b461`; production
   sources identical to `7e72453`), every case passes with no staging skip.
   Request-path enqueue stays ≤0.38 ms (main ≤0.32 ms). A new store test
   fails on the unfixed store and passes with the fix. Prompt lookup does not
-  depend on this fix. The combined candidate passes the same held-write
-  check (round 44, above). Its two inconclusive measurements are
-  `cache_snapshot_ms` on disk-spacing requests (+6 and +8 ms). They are
-  timing only and are not claimed either way.
+  depend on this fix.
 
 Evidence: [decode-prompt-lookup.json](artifacts/decode-prompt-lookup.json),
-`final_v013` (`combined_candidate_round_44`, `upstream_integration_round_42_43`,
+`final_v013` (`upstream_integration_round_42_43`,
 `quoted_argument_fix_round_33_41`, `final_validation_round_30_32`,
 `batch_cost_accounting_fix`,
 `nix_gpu_correctness`, `environment_build_round_23_25`).
 
 | Check | Result |
 | --- | --- |
-| Combined testing candidate, October 13 | `a45a0d2` (Nix `b8f65914`): testing, lookup on main and the cache fix. Lookup and cache sources match the reviewed `9f55ebd` and `7e72453`. With a 15 s stalled cache write, every `cache` case and restore passes and is exact, with no staging skips. All 36 requests match the cache-fix run, including drafts; no lookup copies occurred in that history. Throughput gains are historical versus v0.13.0; timing qualification is unresolved. [Evidence](artifacts/decode-prompt-lookup.json). |
+| Wave-owned prefill weights, October 13 | Routed WMMA, projection/convolution, MoE epilogue and HC mix checks pass with unchanged tolerances. Routed inputs end at their allocation boundary; independently reset output tails retain their guards. Fused SSM output/state/replay and full fixed-history logits are exact. HTTP C1 pp2048/tg128, two AR captures with two repetitions and two mixed/repetitive MTP captures: 16 exact measured completions, including actual drafts. All request phases pass the timing gate; the anomalous first mixed-MTP control is excluded. |
 | Prompt lookup on main, October 13 | Rebased onto main `2599ad6` with an identical `src/`/`tests/` diff. Nix production build `70315c24` and `checks.pr` (57/57) pass. The pinned-toolchain session test matches the `dcd7a8c` log, including lookup counters. Timing remains inconclusive without stable GPU clocks. Host-disk restore failures are a shared staging-admission defect, reproduced on main and fixed separately (`7e72453`). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Final source `9e7784f`: Nix production build and `checks.pr` pass, and Flash-Next CTest, session and snapshot tests pass on the pinned `nix develop` toolchain. The quoted-argument regression is fixed (`0821c8a`); timing qualification is inconclusive and host-disk cases fail on the baseline (above). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Decode-kernel review, October 10 | All 13 operator tests and native snapshot/session/deep-execution checks pass. Independent MTP formulas: worst relative RMS 0.0007655 (limit 0.002), 41 reported comparisons over eight text/image states. Sampled replay, cancellation, C2/4/6/8 and RAM/disk restoration pass. [Evidence](artifacts/decode-kernels-review.json). |
@@ -252,6 +244,21 @@ formulas supply independent predictor checks; pinned Transformers ignores MTP
 weights. [Vision reproduction](../qwen3.8-27b/QUALITY.md#vision).
 
 ## Benchmark method
+
+The October 13 single-user refresh uses production Nix builds of PR #571:
+`0951ea2f` (binary SHA-256 prefix `61d0583912d9e2c8`), and `ac51031a`
+(`d6cc00786ffc8786`) for AR d16K/d64K and MTP d64K, whose prompts end a few
+tokens past a 128-token tile and take its W8A8 tail path. Both run through
+`tools/bench/model-bench.py run --target gufo --table single-ar,single-mtp`:
+HTTP C1, capacity 133760, greedy, thinking off, pp2048/tg128 at
+every depth from 0 to 131072, one warmed sample per point, platform profile
+`performance`. Token and cache counts pass the driver's calibration gates.
+The single-user kernels behind it retain byte-identical logits for 718 fixed
+continuation rows after a 35,559-token prompt at batch 2048 and 4096 against
+the previous PR head ([experiments](EXPERIMENTS.md)). Multi-user, loading and memory
+tables and all reference values keep their earlier provenance.
+
+The October 10 sweep follows:
 
 Gufo refreshed October 10, 2026 using production Nix build `25cdb2a1`,
 PR #518 rebased onto main `a41e88da` with all 16 patches unchanged.
