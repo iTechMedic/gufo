@@ -43,6 +43,10 @@ Context capacities differ between engines; see the measurement details.
 pp is the highest measured rate per engine and depth across mixed/repetitive
 text, including Gufo predictor catch-up.
 
+Prompt lookup (October 12) is not reflected in these Nix-build rows; their
+refresh is pending. See [Prompt lookup, ROCm container build](#prompt-lookup-rocm-container-build)
+for matched measurements of the final candidate.
+
 <!-- bench:single-mtp -->
 | Flash-Next Q4 MTP<br>Depth (tokens) | Gufo pp (tok/s) | llama.cpp pp (tok/s) | Gain pp | Gufo tg mixed (tok/s) | llama.cpp tg mixed (tok/s) | Gain mixed | Gufo tg repetitive (tok/s) | llama.cpp tg repetitive (tok/s) | Gain repetitive |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -93,6 +97,102 @@ request decode rates. C1 cross-checks the single-user table.
 <!-- /bench -->
 
 ![Multiple users, MTP](artifacts/charts/multi-mtp.svg)
+
+## Prompt lookup, ROCm container build
+
+Not comparable with the Nix tables above: matched ROCm 10 container builds,
+GCC host compiler, October 12, 2026.
+- **Base:** v0.13.0 `fcf8bf7`, binary `d781bceb`.
+- **Candidate:** `a0aee02`, binary `14a7cc1f`.
+
+Same workloads, `tools/bench/model-bench.py`. Each cell is two passes in
+alternating order (pass 1 / pass 2). Greedy outputs are byte-identical
+between builds, and every multi-user completion matches the same-toolchain
+AR reference. Nix cells for the candidate are pending.
+
+Single user, MTP, pp2048/tg128. The gain is from pass 2.
+
+| Depth (tokens) | Text | Base pp (tok/s) | Candidate pp (tok/s) | Base tg (tok/s) | Candidate tg (tok/s) | Gain tg |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 0 | mixed | 1,552.10 / 1,570.17 | 1,573.79 / 1,565.18 | 30.54 / 30.51 | 30.57 / 30.53 | +0.1% |
+| 0 | repetitive | 884.34¹ / 1,566.59 | 1,561.11 / 1,567.07 | 59.21¹ / 64.55 | 100.25 / 100.11 | +55.1% |
+| 32,768 | mixed | 1,437.77 / 1,430.71 | 1,438.90 / 1,441.10 | 33.16¹ / 38.67 | 38.63 / 38.39 | −0.7% |
+| 32,768 | repetitive | 971.67¹ / 1,450.06 | 1,381.75 / 1,446.12 | 41.49¹ / 44.49 | 98.13 / 98.01 | +120.3% |
+
+¹ This base pass ran in a slow machine state:
+- Its first 2K prefill took 3,065 ms against 2,038 ms, and lookup does not
+  run during prefill.
+- Its 32K mixed run had identical drafts.
+
+Multiple users, MTP, tg128, context 4096 per user. Gains are per pass.
+
+| Users | Base mixed (tok/s) | Candidate mixed (tok/s) | Gain | Base repetitive (tok/s) | Candidate repetitive (tok/s) | Gain |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 27.83 / 30.44 | 30.43 / 30.40 | +9.3% / −0.1% | 60.75 / 63.60 | 98.98 / 101.22 | +62.9% / +59.2% |
+| 2 | 52.90 / 50.77 | 50.67 / 45.11 | −4.2% / −11.1% | 78.79 / 81.95 | 140.76 / 144.46 | +78.7% / +76.3% |
+| 4 | 75.92 / 70.36 | 84.13 / 69.68 | +10.8% / −1.0% | 136.94 / 126.80 | 183.37 / 200.18 | +33.9% / +57.9% |
+| 6 | 97.00 / 97.17 | 97.11 / 97.28 | +0.1% / +0.1% | 132.58 / 148.81 | 199.90 / 215.00 | +50.8% / +44.5% |
+| 8 | 111.67 / 112.34 | 111.16 / 111.43 | −0.5% / −0.8% | 177.16 / 163.64 | 219.29 / 231.05 | +23.8% / +41.2% |
+
+Mixed C2 and C4 swings are machine state, not lookup:
+- Traces show no copies in either workload.
+- Three alternating untraced C2 pairs: base 53.03 / 51.07 / 44.41, candidate
+  51.07 / 51.05 / 47.79 tok/s.
+- At identical drafts the builds matched (51.05 vs 51.07).
+- Slow runs on either build have every cycle about 12% slower.
+
+Pinned Nix production builds (candidate `5ba35a3b`, base `c4c55240`;
+disposable container, not the build behind the Nix tables above) were checked
+over HTTP. Order was base, candidate, candidate, base, with greedy output
+byte-identical. Nix tables still need refreshing.
+
+| Workload | Greedy, shallow / 32K | Sampled, shallow / 32K |
+| --- | ---: | ---: |
+| Rewrite | +40.1% / +48.3% | +49.0% / +50.5% |
+| Small edit | +28.7% / +39.3% | +28.8% / +24.7% |
+| Mixed prose | 0.0% / +0.1% | 0.0% / −0.1% |
+| Fresh code | +0.7% / +0.4% | +2.4% / −2.0% |
+
+Batch-cost accounting fix (`3c7922f`, container binary `3647d37e`) versus
+`a0aee02`, three alternating pairs (mean tok/s):
+
+| Case | `a0aee02` | Fix | Change |
+| --- | ---: | ---: | ---: |
+| Repetitive C2 | 151.16 | 149.06 | −1.4%¹ |
+| Repetitive C4 | 192.62 | 200.28 | +4.0%¹ |
+| Mixed C2 | 49.24 | 48.92 | −0.7% |
+| Mixed C4 | 78.11 | 80.56 | +3.1% |
+
+¹ Repetitive draft counts are identical in every run, and the samples agree
+within 0.2% apart from one slow sample per build. Mixed draft counts vary
+by run on both builds. Single-user rewrite and prose are within 0.2%.
+
+Final source `dcd7a8c` (timed Nix binary `221ef3b5` of `0821c8a`, base
+`c4c55240`):
+
+| Workload | Greedy, shallow / 32K | Sampled, shallow / 32K |
+| --- | ---: | ---: |
+| Rewrite | +40.3% / +51.3% | +48.9% / +48.0% |
+| Small edit | +28.0% / +34.2% | +28.3% / +33.5% |
+| Prose | −0.0% / +0.9% | −0.1% / −1.1% |
+
+The quoted-argument tool calls match the baseline again. Concurrency rows
+above predate the anchor fix, which does not change batched copying of
+repetitive text (no anchor copies there).
+
+Token gaps come from the HTTP A/B runs, not this driver:
+- **ABBA runs:** the largest gap was 166 ms on the candidate and 158 ms on
+  base (both 32K prose). On rewrites and small edits it was 111 ms against
+  126 ms.
+- **Cold 2-session run** (262K context, disk cache): 194 ms on the
+  candidate, against 197 ms on base and 283 ms on an unchanged-base control.
+
+These gains are relative to v0.13.0 and were not remeasured on main
+`2599ad6`. The rebase leaves the lookup sources unchanged. Main's only
+decode-path change is allocation placement, which kept the same device
+footprint on this host; see [QUALITY](QUALITY.md).
+
+[Evidence](artifacts/decode-prompt-lookup.json) (`final_v013`).
 
 ## Loading time
 

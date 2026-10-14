@@ -256,6 +256,49 @@ void CheckBatchProfitability() {
   Require(policy.Choose(rows, 0) <= 1, "invalid timing corrupted policy");
 }
 
+void CheckBatchLookupAccounting() {
+  qfn::MtpLengthController a(7), b(7);
+  for (unsigned i = 0; i < 12; ++i) {
+    a.Observe(7, 7);
+    b.Observe(7, 7);
+  }
+  std::array<qfn::MtpBatchController::Row, 2> rows{{{&a, 7}, {&b, 7}}};
+  const auto warm = [] {
+    qfn::MtpBatchController policy;
+    for (unsigned w = 0; w <= 7; ++w)
+      for (unsigned repeat = 0; repeat < 3; ++repeat)
+        policy.Observe(2, 0, w, w == 0 ? 50.0F : 1000.0F);
+    for (unsigned i = 0; i < 32; ++i)
+      policy.Observe(2, 0, 3, 60.0F);
+    return policy;
+  };
+  auto clean = warm();
+  auto copied = warm();
+  clean.Observe(2, 0, 3, 60.0F);
+  clean.Observe(2, 0, 3, 60.0F);
+  // A cycle whose chains include copies, then the catch-up replaying them.
+  copied.Observe(2, 0, 3, 600.0F, true);
+  copied.Observe(2, 0, 3, 600.0F);
+  // Identical choices also cover cycle counting, exploration and controls.
+  for (unsigned i = 0; i < 40; ++i) {
+    const auto width = clean.Choose(rows, 0);
+    Require(copied.Choose(rows, 0) == width,
+            "prompt-lookup copies contaminated the measured batch cost");
+    const float ms = width == 0 ? 50.0F : width == 3 ? 60.0F : 1000.0F;
+    clean.Observe(2, 0, width, ms);
+    copied.Observe(2, 0, width, ms);
+  }
+  // Steady cycles after copies are measured again.
+  copied.Observe(2, 0, 3, 60.0F, true);
+  for (unsigned i = 0; i < 4; ++i)
+    copied.Observe(2, 0, 3, 2000.0F);
+  for (unsigned i = 0; i < 16; ++i) {
+    const auto width = copied.Choose(rows, 0);
+    Require(width != 3, "batch costs were not measured after copies ended");
+    copied.Observe(2, 0, width, width == 0 ? 50.0F : 1000.0F);
+  }
+}
+
 void CheckSampledOutputFrequencies() {
   const std::array<float, 5> logits{0.3F, -0.2F, 1.1F, 0.7F, -1.0F};
   qfn::MtpCandidateLogits candidates;
@@ -336,6 +379,7 @@ int main() {
     CheckLengthController();
     CheckCalibratedCosts();
     CheckBatchProfitability();
+    CheckBatchLookupAccounting();
     CheckCompactProposals();
     CheckSampledOutputFrequencies();
     const std::array<float, 5> logits{0.3F, -0.2F, 1.1F, 0.7F, -1.0F};

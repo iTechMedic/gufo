@@ -435,6 +435,245 @@ void CheckMtpCacheReplay(const std::shared_ptr<qfn::Model>& model) {
   }
 }
 
+// Copied proposals keep greedy output equal to AR and sampled replay exact
+// after restoring onto a diverged session or from a mid-generation snapshot.
+void CheckPromptLookupReplay(const std::shared_ptr<qfn::Model>& model) {
+  namespace qt = gufo::tokenization;
+  std::string error;
+  std::string code;
+  for (unsigned i = 0; i < 24; ++i)
+    code += "def scale_" + std::to_string(i) + "(x):\n    return x * " +
+            std::to_string(i * 7 + 3) + " + " + std::to_string(i * i) + "\n";
+  const std::array messages{
+      qt::ChatMessage{qt::ChatRole::kUser,
+                      "Here is a Python file:\n```python\n" + code +
+                          "```\nRepeat the file exactly, in one code block."}};
+  const auto encoded = qt::QwenChatTemplate::RenderAndTokenize(
+      model->tokenizer(), messages, {.enable_thinking = false}, &error);
+  Require(encoded.has_value(), error);
+  const std::vector<std::int32_t> prompt(encoded->begin(), encoded->end());
+  const std::vector<sampling::TokenId> history(prompt.begin(), prompt.end());
+  constexpr std::size_t kTokens = 160;
+  struct Run {
+    std::vector<std::int32_t> tokens;
+    std::vector<std::size_t> widths;
+    std::uint64_t rng{0};
+  };
+  const auto decode = [&](qfn::Session& session,
+                          sampling::SamplerState& sampler, Run* run,
+                          std::size_t until) {
+    while (run->tokens.size() < until) {
+      qfn::Session::DecodeResult step;
+      Require(session.DecodeStep(until - run->tokens.size(), sampler, &step,
+                                 &error, false),
+              error);
+      Require(!step.tokens.empty(), "prompt lookup replay made no progress");
+      run->tokens.insert(run->tokens.end(), step.tokens.begin(),
+                         step.tokens.end());
+      run->widths.push_back(step.tokens.size());
+    }
+    run->rng = sampler.rng_state();
+  };
+  const auto create = [&](gufo::core::SessionMode mode) {
+    auto session = model->CreateSession(mode, 6145, &error);
+    Require(session != nullptr, error);
+    return session;
+  };
+
+  const sampling::SamplingConfig greedy{.temperature = 0};
+  auto ar = create(gufo::core::SessionMode::kAutoregressive);
+  auto mtp = create(gufo::core::SessionMode::kSpeculative);
+  Require(ar->Sync(prompt, &error) && mtp->Sync(prompt, &error), error);
+  Run ar_run, mtp_run;
+  sampling::SamplerState ar_sampler(greedy, history),
+      mtp_sampler(greedy, history);
+  decode(*ar, ar_sampler, &ar_run, kTokens);
+  decode(*mtp, mtp_sampler, &mtp_run, kTokens);
+  Require(ar_run.tokens == mtp_run.tokens,
+          "greedy prompt lookup differs from AR");
+  Require(mtp->Statistics().lookup_accepted > 0,
+          "greedy check did not accept copied proposals");
+
+  // Repeated short answers match long histories; copies end at the stop
+  // token and serving-style decoding still matches AR through the stop.
+  std::vector<qt::ChatMessage> turns;
+  for (unsigned i = 0; i < 4; ++i) {
+    turns.emplace_back(qt::ChatRole::kUser,
+                       "Turn " + std::to_string(i) + ". Reply with only BETA.");
+    turns.emplace_back(qt::ChatRole::kAssistant, "BETA");
+  }
+  turns.emplace_back(qt::ChatRole::kUser, "Turn 4. Reply with only BETA.");
+  const auto short_encoded = qt::QwenChatTemplate::RenderAndTokenize(
+      model->tokenizer(), turns, {.enable_thinking = false}, &error);
+  Require(short_encoded.has_value(), error);
+  const std::vector<std::int32_t> short_prompt(short_encoded->begin(),
+                                               short_encoded->end());
+  std::array<std::vector<std::int32_t>, 2> short_tokens;
+  for (const bool speculative : {false, true}) {
+    auto session =
+        create(speculative ? gufo::core::SessionMode::kSpeculative
+                           : gufo::core::SessionMode::kAutoregressive);
+    Require(session->Sync(short_prompt, &error), error);
+    sampling::SamplerState short_sampler(
+        greedy, std::vector<sampling::TokenId>(short_prompt.begin(),
+                                               short_prompt.end()));
+    auto& tokens = short_tokens[speculative];
+    for (bool stop = false; !stop && tokens.size() < 32;) {
+      qfn::Session::DecodeResult step;
+      Require(
+          session->DecodeStep(32 - tokens.size(), short_sampler, &step, &error),
+          error);
+      tokens.insert(tokens.end(), step.tokens.begin(), step.tokens.end());
+      stop = step.stop;
+    }
+  }
+  Require(!short_tokens[0].empty() && short_tokens[0] == short_tokens[1],
+          "stop-terminated prompt lookup differs from AR");
+
+  // The reply repeats a long arbitrary value and then diverges from what
+  // followed it in the prompt. After rejected first drafts, a wrong first
+  // draft must not hide that context match: copies are then also proposed
+  // at the anchor, replacing the whole MTP chain.
+  std::string value;
+  std::uint32_t state = 12345;
+  for (unsigned i = 0; i < 40; ++i) {
+    state = state * 1103515245U + 12345U;
+    value += "abcdefghjkmnpqrstuvwxyz23456789"[(state >> 16) % 31];
+  }
+  const std::array quoted_messages{qt::ChatMessage{
+      qt::ChatRole::kUser,
+      "Stored record: {\"token\": \"" + value +
+          "\"} (expired).\nReply with only the JSON object {\"token\": ..., "
+          "\"valid\": false}, using the same token."}};
+  const auto quoted_encoded = qt::QwenChatTemplate::RenderAndTokenize(
+      model->tokenizer(), quoted_messages, {.enable_thinking = false}, &error);
+  Require(quoted_encoded.has_value(), error);
+  const std::vector<std::int32_t> quoted(quoted_encoded->begin(),
+                                         quoted_encoded->end());
+  const std::vector<sampling::TokenId> quoted_history(quoted.begin(),
+                                                      quoted.end());
+  auto quoted_ar = create(gufo::core::SessionMode::kAutoregressive);
+  auto quoted_mtp = create(gufo::core::SessionMode::kSpeculative);
+  Require(quoted_ar->Sync(quoted, &error) && quoted_mtp->Sync(quoted, &error),
+          error);
+  Run quoted_ar_run, quoted_mtp_run;
+  sampling::SamplerState quoted_ar_sampler(greedy, quoted_history),
+      quoted_mtp_sampler(greedy, quoted_history);
+  decode(*quoted_ar, quoted_ar_sampler, &quoted_ar_run, 64);
+  decode(*quoted_mtp, quoted_mtp_sampler, &quoted_mtp_run, 64);
+  Require(quoted_ar_run.tokens == quoted_mtp_run.tokens,
+          "greedy anchor prompt lookup differs from AR");
+  const auto quoted_stats = quoted_mtp->Statistics();
+  Require(quoted_stats.lookup_accepted > 0,
+          "greedy quoted value did not accept copied proposals");
+  // Sampled verification rejects first drafts, the condition under which an
+  // anchor match replaces the chain. Seeded runs over the quoted value and a
+  // long repetitive pattern each replay exactly; together they must copy
+  // from the anchor and accept copies.
+  const auto unit = model->Tokenize("Continue red, blue, blue, red,");
+  std::vector<std::int32_t> repeated(1024);
+  for (std::size_t t = 0; t < repeated.size(); ++t)
+    repeated[t] = unit[t % unit.size()];
+  const auto& pattern = repeated;
+  qfn::Session::SpeculativeStats sampled_totals;
+  for (const auto* context : {&quoted, &pattern}) {
+    const std::vector<sampling::TokenId> context_history(context->begin(),
+                                                         context->end());
+    for (const float temperature : {1.0F, 2.0F}) {
+      for (const std::int64_t seed : {11, 12}) {
+        const sampling::SamplingConfig sampled_config{
+            .temperature = temperature,
+            .top_k = 20,
+            .top_p = 0.95F,
+            .seed = seed};
+        std::array<Run, 2> runs;
+        std::array<qfn::Session::SpeculativeStats, 2> stats;
+        for (std::size_t r = 0; r < runs.size(); ++r) {
+          auto session = create(gufo::core::SessionMode::kSpeculative);
+          Require(session->Sync(*context, &error), error);
+          sampling::SamplerState sampler(sampled_config, context_history);
+          decode(*session, sampler, &runs[r], 64);
+          stats[r] = session->Statistics();
+        }
+        Require(runs[0].tokens == runs[1].tokens &&
+                    runs[0].widths == runs[1].widths &&
+                    runs[0].rng == runs[1].rng &&
+                    stats[0].lookup == stats[1].lookup &&
+                    stats[0].lookup_anchor == stats[1].lookup_anchor,
+                "sampled anchor prompt lookup does not replay exactly");
+        sampled_totals.lookup += stats[0].lookup;
+        sampled_totals.lookup_anchor += stats[0].lookup_anchor;
+        sampled_totals.lookup_accepted += stats[0].lookup_accepted;
+      }
+    }
+  }
+  Require(
+      sampled_totals.lookup_anchor > 0 && sampled_totals.lookup_accepted > 0,
+      "no copy from the anchor after rejected first drafts (lookup=" +
+          std::to_string(sampled_totals.lookup) +
+          " anchor=" + std::to_string(sampled_totals.lookup_anchor) +
+          " accepted=" + std::to_string(sampled_totals.lookup_accepted) + ")");
+  std::cout << "prompt lookup quoted_value greedy_lookup="
+            << quoted_stats.lookup
+            << " sampled_lookup=" << sampled_totals.lookup
+            << " sampled_anchor=" << sampled_totals.lookup_anchor
+            << " sampled_accepted=" << sampled_totals.lookup_accepted << "\n"
+            << std::flush;
+
+  const sampling::SamplingConfig config{
+      .temperature = 0.8F, .top_k = 20, .top_p = 0.95F, .seed = 3};
+  auto fresh = create(gufo::core::SessionMode::kSpeculative);
+  Require(fresh->Sync(prompt, &error), error);
+  const auto start = fresh->SaveSnapshot(&error);
+  Require(start != nullptr, error);
+  Run expected;
+  sampling::SamplerState sampler(config, history);
+  decode(*fresh, sampler, &expected, kTokens / 2);
+  const auto middle = fresh->SaveSnapshot(&error);
+  Require(middle != nullptr, error);
+  const auto middle_sampler = sampler;
+  const auto middle_tokens = expected.tokens.size();
+  const auto middle_cycles = expected.widths.size();
+  decode(*fresh, sampler, &expected, kTokens);
+  Require(
+      fresh->Statistics().lookup > 0 && fresh->Statistics().lookup_accepted > 0,
+      "sampled check did not exercise copied proposals");
+
+  // Restore onto a session whose index holds a different history. Sampled
+  // draws depend on each step's budget, so replay the same two budgets.
+  auto diverged = create(gufo::core::SessionMode::kSpeculative);
+  Require(diverged->Sync(model->Tokenize("Unrelated red, blue, blue, red,"),
+                         &error),
+          error);
+  Run unrelated;
+  sampling::SamplerState unrelated_sampler(config, {});
+  decode(*diverged, unrelated_sampler, &unrelated, 24);
+  Require(diverged->RestoreSnapshot(*start, &error), error);
+  Run restored;
+  sampling::SamplerState restored_sampler(config, history);
+  decode(*diverged, restored_sampler, &restored, kTokens / 2);
+  decode(*diverged, restored_sampler, &restored, kTokens);
+  Require(restored.tokens == expected.tokens &&
+              restored.widths == expected.widths &&
+              restored.rng == expected.rng,
+          "prompt lookup replay changed after restoring a diverged session");
+
+  // Rewind the generating session itself to the middle of its copy.
+  Require(fresh->RestoreSnapshot(*middle, &error), error);
+  Run resumed;
+  resumed.tokens.assign(expected.tokens.begin(),
+                        expected.tokens.begin() + middle_tokens);
+  resumed.widths.assign(expected.widths.begin(),
+                        expected.widths.begin() + middle_cycles);
+  auto resumed_sampler = middle_sampler;
+  decode(*fresh, resumed_sampler, &resumed, kTokens);
+  Require(resumed.tokens == expected.tokens &&
+              resumed.widths == expected.widths && resumed.rng == expected.rng,
+          "prompt lookup replay changed after a mid-generation restore");
+  std::cout << "prompt lookup greedy_ar_exact=1 sampled_replay_exact=1\n"
+            << std::flush;
+}
+
 void CheckBatchFailureIsolation(const std::shared_ptr<qfn::Model>& model) {
   std::string error;
   const auto prompt = model->Tokenize("Repeat red, blue, red, blue,");
@@ -533,6 +772,8 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
   std::string error;
   std::size_t sampled_rejections = 0;
   std::size_t sampled_acceptances = 0;
+  std::size_t sampled_lookups = 0;
+  std::size_t sampled_anchor_lookups = 0;
   std::vector<std::unique_ptr<qfn::Session>> serial, batched;
   std::vector<sampling::SamplerState> serial_samplers, batch_samplers;
   const auto cases = gufo::test::QwenSamplingCases();
@@ -550,9 +791,11 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
                                   ": Continue red, blue, blue, red,");
     // One member crosses the sparse-attention boundary while the others
     // remain short; interleaving must not share positions or pooling state.
-    if (i == 1) {
+    // A short repetitive member samples with a repeat reward, so batched
+    // sampled copies do not hinge on one hot-temperature continuation.
+    if (i == 1 || i == 5) {
       const auto pattern = prompt;
-      prompt.resize(4095);
+      prompt.resize(i == 1 ? 4095 : 640);
       for (std::size_t t = pattern.size(); t < prompt.size(); ++t) {
         prompt[t] = pattern[t % pattern.size()];
       }
@@ -623,7 +866,9 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
                     serial_samplers[i].rng_state() ==
                         batch_samplers[i].rng_state() &&
                     a.cycles == b.cycles && a.drafted == b.drafted &&
-                    a.accepted == b.accepted &&
+                    a.accepted == b.accepted && a.lookup == b.lookup &&
+                    a.lookup_accepted == b.lookup_accepted &&
+                    a.lookup_anchor == b.lookup_anchor &&
                     std::equal(serial[i]->Tokens().begin(),
                                serial[i]->Tokens().end(),
                                batched[i]->Tokens().begin(),
@@ -650,6 +895,8 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
           const auto drafted = a.drafted - before[i].drafted;
           const auto accepted = a.accepted - before[i].accepted;
           sampled_acceptances += accepted;
+          sampled_lookups += a.lookup - before[i].lookup;
+          sampled_anchor_lookups += a.lookup_anchor - before[i].lookup_anchor;
           if (accepted < drafted) {
             ++sampled_rejections;
             // stop_at_eos is false: a sampled rejection always defers its
@@ -664,9 +911,15 @@ void CheckBatchedSessions(const std::shared_ptr<qfn::Model>& model) {
               << std::flush;
   }
   Require(
-      sampled_acceptances > 0 && sampled_rejections > 0,
-      "batch test must exercise sampled acceptance and residual correction");
+      sampled_acceptances > 0 && sampled_rejections > 0 && sampled_lookups > 0,
+      "batch test must exercise sampled acceptance, prompt lookup and "
+      "residual correction (accepted=" +
+          std::to_string(sampled_acceptances) +
+          " lookup=" + std::to_string(sampled_lookups) +
+          " rejected_cycles=" + std::to_string(sampled_rejections) + ")");
   std::cout << "batch sampled_accepted=" << sampled_acceptances
+            << " sampled_lookup=" << sampled_lookups
+            << " sampled_anchor=" << sampled_anchor_lookups
             << " rejected_cycles=" << sampled_rejections
             << " history_and_residual_exact=1\n"
             << std::flush;
@@ -1061,6 +1314,7 @@ int main(int argc, char** argv) {
     }
     if (cache_only) {
       CheckMtpCacheReplay(model);
+      CheckPromptLookupReplay(model);
       return 0;
     }
     CheckSnapshotDuringGraphCapture(model, false);
@@ -1078,8 +1332,10 @@ int main(int argc, char** argv) {
     }
     if (prefill_only)
       return 0;
-    if (!batch_only)
+    if (!batch_only) {
       CheckMtpCacheReplay(model);
+      CheckPromptLookupReplay(model);
+    }
     CheckFailureRecovery(model);
     CheckRollbackReuse(model);
     CheckImageSnapshotAttachment(model);
