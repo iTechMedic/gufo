@@ -43,9 +43,11 @@ Context capacities differ between engines; see the measurement details.
 pp is the highest measured rate per engine and depth across mixed/repetitive
 text, including Gufo predictor catch-up.
 
-Prompt lookup (October 12) is not reflected in these Nix-build rows; their
-refresh is pending. See [Prompt lookup, ROCm container build](#prompt-lookup-rocm-container-build)
-for matched measurements of the final candidate.
+Prompt lookup is not reflected in these Nix-build rows. See
+[Prompt lookup on v0.15.0](#prompt-lookup-on-v0150-file-rewrite) for the current
+same-release rewrite comparison and
+[Prompt lookup, ROCm container build](#prompt-lookup-rocm-container-build-historical-v0130)
+for the historical v0.13.0 measurements.
 
 <!-- bench:single-mtp -->
 | Flash-Next Q4 MTP<br>Depth (tokens) | Gufo pp (tok/s) | llama.cpp pp (tok/s) | Gain pp | Gufo tg mixed (tok/s) | llama.cpp tg mixed (tok/s) | Gain mixed | Gufo tg repetitive (tok/s) | llama.cpp tg repetitive (tok/s) | Gain repetitive |
@@ -98,10 +100,45 @@ request decode rates. C1 cross-checks the single-user table.
 
 ![Multiple users, MTP](artifacts/charts/multi-mtp.svg)
 
-## Prompt lookup, ROCm container build
+## Prompt lookup on v0.15.0, file rewrite
 
-Not comparable with the Nix tables above: matched ROCm 10 container builds,
-GCC host compiler, October 12, 2026.
+October 14, 2026, pinned Nix production builds (flake.lock `faabad82`):
+stock v0.15.0 `89d6185` (`8bd1567a`) against candidate `2c4039e`
+(`2b2960c1`).
+- **Workload:** the greedy `rewrite` request of the historical runs below. A
+  230-line Python file with one function rename, returned complete, 1,949
+  generated tokens.
+- **Method:** `--sessions 1 --context 65536 --think off`, MTP. Each sample is
+  a fresh process, with one identical warm-up request and no disk cache. The
+  times cover the complete rewrite request, including 1,994 uncached prefill
+  tokens (about 1.3 s on both builds).
+- **Correctness:** the output is byte-identical between builds and exactly
+  the expected edit.
+
+| Pair | Order | Stock wall / decode (s) | Candidate wall / decode (s) | Wall change | Decode rate |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 1 | AB | 29.01 / 27.69 | 21.82 / 20.50 | −24.8% | 1.35× |
+| 2 | BA | 29.34 / 28.03 | 21.36 / 20.05 | −27.2% | 1.40× |
+| 3 | BA | 28.70 / 27.39 | 21.35 / 20.03 | −25.6% | 1.37× |
+| 4¹ | AB | 28.64 / 27.32 | 22.86 / 20.58 | −20.2% | 1.33× |
+
+Paired median: −25.2% wall time, 1.36× decode rate. Per request, stock
+proposes 1,772 MTP drafts and accepts 1,639 in 310 rounds. The candidate
+proposes 1,710 and accepts 1,704 in 245 rounds; 1,142 of those accepted are
+prompt-lookup copies. This is a focused 4-pair experiment on one fixture,
+not general coding performance or a full qualification; cold-start timing
+remains inconclusive ([QUALITY](QUALITY.md)).
+
+¹ The candidate process hit the host drive's slow read state, which added
+about 1 s of prefill. The pair is reported but not interpretable; pairs 1–3
+are clean.
+
+[Evidence](artifacts/prompt-lookup-v015.json).
+
+## Prompt lookup, ROCm container build (historical, v0.13.0)
+
+Not comparable with the Nix tables above or with the v0.15.0 rewrite: matched
+ROCm 10 container builds, GCC host compiler, October 12, 2026.
 - **Base:** v0.13.0 `fcf8bf7`, binary `d781bceb`.
 - **Candidate:** `a0aee02`, binary `14a7cc1f`.
 

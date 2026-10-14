@@ -1,0 +1,423 @@
+{
+  "date": "2026-10-14",
+  "host": "halo-llm1, gfx1151; models on the primary Kingston NVMe; GPU level auto; 1 GiB VRAM reservation",
+  "builds": {
+    "stock": {
+      "source": "89d6185532ff6d5de0336000fc6ad62e869b82b6",
+      "nix_out": "/nix/store/fsqmrwgpj8y5rl70kk9h5zkg9li2gqg0-gufo-0-unstable-89d6185",
+      "gufo_sha256": "8bd1567acd9f9a0008b394b09ff0cd3c785a337f30d8f8f9480ab10cc91b5278"
+    },
+    "candidate": {
+      "source": "2c4039ed24ba039d6298c3d3eb0c6cd51cef2a7a",
+      "nix_out": "/nix/store/y5pap4q28haaqrjc9s1w5g4razhkfwih-gufo-0-unstable-2c4039e",
+      "gufo_sha256": "2b2960c153e55ba12afe73f591371cb3664a2ca7810abce93e42cf3db2967814"
+    },
+    "flake_lock_sha256": "faabad820ec09caab7351bf48910cec895a38cf1766e098e3065aea86f405ed6",
+    "counter_diagnostic": {
+      "source": "4e661829e1137029f49eeaa8f140ab19ce67179d (candidate + counter log lines; not part of the candidate, never timed)",
+      "gufo_sha256": "cd5fcd9d9531b82b0bf428da14a3aab1aaa63f8648b0e34edb4c23ed79c5fdba"
+    }
+  },
+  "stalled_write_reproduction_stock": [
+    {
+      "run": "g1",
+      "functional_status": "passed",
+      "suites": {
+        "text-cancel": "passed",
+        "thinking-tool-cancel": "passed",
+        "legacy-tool-cancel": "passed",
+        "disk-spacing": "passed",
+        "text-cancel-disk": "passed",
+        "thinking-tool-cancel-disk": "passed",
+        "legacy-tool-cancel-disk": "passed",
+        "disk-spacing-disk": "passed"
+      },
+      "staging_capacity_skips": 0
+    },
+    {
+      "run": "g2",
+      "functional_status": "passed",
+      "suites": {
+        "text-cancel": "passed",
+        "thinking-tool-cancel": "passed",
+        "legacy-tool-cancel": "passed",
+        "disk-spacing": "passed",
+        "text-cancel-disk": "passed",
+        "thinking-tool-cancel-disk": "passed",
+        "legacy-tool-cancel-disk": "passed",
+        "disk-spacing-disk": "passed"
+      },
+      "staging_capacity_skips": 0
+    }
+  ],
+  "checkpoint_spacing_ungated": {
+    "stock": "disk checkpoints closer than 2048 tokens: {'stored_tokens': [2447, 3029, 3611, 6278], 'min_step_skips': 16}",
+    "candidate": "disk checkpoints closer than 2048 tokens: {'stored_tokens': [2447, 3029, 3320, 3618, 6278], 'min_step_skips': 15}",
+    "suites_all_passed": true
+  },
+  "candidate_correctness": {
+    "checks_pr": "59/59 hosted CPU tests, formatting/dependency/documentation checks clean",
+    "cpu_tests": [
+      "prompt_lookup",
+      "mtp_sampling",
+      "ngram",
+      "config",
+      "continuation_layout"
+    ],
+    "gpu_tests": [
+      "qwen38_flash_next_session_test",
+      "qwen38_flash_next_continuation_adapter_test",
+      "qwen38_flash_next_snapshot_test"
+    ],
+    "focused_http_processes": 20,
+    "workload_issues": 0
+  },
+  "focused_timing_10_pairs": {
+    "protocol": "paired one-sided 95% bound, margin max(3 ms, 5%), Bonferroni regression bound",
+    "schedule": [
+      "AB",
+      "BA",
+      "BA",
+      "AB",
+      "AB",
+      "BA",
+      "BA",
+      "AB",
+      "AB",
+      "BA"
+    ],
+    "cold_verdict": "inconclusive",
+    "warm_verdict": "qualified",
+    "cold": {
+      "server:startup_ms": {
+        "mean": -6243.808,
+        "upper95": 8517.434,
+        "lower_bonferroni": -33740.777,
+        "margin": 5047.522,
+        "status": "inconclusive"
+      },
+      "execution_mode_probe:prefill_ms": {
+        "mean": -9.182,
+        "upper95": 16.313,
+        "lower_bonferroni": -56.673,
+        "margin": 13.456,
+        "status": "inconclusive"
+      },
+      "execution_mode_probe:decode_ms": {
+        "mean": 7.406,
+        "upper95": 29.676,
+        "lower_bonferroni": -34.078,
+        "margin": 20.639,
+        "status": "inconclusive"
+      },
+      "thinking_tool_one_token:prefill_ms": {
+        "mean": 30.161,
+        "upper95": 114.89,
+        "lower_bonferroni": -127.671,
+        "margin": 22.84,
+        "status": "inconclusive"
+      },
+      "thinking_tool_one_token:decode_ms": {
+        "mean": 2.883,
+        "upper95": 9.999,
+        "lower_bonferroni": -10.374,
+        "margin": 3.0,
+        "status": "inconclusive"
+      },
+      "zero_argument_tool_after_limit:prefill_ms": {
+        "mean": 2.266,
+        "upper95": 6.81,
+        "lower_bonferroni": -6.2,
+        "margin": 20.082,
+        "status": "passed"
+      },
+      "zero_argument_tool_after_limit:decode_ms": {
+        "mean": 1.972,
+        "upper95": 12.641,
+        "lower_bonferroni": -17.902,
+        "margin": 11.773,
+        "status": "inconclusive"
+      }
+    },
+    "warm": {
+      "execution_mode_probe:prefill_ms": {
+        "mean": 0.0,
+        "upper95": 0.0,
+        "lower_bonferroni": 0.0,
+        "margin": 3.0,
+        "status": "passed"
+      },
+      "execution_mode_probe:decode_ms": {
+        "mean": -0.922,
+        "upper95": -0.317,
+        "lower_bonferroni": -2.05,
+        "margin": 20.049,
+        "status": "passed"
+      },
+      "thinking_tool_one_token:prefill_ms": {
+        "mean": 0.0,
+        "upper95": 0.0,
+        "lower_bonferroni": 0.0,
+        "margin": 3.0,
+        "status": "passed"
+      },
+      "thinking_tool_one_token:decode_ms": {
+        "mean": -0.22,
+        "upper95": 0.23,
+        "lower_bonferroni": -1.058,
+        "margin": 3.0,
+        "status": "passed"
+      },
+      "zero_argument_tool_after_limit:prefill_ms": {
+        "mean": 0.0,
+        "upper95": 0.0,
+        "lower_bonferroni": 0.0,
+        "margin": 3.0,
+        "status": "passed"
+      },
+      "zero_argument_tool_after_limit:decode_ms": {
+        "mean": 0.737,
+        "upper95": 1.457,
+        "lower_bonferroni": -0.604,
+        "margin": 11.339,
+        "status": "passed"
+      }
+    },
+    "note": "non-copying history: identical draft work on both builds"
+  },
+  "rewrite_4_pairs": {
+    "fixture": "decode_ab.py rewrite, shallow, greedy: first 230 lines of tools/bench/speculative-corpus.py (corpus f37fb01, sha256 478e45b1...), rename parse_token_trace to read_token_trace, max_tokens 2200",
+    "server": "--sessions 1 --context 65536 --think off --speculative mtp, no disk cache, fresh process per sample, identical warm-up",
+    "output_sha256": "80de947fd55e3098aad1f17562a177c0b6b314a5826949725c21e2b8f258a726",
+    "edit_correct_all": true,
+    "units": [
+      {
+        "unit": "p1-A",
+        "wall_ms": 29010.8,
+        "prefill_tokens": 1994,
+        "prefill_ms": 1307.3,
+        "cached_tokens": 0,
+        "decode_ms": 27693.4,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1772,
+        "draft_accepted": 1639,
+        "draft_rounds": 310,
+        "nvme_ms_per_read": 1.25,
+        "drive_state": "fast"
+      },
+      {
+        "unit": "p1-B",
+        "wall_ms": 21817.2,
+        "prefill_tokens": 1994,
+        "prefill_ms": 1307.2,
+        "cached_tokens": 0,
+        "decode_ms": 20500.2,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1710,
+        "draft_accepted": 1704,
+        "draft_rounds": 245,
+        "nvme_ms_per_read": 1.23,
+        "drive_state": "fast"
+      },
+      {
+        "unit": "p2-B",
+        "wall_ms": 21364.1,
+        "prefill_tokens": 1994,
+        "prefill_ms": 1309.3,
+        "cached_tokens": 0,
+        "decode_ms": 20045.1,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1710,
+        "draft_accepted": 1704,
+        "draft_rounds": 245,
+        "nvme_ms_per_read": 1.19,
+        "drive_state": "fast"
+      },
+      {
+        "unit": "p2-A",
+        "wall_ms": 29343.1,
+        "prefill_tokens": 1994,
+        "prefill_ms": 1306.3,
+        "cached_tokens": 0,
+        "decode_ms": 28026.4,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1772,
+        "draft_accepted": 1639,
+        "draft_rounds": 310,
+        "nvme_ms_per_read": 1.38,
+        "drive_state": "fast"
+      },
+      {
+        "unit": "p3-B",
+        "wall_ms": 21351.2,
+        "prefill_tokens": 1994,
+        "prefill_ms": 1314.3,
+        "cached_tokens": 0,
+        "decode_ms": 20026.9,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1710,
+        "draft_accepted": 1704,
+        "draft_rounds": 245,
+        "nvme_ms_per_read": 1.17,
+        "drive_state": "fast"
+      },
+      {
+        "unit": "p3-A",
+        "wall_ms": 28705.0,
+        "prefill_tokens": 1994,
+        "prefill_ms": 1306.6,
+        "cached_tokens": 0,
+        "decode_ms": 27387.8,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1772,
+        "draft_accepted": 1639,
+        "draft_rounds": 310,
+        "nvme_ms_per_read": 1.19,
+        "drive_state": "fast"
+      },
+      {
+        "unit": "p4-A",
+        "wall_ms": 28642.5,
+        "prefill_tokens": 1994,
+        "prefill_ms": 1307.9,
+        "cached_tokens": 0,
+        "decode_ms": 27324.6,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1772,
+        "draft_accepted": 1639,
+        "draft_rounds": 310,
+        "nvme_ms_per_read": 1.14,
+        "drive_state": "fast"
+      },
+      {
+        "unit": "p4-B",
+        "wall_ms": 22864.8,
+        "prefill_tokens": 1994,
+        "prefill_ms": 2279.7,
+        "cached_tokens": 0,
+        "decode_ms": 20575.6,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1710,
+        "draft_accepted": 1704,
+        "draft_rounds": 245,
+        "nvme_ms_per_read": 6.79,
+        "drive_state": "slow"
+      },
+      {
+        "unit": "D",
+        "wall_ms": 20785.7,
+        "prefill_tokens": 1994,
+        "prefill_ms": 1307.9,
+        "cached_tokens": 0,
+        "decode_ms": 19467.6,
+        "completion_tokens": 1949,
+        "finish": "stop",
+        "draft_tokens": 1710,
+        "draft_accepted": 1704,
+        "draft_rounds": 245,
+        "nvme_ms_per_read": 1.12,
+        "drive_state": "fast",
+        "lookup": {
+          "steps_with_copies": 232,
+          "copied": 1147,
+          "accepted": 1142,
+          "anchor": 0
+        }
+      }
+    ],
+    "pairs": [
+      {
+        "pair": 1,
+        "order": "AB",
+        "wall_ms": [
+          29010.838620999493,
+          21817.211734999546
+        ],
+        "decode_ms": [
+          27693.445554999984,
+          20500.181848999997
+        ],
+        "wall_reduction": 0.248,
+        "decode_reduction": 0.2597,
+        "decode_rate_ratio": 1.3509,
+        "storage": [
+          "fast",
+          "fast"
+        ],
+        "interpretable": true
+      },
+      {
+        "pair": 2,
+        "order": "BA",
+        "wall_ms": [
+          29343.059447000087,
+          21364.09680900033
+        ],
+        "decode_ms": [
+          28026.40436800002,
+          20045.13372900001
+        ],
+        "wall_reduction": 0.2719,
+        "decode_reduction": 0.2848,
+        "decode_rate_ratio": 1.3982,
+        "storage": [
+          "fast",
+          "fast"
+        ],
+        "interpretable": true
+      },
+      {
+        "pair": 3,
+        "order": "BA",
+        "wall_ms": [
+          28704.954722000366,
+          21351.181005999933
+        ],
+        "decode_ms": [
+          27387.764460999988,
+          20026.875095
+        ],
+        "wall_reduction": 0.2562,
+        "decode_reduction": 0.2688,
+        "decode_rate_ratio": 1.3676,
+        "storage": [
+          "fast",
+          "fast"
+        ],
+        "interpretable": true
+      },
+      {
+        "pair": 4,
+        "order": "AB",
+        "wall_ms": [
+          28642.48354600022,
+          22864.801996000097
+        ],
+        "decode_ms": [
+          27324.646224,
+          20575.622650000005
+        ],
+        "wall_reduction": 0.2017,
+        "decode_reduction": 0.247,
+        "decode_rate_ratio": 1.328,
+        "storage": [
+          "fast",
+          "slow"
+        ],
+        "interpretable": false
+      }
+    ],
+    "median_wall_reduction": 0.2521,
+    "median_decode_reduction": 0.2643,
+    "median_decode_rate_ratio": 1.359,
+    "limits": "focused 4-pair experiment on one fixture; not general coding performance or full qualification"
+  }
+}

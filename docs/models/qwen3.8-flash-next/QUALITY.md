@@ -35,6 +35,51 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Prompt lookup on v0.15.0 (October 14, 2026): correctness passes and a
+realistic greedy file rewrite takes about 25% less wall time; full timing
+qualification is not claimed, as cold-start timing remains inconclusive.**
+Candidate `2c4039e`: stock v0.15.0 `89d6185` merged with the prompt-lookup
+commits; its `src/` and `tests/` diff equals the reviewed lookup diff. Prompt
+lookup is the only Flash-Next customization; the legacy disk-cache patch
+below is retired. Pinned Nix production builds (flake.lock `faabad82`): stock
+`8bd1567a`, candidate `2b2960c1`.
+- **Original cache failure:** stock v0.15.0 serves Flash-Next through the
+  component cache and passes the stalled-write reproduction below unchanged
+  (first cache `fsync` held 15 s, `cache` suite, 2 of 2 runs). Both
+  `*-tool-cancel-disk` cases pass, all 5 checkpoints are restored from disk,
+  and there are no `staging_capacity` skips.
+- **Correctness (candidate):** `checks.pr` passes (59/59 hosted CPU tests).
+  The Flash-Next CPU tests pass, and so do the GPU session, continuation-adapter
+  and snapshot tests. They cover exact greedy lookup against AR, sampled replay,
+  diverged and mid-generation restores, and batched sampled copies. 20 focused
+  HTTP processes give identical outputs, token counts and cache state for both
+  builds.
+- **Focused timing (unchanged 5%/3 ms paired protocol, 10 pairs):** warm
+  (fully cached, non-copying) decode passes. Cold start is inconclusive, with
+  no regression demonstrated. Candidate-only cold flags match the host
+  drive's slow read state, which also hits stock processes. This history
+  makes no lookup copies, so it measures overhead, not acceleration.
+- **Realistic rewrite (4 matched pairs, AB BA BA AB, greedy):** a 230-line
+  Python file with one function rename, returned complete (1,949 tokens). The
+  output is byte-identical between builds and exactly the expected edit.
+  Stock takes 28.6–29.3 s per request and the candidate 21.4–22.9 s: 20–27%
+  less wall time in every pair (paired median 25.2%, decode rate 1.36×).
+  Pairs 1–3 are clean. Pair 4 is reported but not interpretable: its candidate
+  process hit the drive's slow read state, which added about 1 s of prefill.
+  A counter-only diagnostic build, not part of the candidate, counted 1,147
+  copies proposed and 1,142 accepted, 58.6% of generated tokens.
+- **Scope:** one rewrite fixture. This does not measure general coding
+  performance, sampled decoding or concurrency.
+- **Separate upstream issue:** on stock v0.15.0 and on the candidate alike,
+  the ungated `cache` suite fails `check_disk_spacing`. Disk checkpoints are
+  stored within 2,048 tokens of an already published one (stock `[2447,
+  3029, 3611, 6278]`), while every cache case and restore passes. It is
+  independent of prompt lookup and of the retired patch.
+- Evidence: [prompt-lookup-v015.json](artifacts/prompt-lookup-v015.json).
+
+The records below are historical (v0.13.0 and main `2599ad6`). Their gains
+are relative to v0.13.0 and do not carry over to v0.15.0.
+
 **Prompt lookup is not qualified: correctness passes, including on current
 main; timing qualification is inconclusive.** Final source `dcd7a8c`:
 implementation `a0aee02`, batch-cost accounting fix `3c7922f`, anchor-lookup
@@ -162,6 +207,9 @@ Host-disk cache failures (a shared cache defect, exposed by write stalls):
   Request-path enqueue stays ≤0.38 ms (main ≤0.32 ms). A new store test
   fails on the unfixed store and passes with the fix. Prompt lookup does not
   depend on this fix.
+- **Retired for Flash-Next (October 14):** on v0.15.0, Flash-Next no longer
+  uses this store, and stock v0.15.0 passes the same reproduction. The fix
+  stays on its branch and is not part of the v0.15.0 candidate.
 
 Evidence: [decode-prompt-lookup.json](artifacts/decode-prompt-lookup.json),
 `final_v013` (`upstream_integration_round_42_43`,
