@@ -422,14 +422,10 @@ struct ComponentTextCache::Impl {
                           checkpoint->Tokens().begin());
       };
       if (checkpoint->Purpose() != cache::CheckpointPurpose::kLearned) {
-        auto found = index.Lookup({identity, checkpoint->Tokens(),
-                                   cache::InputIdentity(checkpoint->Boundary(),
-                                                        checkpoint->Input())});
-        std::size_t prior = 0;
-        for (const auto& candidate : found.candidates)
-          if (candidate.durable)
-            prior =
-                std::max(prior, static_cast<std::size_t>(candidate.boundary));
+        std::size_t prior = index.DurablePrefixTokens(
+            {identity, checkpoint->Tokens(),
+             cache::InputIdentity(checkpoint->Boundary(),
+                                  checkpoint->Input())});
         for (const auto& queued : pending)
           if (queued && compatible_prefix(queued->Tokens(), queued->Input()))
             prior =
@@ -532,12 +528,8 @@ struct ComponentTextCache::Impl {
   bool WithinDiskStep(std::span<const cache::Token> tokens,
                       const cache::Identity& input) {
     const std::lock_guard lock(mutex);
-    auto found = index.Lookup(
+    std::size_t prior = index.DurablePrefixTokens(
         {identity, tokens, cache::InputIdentity(tokens.size(), input)});
-    std::size_t prior = 0;
-    for (const auto& candidate : found.candidates)
-      if (candidate.durable)
-        prior = std::max(prior, static_cast<std::size_t>(candidate.boundary));
     const auto compatible = [&](auto prefix, const auto& prefix_input) {
       return prefix_input == input && prefix.size() <= tokens.size() &&
              std::equal(prefix.begin(), prefix.end(), tokens.begin());
