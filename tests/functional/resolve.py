@@ -17,14 +17,21 @@ flagged rows from independent matched repetitions of the same histories:
   stall. Every PR stall is listed. One blocks its row unless main or control
   shows a stall in the same row, and a significantly higher PR stall rate
   (one-sided Fisher exact test, Bonferroni over rows with stalls) fails.
-- Rows the screen passed keep that result. Their repetitions are still
-  checked for unexplained PR stalls and for regressions (lower bound beyond the
-  margin, Bonferroni over all repeated rows).
+- Every row with repetitions is judged on all of them, whether or not the
+  screen flagged it: a screen pass never overrides contradicting repetitions.
+  With at least five pairs the median bound decides; with two to four, every
+  pair must be within the margin. Only rows observed once keep the screen's
+  result.
+- A regression needs positive evidence: the Bonferroni lower bound over all
+  repeated rows beyond the margin, or a significant excess of PR stalls.
+  Evidence that neither passes nor fails stays inconclusive.
 - cache_snapshot_ms is launch-to-join wall time of an asynchronous capture,
   not request latency. It is reported with its stalls and does not gate; a
   capture that blocks a request shows in that request's latency phases.
 - queue_ms of concurrent requests with identical cache work, whose admission
-  order is a client race, is compared by admission rank instead of by body.
+  order is a client race, is compared by admission rank instead of by body,
+  only for pairs whose group has the same bodies and work in both runs. The
+  body rows are still assessed: their own evidence of a regression fails.
 """
 
 import argparse
@@ -81,8 +88,9 @@ def admission_ranks(directory):
             if len(group) < 2 or len(work) != 1 or None in order or len(set(order)) != len(order):
                 continue
             ordered = sorted(group, key=lambda row: row["metrics"]["resident_requests_at_admission"])
-            ranks[(path.name, str(label), occurrence)] = [
-                (row["request_sha256"], row["metrics"]["queue_ms"]) for row in ordered]
+            ranks[(path.name, str(label), occurrence)] = {
+                "work": next(iter(work)), "bodies": sorted(row["request_sha256"] for row in group),
+                "order": [(row["request_sha256"], row["metrics"]["queue_ms"]) for row in ordered]}
     return ranks
 
 
@@ -114,28 +122,30 @@ def resolve(comparisons, controls, runs, flagged, min_pairs=MIN_PAIRS):
     superseded = set()
     ranked = [(admission_ranks(a), admission_ranks(b)) for a, b in runs]
     for group in ranked[0][0]:
-        bodies = {body for body, _ in ranked[0][0][group]}
-        for rank in range(len(ranked[0][0][group])):
+        bodies = set(ranked[0][0][group]["bodies"])
+        for rank in range(len(ranked[0][0][group]["bodies"])):
             key = (group[0], f"{group[1]}:admission-{rank + 1}", group[2], "queue_ms")
             row = {"case": f"{group[0]}:{group[1]}:{group[2]}:admission-{rank + 1}",
                    "request_key": list(key[:3]), "metric": "queue_ms", "noise_floor": NOISE_MS,
                    "samples": [], "controls": [], "admission_rank": rank + 1}
             for index, (main, pr) in enumerate(ranked):
-                if group in main and group in pr and len(main[group]) == len(pr[group]):
-                    row["samples"].append({"comparison": index, "baseline": main[group][rank][1],
-                                           "candidate": pr[group][rank][1]})
+                if group in main and group in pr and main[group]["work"] == pr[group]["work"] \
+                        and main[group]["bodies"] == pr[group]["bodies"] == sorted(bodies):
+                    row["samples"].append({"comparison": index,
+                                           "baseline": main[group]["order"][rank][1],
+                                           "candidate": pr[group]["order"][rank][1]})
             rows[key] = row
         bodies_rows = [key for key in rows if key[0] == group[0] and key[1] in bodies
                        and key[3] == "queue_ms"]
         superseded.update(bodies_rows)
         if any(key in flagged for key in bodies_rows):
             flagged = {*flagged, *((group[0], f"{group[1]}:admission-{rank + 1}", group[2],
-                                    "queue_ms") for rank in range(len(ranked[0][0][group])))}
+                                    "queue_ms") for rank in range(len(bodies)))}
     repeated = [row for row in rows.values() if len(row["samples"]) >= min_pairs]
     stalled = []
     for key, row in rows.items():
         main = [s["baseline"] for s in row["samples"]]
-        median = statistics.median(main)
+        median = statistics.median(main) if main else 0.0
         row["margin"] = max(row["noise_floor"], SLOWDOWN * median)
         threshold = row["stall_threshold"] = max(1.25 * median, median + 10)
         stock = main + [v for s in row["controls"] for v in (s["baseline"], s["candidate"])]
@@ -161,23 +171,31 @@ def resolve(comparisons, controls, runs, flagged, min_pairs=MIN_PAIRS):
             or row["stall_p"] < ALPHA / max(1, len(stalled))
         if row["metric"] in DIAGNOSTIC:
             row.update(status="diagnostic", reason="asynchronous launch-to-join time; not gated")
-        elif key in superseded:
-            row.update(status="superseded", reason="concurrent queue wait compared by admission rank")
         elif regression:
             row.update(status="failed", reason="slowdown or excess stalls beyond the margin")
+        elif key in superseded:
+            row.update(status="superseded", reason="concurrent queue wait compared by admission rank")
         elif unexplained:
             row.update(status="inconclusive", reason="candidate stall without a stock stall")
+        elif n == 0:
+            row.update(status="inconclusive", reason="no comparable pairs")
+        elif n >= min_pairs:
+            if row["median_upper95"] <= row["margin"]:
+                row.update(status="passed", reason="median bound within margin")
+            else:
+                row.update(status="inconclusive", reason="median bound exceeds margin")
+        elif n >= 2:
+            if key not in flagged and max(d) <= row["margin"]:
+                row.update(status="passed", reason="every repetition within margin")
+            else:
+                row.update(status="inconclusive", reason=f"fewer than {min_pairs} matched pairs")
         elif key not in flagged:
-            row.update(status="passed", reason="screen passed; repetitions show no regression")
-        elif row["median_upper95"] is None or n < min_pairs:
-            row.update(status="inconclusive", reason=f"fewer than {min_pairs} matched pairs")
-        elif row["median_upper95"] <= row["margin"]:
-            row.update(status="passed", reason="median bound within margin")
+            row.update(status="passed", reason="screen passed; observed once")
         else:
-            row.update(status="inconclusive", reason="median bound exceeds margin")
+            row.update(status="inconclusive", reason=f"fewer than {min_pairs} matched pairs")
         row["flagged"] = key in flagged
     gating = [row for row in rows.values() if row["status"] not in ("diagnostic", "superseded")]
-    return {"status": comparison_status(gating, issues), "policy": "screen-resolution",
+    return {"status": comparison_status(gating, issues), "policy": "screen-resolution-v2",
             "slowdown_tolerance": SLOWDOWN, "noise_ms": NOISE_MS, "min_pairs": min_pairs,
             "flagged": sorted(map(list, flagged)), "quality_or_coverage_changes": issues,
             "measurements": list(rows.values())}

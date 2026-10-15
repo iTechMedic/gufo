@@ -1905,6 +1905,67 @@ class ScreenResolutionTest(unittest.TestCase):
                     self.assertNotEqual(status, "passed")
                 failed |= status != "passed"
 
+    def test_screen_pass_does_not_override_contradicting_repetitions(self):
+        from metrics import timing_measurement
+        from resolve import resolve
+        # 900 rows; every row matches in the first pair, one row is 10% slower
+        # in all seven later pairs. No value reaches the stall threshold.
+        def comparison(slow):
+            rows = []
+            for i in range(900):
+                row = timing_measurement(f"r{i}", "decode_ms", 100, 110 if slow and i == 7 else 100,
+                                         1, [f"r{i}", "body", 0])
+                row["history_sha256"] = "h"
+                rows.append(row)
+            return {"measurements": rows, "quality_or_coverage_changes": [],
+                    "slowdown_tolerance": .05, "noise_ms": 3}
+        with tempfile.TemporaryDirectory() as directory:
+            result = resolve([comparison(False)] + [comparison(True) for _ in range(7)], [],
+                             [(directory, directory)] * 8, set())
+        row = [m for m in result["measurements"] if m["request_key"][0] == "r7"][0]
+        self.assertEqual(row["median_upper95"], 10)
+        self.assertEqual(row["candidate_stalls"], [])
+        self.assertNotEqual(row["status"], "passed")
+        self.assertNotEqual(result["status"], "passed")
+
+    def test_regression_needs_evidence_across_many_rows(self):
+        from metrics import timing_measurement
+        from resolve import resolve
+        def comparison(i):
+            rows = []
+            for r in range(900):
+                old = 100 + (r + i) % 3 * .3
+                row = timing_measurement(f"r{r}", "decode_ms", old, old * (1.1 if r == 7 else 1),
+                                         1, [f"r{r}", "body", 0])
+                row["history_sha256"] = "h"
+                rows.append(row)
+            return {"measurements": rows, "quality_or_coverage_changes": [],
+                    "slowdown_tolerance": .05, "noise_ms": 3}
+        with tempfile.TemporaryDirectory() as directory:
+            for pairs, expected in ((8, "inconclusive"), (20, "failed")):
+                result = resolve([comparison(i) for i in range(pairs)], [],
+                                 [(directory, directory)] * pairs, set())
+                statuses = {m["request_key"][0]: m["status"] for m in result["measurements"]}
+                # Eight pairs cannot establish a 10% slowdown among 900 rows at
+                # Bonferroni confidence, but they do not establish its absence.
+                self.assertEqual((result["status"], statuses["r7"]), (expected, expected))
+                self.assertEqual(statuses["r8"], "passed")
+
+    def test_intermittent_events_on_both_builds_are_not_equivalence(self):
+        # A run-level slow state (+75 ms) on both builds, more often on the
+        # candidate but not significantly so: neither passed nor failed.
+        fast, slow = 460, 536
+        pairs = [(slow, slow), (slow, slow), (slow, fast), (fast, slow),
+                 (fast, fast), (fast, slow), (fast, slow), (fast, fast)]
+        status, row = self.resolve(pairs, flagged=False, metric="wall_ms",
+                                   controls=[(slow, slow)])
+        self.assertEqual((status, row["candidate_stalls"]), ("inconclusive", []))
+        self.assertGreater(row["median_upper95"], row["margin"])
+        # The same state, equally often and never against a fast baseline, passes.
+        status, _ = self.resolve([(slow, slow), (fast, fast)] * 4, flagged=False,
+                                 metric="wall_ms")
+        self.assertEqual(status, "passed")
+
     def test_order_statistic_bounds(self):
         from resolve import order_index
         self.assertIsNone(order_index(4, .05))
@@ -1919,10 +1980,16 @@ class ScreenResolutionTest(unittest.TestCase):
         self.assertEqual(self.resolve([(a, b + 10) for a, b in steady])[0], "failed")
         half = [(a, b + 8 * (i % 2)) for i, (a, b) in enumerate(steady)]
         self.assertEqual(self.resolve(half)[0], "inconclusive")
-        # The screen's own pass is not re-litigated, but a regression still fails.
-        self.assertEqual(self.resolve(half, flagged=False)[0], "passed")
+        # A screen pass does not survive contradicting repetitions, and agreeing
+        # repetitions keep it; a reproduced slowdown fails either way.
+        self.assertEqual(self.resolve(half, flagged=False)[0], "inconclusive")
+        self.assertEqual(self.resolve(steady, flagged=False)[0], "passed")
         self.assertEqual(self.resolve([(a, b + 10) for a, b in steady], flagged=False)[0],
                          "failed")
+        # Two to four pairs: every one must agree with the screen pass.
+        self.assertEqual(self.resolve(steady[:3], flagged=False)[0], "passed")
+        self.assertEqual(self.resolve(steady[:2] + [(100, 108)], flagged=False)[0],
+                         "inconclusive")
 
     def test_stalls_stay_visible_and_block_unless_stock_shares_them(self):
         steady = [(175 + e, 175 + f) for e, f in
@@ -1994,6 +2061,24 @@ class ScreenResolutionTest(unittest.TestCase):
                         row["metrics"]["queue_ms"] = 25
                 (b / "tools.requests.json").write_text(json.dumps(payload))
             self.assertEqual(resolve(comparisons, [], runs, flagged)["status"], "failed")
+            # Different cache work across runs: ranks are not comparable.
+            for a, b in runs:
+                payload = json.loads((b / "tools.requests.json").read_text())
+                for row in payload["requests"]:
+                    row["metrics"]["cached_tokens"] = 4
+                    row["metrics"]["queue_ms"] = 7
+                (b / "tools.requests.json").write_text(json.dumps(payload))
+            result = resolve(comparisons, [], runs, flagged)
+            ranked = [row for row in result["measurements"] if "admission" in row["case"]]
+            self.assertEqual({(row["n"], row["status"]) for row in ranked},
+                             {(0, "inconclusive")})
+            # A body-specific slowdown is never hidden behind rank matching.
+            slow = [{**c, "measurements": [
+                {**m, "candidate": m["candidate"] + (40 if m["request_key"][1] == "x" else 0)}
+                for m in c["measurements"]]} for c in comparisons]
+            statuses = {row["case"] + row["request_key"][1]: row["status"]
+                        for row in resolve(slow, [], runs, flagged)["measurements"]}
+            self.assertEqual(statuses["peersx"], "failed")
 
     def test_resolution_keeps_matching_coverage_and_margins(self):
         from resolve import resolve
