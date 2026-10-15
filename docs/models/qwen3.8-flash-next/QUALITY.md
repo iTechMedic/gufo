@@ -35,9 +35,28 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
-**Prompt lookup on v0.15.0 (October 15, 2026): qualified for the affected
-gate under the screen-resolution timing policy below; the unchanged
-`compare.py` screen alone stays inconclusive.** Candidate `9129bb2`: v0.15.0
+**Correction (October 15, 2026): the timing qualification recorded below
+is withdrawn; timing qualification of prompt lookup on v0.15.0 is
+inconclusive.** This withdraws an unsupported claim and qualifies no new
+release; production source is unchanged from `51de7b1` (candidate `9129bb2`).
+The `resolve.py` used for that claim kept the screen's pass for rows it had
+not flagged, unless a regression check fired that cannot fire with 8 pairs over
+about 900 rows. Judging every repeated row on its repetitions (the
+`fix(functional): judge every repeated timing row on its repetitions` commit
+on `testing`), the same retained evidence leaves 14 latency rows
+inconclusive: disk-spacing turns 4 and 6 and text-cancel 0 (token gap, wall
+and server time) and legacy-tool-cancel 6 (queue, TTFT, wall and server
+time) exceed their margins in 2–4 of 8 pairs. No row fails and no regression
+is established. The disk-spacing and text-cancel rows switch between two
+states about 75 ms apart on both builds; resampling the retained runs gives
+at most a 2% chance that 10 more pairs would pass, so no further measurement
+was run. Correctness, the spacing fix, cold start, the resolved flags and the
+rewrite result are unaffected.
+[Correction evidence](artifacts/prompt-lookup-v015-correction.json).
+
+**Superseded record — Prompt lookup on v0.15.0 (October 15, 2026): qualified
+for the affected gate under the screen-resolution timing policy below; the
+unchanged `compare.py` screen alone stays inconclusive.** Candidate `9129bb2`: v0.15.0
 with the prompt-lookup commits and a shared disk-checkpoint spacing fix. The
 matched baseline is v0.15.0 plus the same fix (`7e129b5`), not unchanged stock.
 Pinned Nix production builds (flake.lock `faabad82`): baseline `548d9390`,
