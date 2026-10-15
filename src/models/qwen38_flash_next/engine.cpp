@@ -283,6 +283,7 @@ void Session::Reset() {
   valid_ = false;
   session_->Reset();
   tokens_.clear();
+  lookup_.Clear();
   hidden_base_ = 0;
   draft_length_.Reset();
   model_->executor_->MtpRewind(*session_, 0);
@@ -768,6 +769,10 @@ struct Session::PendingDecode {
   std::uint64_t draft_rng{0};
   MtpCandidateLogits candidates;
   std::int32_t draft{0};
+  std::size_t cap{0};  ///< chain capacity: budget, context room and rows
+  bool stop_at_eos{true};
+  /// Trailing chain tokens copied by prompt lookup (after the MTP drafts).
+  std::uint32_t lookup{0};
 };
 
 void Session::AppendDraft(PendingDecode& pending) {
@@ -778,6 +783,62 @@ void Session::AppendDraft(PendingDecode& pending) {
     pending.draft_sampler->Accept(pending.proposals.back().token);
   }
   pending.chain.push_back(pending.draft);
+}
+
+bool Session::AppendLookup(PendingDecode& pending) const {
+  // A request's first cycle has no acceptance evidence: short or diverging
+  // replies would pay for a wide verification. Verification also ends at a
+  // stop token, so later copies cannot be accepted.
+  if (draft_length_.State().explored_depth == 0 ||
+      pending.chain.size() >= pending.cap ||
+      (pending.stop_at_eos && model_->IsStopToken(pending.chain.back())))
+    return false;
+  const auto match = lookup_.Find(pending.chain);
+  if (match.length == 0)
+    return false;
+  const auto committed = lookup_.Tokens();
+  const std::size_t limit = std::min(pending.cap - pending.chain.size(),
+                                     committed.size() - match.start);
+  std::size_t count = 0;
+  while (count < limit) {
+    const std::int32_t token = committed[match.start + count++];
+    if (pending.stop_at_eos && model_->IsStopToken(token))
+      break;
+  }
+  // Copies replace the MTP drafts this cycle has not proposed yet. Copy only
+  // if more of them are expected to be accepted than of those drafts, so a
+  // short match in repeated template text, such as an earlier tool call,
+  // does not displace a reliable MTP chain. Both estimates derive from
+  // committed tokens, not timings.
+  const auto drafted = static_cast<std::uint32_t>(pending.chain.size() - 1);
+  // At the anchor the copy also replaces the first MTP draft, the best
+  // predicted one: only after first drafts have been rejected is the first
+  // copy more likely to be accepted.
+  if (drafted == 0 && PromptLookup::ExpectedCopies(match.length, 1) <=
+                          draft_length_.ExpectedDrafts(0, 1))
+    return false;
+  if (PromptLookup::ExpectedCopies(match.length, count) <=
+      draft_length_.ExpectedDrafts(
+          drafted, static_cast<std::uint32_t>(pending.width - 1)))
+    return false;
+  for (std::size_t i = 0; i < count; ++i) {
+    const std::int32_t token = committed[match.start + i];
+    pending.chain.push_back(token);
+    if (pending.sampled) {
+      // A point-mass proposal: accepted with the target's p(token); a
+      // rejection draws the residual, the target without that token.
+      MtpProposal proposal;
+      proposal.ids[0] = static_cast<sampling::TokenId>(token);
+      proposal.probabilities[0] = 1.0F;
+      proposal.size = 1;
+      proposal.token = proposal.ids[0];
+      proposal.probability = 1.0F;
+      pending.proposals.push_back(proposal);
+    }
+  }
+  pending.lookup = static_cast<std::uint32_t>(count);
+  pending.width = pending.chain.size();
+  return true;
 }
 
 bool Session::PrepareDecode(const DecodeRequest& request,
@@ -850,14 +911,23 @@ bool Session::PrepareDecode(const DecodeRequest& request,
   pending->sampled = sampled;
   pending->gpu_greedy = gpu_greedy;
   pending->gpu_verification = gpu_verification;
+  pending->cap = cap;
+  pending->stop_at_eos = stop_at_eos;
+  // Proposals copied from the committed context extend the chain after an
+  // MTP draft, in isolated and batched decoding alike.
+  lookup_.Sync(tokens_);
   if (!gpu_verification &&
       verify_logits_.size() < exec.max_speculative() * model_->VocabSize()) {
     verify_logits_.resize(exec.max_speculative() * model_->VocabSize());
   }
-  if (!defer_head) {
-    while (pending->chain.size() < width) {
+  // A context match is also tried before the first MTP draft: a
+  // mispredicted draft would otherwise hide it for the whole cycle.
+  if (!defer_head && !AppendLookup(*pending)) {
+    while (pending->chain.size() < pending->width) {
       AppendDraft(*pending);
-      if (pending->chain.size() < width &&
+      if (AppendLookup(*pending))
+        break;
+      if (pending->chain.size() < pending->width &&
           !exec.MtpForward(
               *session_, std::span<const std::int32_t>(&pending->draft, 1), -1,
               {.token = sampled ? nullptr : &pending->draft,
@@ -981,9 +1051,18 @@ bool Session::FinishDecode(const DecodeRequest& request,
   stats_.cycles += 1;
   stats_.drafted += k - 1;
   stats_.accepted += keep - 1;
+  // Copied proposals trail the MTP drafts; the length controller observes
+  // only the MTP part.
+  const std::uint32_t mtp_drafts = k - 1 - pending.lookup;
+  const std::uint32_t mtp_accepted = std::min(keep - 1, mtp_drafts);
+  stats_.lookup += pending.lookup;
+  stats_.lookup_accepted += keep - 1 - mtp_accepted;
+  if (mtp_drafts == 0)
+    stats_.lookup_anchor += pending.lookup;
   // A target stop ends the request; it does not classify the remaining
   // proposals as failed predictions.
-  draft_length_.Observe(keep - 1, result->stop ? keep - 1 : k - 1, base);
+  draft_length_.Observe(mtp_accepted, result->stop ? mtp_accepted : mtp_drafts,
+                        base);
 
   // The next call knows the next sampled anchor. Defer draft catch-up until
   // then, retaining this session's target hidden rows across interleaving.
@@ -1209,6 +1288,13 @@ bool Session::DecodeBatchImpl(std::span<const DecodeRequest> requests,
   }
   if (!DraftCatchUpBatch(catchup, error_msg))
     return false;
+  // As in isolated decoding, a context match is tried at the anchor first.
+  for (std::size_t i = 0; i < requests.size(); ++i) {
+    auto& p = pending[i];
+    if (!requests[i].session->session_->Cancelled() && p.speculative &&
+        p.chain.size() < p.width)
+      requests[i].session->AppendLookup(p);
+  }
   // Each round shares predictor projections across ready sessions.
   // Attention state, proposal distributions and RNG streams stay private.
   for (;;) {
@@ -1233,6 +1319,8 @@ bool Session::DecodeBatchImpl(std::span<const DecodeRequest> requests,
           p.chain.size() >= p.width)
         continue;
       AppendDraft(p);
+      if (requests[i].session->AppendLookup(p))
+        continue;
       if (p.chain.size() < p.width)
         bodies.push_back({requests[i].session->session_.get(),
                           std::span<const std::int32_t>(&p.draft, 1), -1});
@@ -1290,7 +1378,9 @@ bool Session::DecodeBatchImpl(std::span<const DecodeRequest> requests,
     const auto ms = std::chrono::duration<float, std::milli>(
                         std::chrono::steady_clock::now() - cycle_start)
                         .count();
-    policy.Observe(requests.size(), batch_context, *batch_drafts, ms);
+    const bool copied = std::ranges::any_of(
+        pending, [](const auto& p) { return p.lookup != 0; });
+    policy.Observe(requests.size(), batch_context, *batch_drafts, ms, copied);
   }
   return true;
 }
