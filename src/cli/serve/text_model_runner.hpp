@@ -261,7 +261,8 @@ public:
   [[nodiscard]] virtual std::vector<TextExecutionPlan> SupportedPlans()
       const = 0;
 
-  /// Lazily built only for constrained requests; normal text loads pay nothing.
+  /// Built for the first constrained request, or before serving with
+  /// --prepare-structured-output; normal text loads pay nothing by default.
   [[nodiscard]] virtual std::shared_ptr<const sampling::ConstraintVocabulary>
   BuildConstraintVocabulary() const {
     throw std::invalid_argument("model does not support structured output");
@@ -273,6 +274,10 @@ public:
   /// Reuse a compiled grammar bound to this runner's vocabulary.
   [[nodiscard]] std::shared_ptr<const sampling::TokenConstraint> BindConstraint(
       std::shared_ptr<const sampling::JsonConstraint> grammar) const;
+  /// Builds the vocabulary BindConstraint uses now rather than in the first
+  /// constrained request; later calls reuse it. Returns its token count.
+  /// Throws std::invalid_argument when the model has no structured output.
+  std::size_t PrepareConstraintVocabulary() const;
 
   [[nodiscard]] virtual std::vector<TextRunnerToken> Tokenize(
       std::string_view text) const = 0;
