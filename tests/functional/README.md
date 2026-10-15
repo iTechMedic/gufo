@@ -495,13 +495,19 @@ resolve.
 - Every observation above max(1.25×, +10 ms) of the main median is a stall and
   is listed. A PR stall blocks its row unless main or control stalls in the
   same row; a significantly higher PR stall rate fails.
-- Rows the screen passed keep that result, unless their repetitions show an
-  unexplained PR stall or a Bonferroni-level regression.
+- Every row with repetitions is judged on all of them, flagged or not; a
+  screen pass never overrides contradicting repetitions. Two to four pairs must
+  all be within the margin. Only rows observed once keep the screen's result.
+- A regression needs positive evidence (Bonferroni lower bound over all
+  repeated rows beyond the margin, or a significant PR stall excess); anything
+  between that and a pass is inconclusive.
 - `cache_snapshot_ms` is launch-to-join wall time of an asynchronous capture,
   not request latency. It is reported with its stalls and does not gate; time a
   request spends blocked behind a capture appears in its latency phases.
 - Concurrent requests with equal cache work are admitted in client-race order;
-  their `queue_ms` is compared by admission rank, not by body.
+  their `queue_ms` is compared by admission rank, not by body, for pairs whose
+  group has the same bodies and work in both runs. A body's own evidence of a
+  regression still fails.
 
 Report which policy decided a result: a `resolve.py` pass is not a pass of the
 `compare.py` screen.
