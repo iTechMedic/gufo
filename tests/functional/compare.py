@@ -11,7 +11,7 @@ from metrics import qualify
 from run import COMPARISON_FIELDS, compare_runs
 
 
-def evidence(pairs, controls=()):
+def matched(pairs, controls=()):
     """No duplicate runs, mismatched builds, lost history or hidden bad samples."""
     comparisons, control_comparisons, sources = [], [], []
     used, builds, reference = set(), None, None
@@ -51,6 +51,11 @@ def evidence(pairs, controls=()):
                               for file in files},
                 })
             sources.append(source)
+    return comparisons, control_comparisons, sources
+
+
+def evidence(pairs, controls=()):
+    comparisons, control_comparisons, sources = matched(pairs, controls)
     result = qualify(comparisons, control_comparisons)
     result["evidence"] = sources
     return result
