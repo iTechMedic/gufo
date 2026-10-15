@@ -35,9 +35,62 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
-**Prompt lookup on v0.15.0 (October 14, 2026): correctness passes and a
-realistic greedy file rewrite takes about 25% less wall time; full timing
-qualification is not claimed, as cold-start timing remains inconclusive.**
+**Prompt lookup on v0.15.0 (October 15, 2026): qualified for the affected
+gate under the screen-resolution timing policy below; the unchanged
+`compare.py` screen alone stays inconclusive.** Candidate `9129bb2`: v0.15.0
+with the prompt-lookup commits and a shared disk-checkpoint spacing fix. The
+matched baseline is v0.15.0 plus the same fix (`7e129b5`), not unchanged stock.
+Pinned Nix production builds (flake.lock `faabad82`): baseline `548d9390`,
+candidate `ec9a81a9`, Intel SSD on native PCIe 3.0 x4.
+
+- **Spacing fix:** stock v0.15.0 fails `check_disk_spacing`. A published disk
+  checkpoint whose RAM copy is still resident stopped counting for the 2,048
+  token step, so every growing turn was written. `PrefixIndex::DurablePrefixTokens`
+  restores the step; `PublishedResidentCheckpointKeepsDiskStep` fails before and
+  passes after. `checks.pr` passes (59/59). Every later gate run stores
+  `[2447, 6278]` and writes the learned branch boundary.
+- **Correctness:** unchanged from the October 14 record below; every gate and
+  follow-up run passes outputs, exact restores, cache/prefill work and spacing.
+- **Cold start (10 alternating pairs, 5%/3 ms paired t, unchanged):** all 13
+  primaries pass; first-request prefill U95 +9.92 ms against 13.35.
+- **Affected gate:** state-edges, tool-agent, long-context and cache.
+  - The `compare.py` screen on the original pair: 969 passed, 7 inconclusive
+    (`queue_ms` ×3, `cache_snapshot_ms` ×4). It cannot resolve a flag: its
+    range only widens, and stock fails it against itself on 6 rows.
+  - `tests/functional/resolve.py` keeps that verdict and resolves flags from
+    matched repetitions: 7 follow-up pairs (BA AB BA AB BA AB BA) plus the 10
+    cold pairs for shared state-edges rows. Margins stay 5% / 3 ms.
+  - Resolved rows: `legacy-tool-cancel` request 1 `queue_ms` (median bound
+    +0.43 ms, 8 pairs); state-edges `thinking_tool_one_token` `queue_ms` (+0.08,
+    18); first-request `max_inter_token_ms` (+3.53 against 8.84, 18);
+    concurrent `agent_sampled_peers` `queue_ms` by admission rank (leader +0.43,
+    follower +0.99, 8). No unexplained candidate stall; no regression.
+  - `cache_snapshot_ms` is reported, not gated: it is launch-to-join wall time
+    of an asynchronous capture. Diagnostic builds showed the large
+    `agent_sampled_peers` value is a follower left parked about 57 ms after its
+    4.4 ms capture had finished, while the scheduler ran the leader's decode
+    step. This delays that request's second token. It occurs on stock too and
+    is assessed through each request's latency phases.
+  - The first-request token gap contains a one-time ~90 ms start of the first
+    capture worker in each process (all four diagnostic runs, both builds).
+    When that cost lands before the first token, TTFT rises and the gap shrinks
+    by the same amount; the second token's time does not change.
+  - Fourteen screen-passed rows (disk-spacing turns 4/6, text-cancel 0,
+    legacy-tool-cancel 6) are bimodal in the follow-ups on both builds. A
+    once-per-process ~80 ms capture cost lands either on disk-spacing or on
+    `long_cancel_resume` (slow disk-spacing runs: stock 4/9, candidate 5/8; slow
+    captures per run 7.44 against 7.5). Within each state the builds differ by
+    less than the margin. The follow-up regression check has no power at
+    Bonferroni level with 8 pairs, so these rows rest on the screen.
+- **Realistic rewrite (unchanged, October 14):** 20–27% less wall time, paired
+  median 25.2%, on one 230-line greedy fixture. This does not measure general
+  coding performance, sampled decoding or concurrency.
+- Evidence: [prompt-lookup-v015-qualification.json](artifacts/prompt-lookup-v015-qualification.json),
+  [prompt-lookup-v015.json](artifacts/prompt-lookup-v015.json).
+
+**Earlier record, October 14, 2026 (2c4039e, before the spacing fix):**
+correctness passed and the rewrite took about 25% less wall time; cold start
+was inconclusive and the gate was blocked by stock `check_disk_spacing`.
 Candidate `2c4039e`: stock v0.15.0 `89d6185` merged with the prompt-lookup
 commits; its `src/` and `tests/` diff equals the reviewed lookup diff. Prompt
 lookup is the only Flash-Next customization; the legacy disk-cache patch
