@@ -184,7 +184,14 @@ positive value sets a byte cap that may exceed the automatic budget, up to the
 available host RAM minus 4 GiB; the startup line reports both as
 `automatic_bytes` and `max_bytes`.
 On Flash-Next, the pinned disk staging buffer comes out of that ceiling, and
-`max_bytes` excludes it. Other models' disk staging and temporary disk-save
+`max_bytes` excludes it. Flash-Next pins the budget about 1 GiB at a time as
+captures need it; `--cache-ram-commit eager` pins all of it before serving, so
+no request shares the host with that work. Startup then takes about 0.16 s per
+GiB longer, the budget is resident immediately, and startup fails rather than
+growing later if the host or device heap cannot hold it. The
+`event=backing_prepared` line reports the committed bytes and the time taken.
+Pair it with an explicit `--cache-ram-bytes`
+([details](KV-CACHE.md#limits)). Other models' disk staging and temporary disk-save
 buffers are separate from this RAM budget.
 The 128 checkpoint records are independent of `--sessions`; more than one can
 belong to a conversation.

@@ -607,6 +607,7 @@ void PrintServeHelp(std::string_view program_name,
     std::size_t max_buffered_output_bytes_total =
         server::kDefaultMaxBufferedOutputBytesTotal;
     std::size_t cache_ram_bytes = 0;
+    std::string cache_ram_commit = "lazy";
     std::filesystem::path cache_disk_directory;
     std::size_t cache_disk_bytes =
         server::TextRunnerDiskCacheOptions::kDefaultCapacityBytes;
@@ -714,8 +715,15 @@ void PrintServeHelp(std::string_view program_name,
         "", "--cache-ram-bytes", "N",
         "Retained RAM-cache byte budget (default: 0 = auto: half of free "
         "RAM, at most 32 GiB; explicit values may use free RAM minus 4 GiB). "
-        "Flash-Next pins it about 1 GiB at a time as captures need it",
+        "Flash-Next pins it about 1 GiB at a time as captures need it, or all "
+        "of it before serving with --cache-ram-commit eager",
         "Cache", &cache_ram_bytes);
+    parser.AddOption(
+        "", "--cache-ram-commit", "MODE",
+        "Flash-Next: when to pin the RAM cache: lazy (default) as captures "
+        "need it, or eager: all of it before serving, so no request shares "
+        "the host with a commit; startup fails if it cannot",
+        "Cache", &cache_ram_commit);
     parser.AddOption("", "--cache-disk", "DIR",
                      "Opt-in restart-safe continuation cache directory "
                      "(Flash-Next: owned by one process)",
@@ -1161,6 +1169,7 @@ int RunServe(std::span<const char* const> args) {
     std::size_t max_buffered_output_bytes_total =
         server::kDefaultMaxBufferedOutputBytesTotal;
     std::size_t cache_ram_bytes = 0;
+    std::string cache_ram_commit = "lazy";
     std::filesystem::path cache_disk_directory;
     std::size_t cache_disk_bytes =
         server::TextRunnerDiskCacheOptions::kDefaultCapacityBytes;
@@ -1264,8 +1273,15 @@ int RunServe(std::span<const char* const> args) {
         "", "--cache-ram-bytes", "N",
         "Retained RAM-cache byte budget (default: 0 = auto: half of free "
         "RAM, at most 32 GiB; explicit values may use free RAM minus 4 GiB). "
-        "Flash-Next pins it about 1 GiB at a time as captures need it",
+        "Flash-Next pins it about 1 GiB at a time as captures need it, or all "
+        "of it before serving with --cache-ram-commit eager",
         "Cache", &cache_ram_bytes);
+    llm_parser.AddOption(
+        "", "--cache-ram-commit", "MODE",
+        "Flash-Next: when to pin the RAM cache: lazy (default) as captures "
+        "need it, or eager: all of it before serving, so no request shares "
+        "the host with a commit; startup fails if it cannot",
+        "Cache", &cache_ram_commit);
     llm_parser.AddOption("", "--cache-disk", "DIR",
                          "Opt-in restart-safe continuation cache directory "
                          "(Flash-Next: owned by one process)",
@@ -1363,6 +1379,11 @@ int RunServe(std::span<const char* const> args) {
       return 2;
     }
 
+    if (cache_ram_commit != "lazy" && cache_ram_commit != "eager") {
+      std::cerr << "Error: --cache-ram-commit must be lazy or eager\n";
+      return 2;
+    }
+
     server::TextSpeculativeConfig speculative_config;
     if (speculative_backend.empty() && !dspark_model_path.empty()) {
       speculative_backend = "dspark";
@@ -1446,8 +1467,11 @@ int RunServe(std::span<const char* const> args) {
                 .model_artifact_fingerprint = {},
             },
             vision_model_path,
-            server::TextRunnerRamCacheOptions{.capacity_bytes =
-                                                  cache_ram_bytes})) {
+            server::TextRunnerRamCacheOptions{
+                .capacity_bytes = cache_ram_bytes,
+                .commit = cache_ram_commit == "eager"
+                              ? server::TextRunnerRamCommit::kEager
+                              : server::TextRunnerRamCommit::kLazy})) {
       std::cerr << "Error loading model '" << model << "': " << err << "\n";
       return 1;
     }
