@@ -2,6 +2,7 @@
 
 #include <hip/hip_runtime.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <atomic>
@@ -16,11 +17,18 @@ namespace {
 // Ordinary anonymous pages, then pinned. hipHostMalloc asks the kernel for
 // high-order pages: when most host RAM belongs to the GPU, that compacts
 // memory and stalls running kernels for up to seconds per GiB. Zero-filled.
+// MAP_POPULATE would fault a 1 GiB segment in under the process mmap lock
+// (about 100 ms), stalling every thread that maps or protects memory
+// meanwhile: new capture threads, malloc arenas and runtime mbind on the
+// request path. Faulting each page by a write does not hold that lock.
 void* CommitPages(std::size_t bytes) {
   void* data = mmap(nullptr, bytes, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (data == MAP_FAILED)
     return nullptr;
+  const auto page = static_cast<std::size_t>(sysconf(_SC_PAGESIZE));
+  for (std::size_t offset = 0; offset < bytes; offset += page)
+    static_cast<volatile std::byte*>(data)[offset] = std::byte{};
   if (hipHostRegister(data, bytes, hipHostRegisterDefault) != hipSuccess) {
     munmap(data, bytes);
     return nullptr;

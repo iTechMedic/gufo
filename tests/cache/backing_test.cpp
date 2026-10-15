@@ -1,3 +1,5 @@
+#include <sys/mman.h>
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -465,6 +467,42 @@ void OnDemandBacking() {
   assert(startup_first && startup_second &&
          allocations.load() == committed_allocations);
 }
+void GrowthKeepsMappingsAvailable() {
+  // Committing a segment ahead must not hold the process mmap lock while its
+  // pages fault in: request threads map and protect memory meanwhile (thread
+  // stacks, malloc arenas, runtime mbind). Registration may still pin under
+  // it, so a mapping waits at most a small part of the commit.
+  constexpr std::size_t segment = std::size_t{512} << 20;
+  constexpr std::size_t headroom = (2 * segment / block_bytes + 4) * 1024;
+  constexpr std::size_t capacity = 2 * segment + headroom;
+  cache::ResourceLedger ledger(Limits(capacity));
+  hip::CommittedBackingPool pool(
+      ledger, {capacity, block_bytes, headroom, segment, {}});
+  auto held = pool.TryAcquire(Category::kPrivateTail);
+  assert(held && pool.CommittedBytes() == segment);
+  const auto started = std::chrono::steady_clock::now();
+  pool.GrowAhead();
+  std::chrono::duration<double, std::milli> worst{};
+  while (pool.CommittedBytes() != 2 * segment &&
+         std::chrono::steady_clock::now() - started <
+             std::chrono::seconds(20)) {
+    const auto before = std::chrono::steady_clock::now();
+    void* mapping =
+        mmap(nullptr, 1 << 20, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    assert(mapping != MAP_FAILED);
+    assert(mprotect(mapping, 1 << 16, PROT_READ | PROT_WRITE) == 0);
+    assert(munmap(mapping, 1 << 20) == 0);
+    worst = std::max(worst, std::chrono::duration<double, std::milli>(
+                                std::chrono::steady_clock::now() - before));
+    std::this_thread::sleep_for(std::chrono::microseconds(200));
+  }
+  const std::chrono::duration<double, std::milli> commit =
+      std::chrono::steady_clock::now() - started;
+  assert(pool.CommittedBytes() == 2 * segment);
+  std::printf("segment commit %.1f ms, longest concurrent mapping %.1f ms\n",
+              commit.count(), worst.count());
+  assert(worst < commit / 2);
+}
 void Transfers() {
   cache::ResourceLedger ledger(Limits());
   hip::CommittedBackingPool backing(ledger, {budget, block_bytes, metadata});
@@ -664,6 +702,7 @@ int main() {
   Backing();
   GroupedBacking();
   OnDemandBacking();
+  GrowthKeepsMappingsAvailable();
   Transfers();
   LifetimeAndFailures();
   PendingStreams();
