@@ -440,6 +440,30 @@ timings stay inconclusive. Sample values and flag counts remain visible for
 stall investigation. Faster requests never offset slower ones. Fix regressions;
 inconclusive timings remain unqualified. Never widen margins to pass.
 
+`compare.py` is a screen. More observations can only widen its max(PR) −
+min(main) range, so a flagged row never passes again, and an unchanged build
+often fails it against itself. `resolve.py` keeps the screen's verdict and
+resolves its flagged rows from matched repetitions of the same histories. It
+takes the same `--pair`/`--control` arguments and checks; `--flag` adds rows to
+resolve.
+
+- A flagged latency row needs at least five pairs and a distribution-free
+  one-sided 95% upper bound of the median paired difference (an order
+  statistic) within max(noise floor, 5% of the main median).
+- Every observation above max(1.25×, +10 ms) of the main median is a stall and
+  is listed. A PR stall blocks its row unless main or control stalls in the
+  same row; a significantly higher PR stall rate fails.
+- Rows the screen passed keep that result, unless their repetitions show an
+  unexplained PR stall or a Bonferroni-level regression.
+- `cache_snapshot_ms` is launch-to-join wall time of an asynchronous capture,
+  not request latency. It is reported with its stalls and does not gate; time a
+  request spends blocked behind a capture appears in its latency phases.
+- Concurrent requests with equal cache work are admitted in client-race order;
+  their `queue_ms` is compared by admission rank, not by body.
+
+Report which policy decided a result: a `resolve.py` pass is not a pass of the
+`compare.py` screen.
+
 Reports and logs survive failures. These checks complement the standard speed
 benchmark and numerical quality tests; they do not establish upstream model
 parity. Sampled DSpark may differ across concurrency levels; fixed-path replay

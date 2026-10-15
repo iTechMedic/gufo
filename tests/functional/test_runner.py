@@ -1865,5 +1865,152 @@ class ClaudeCodeAgentTest(unittest.TestCase):
                                          "cache_creation_input_tokens": 0, "output_tokens": 2},
                                         streaming)
 
+class ScreenResolutionTest(unittest.TestCase):
+    """compare.py stays the screen; resolve.py decides flagged rows from repetitions."""
+
+    @staticmethod
+    def comparison(*rows):
+        from metrics import timing_measurement
+        measurements = []
+        for case, metric, old, new in rows:
+            row = timing_measurement(case, metric, old, new, 1, [case, "body", 0])
+            row["history_sha256"] = "h"
+            measurements.append(row)
+        return {"status": "passed", "measurements": measurements,
+                "quality_or_coverage_changes": [], "slowdown_tolerance": .05, "noise_ms": 3}
+
+    def resolve(self, pairs, flagged=True, metric="decode_ms", controls=()):
+        from resolve import resolve
+        comparisons = [self.comparison(("request", metric, old, new)) for old, new in pairs]
+        control = [self.comparison(("request", metric, old, new)) for old, new in controls]
+        key = {("request", "body", 0, metric)} if flagged else set()
+        with tempfile.TemporaryDirectory() as directory:
+            runs = [(directory, directory)] * len(pairs)
+            result = resolve(comparisons, control, runs, key)
+        return result["status"], result["measurements"][0]
+
+    def test_range_screen_never_recovers_once_exceeded(self):
+        import random
+        series = lambda pairs: [self.comparison(("request", "decode_ms", old, new))
+                                for old, new in pairs]
+        self.assertEqual(qualify(series([(100, 107)] + [(100, 100)] * 50))["status"],
+                         "inconclusive")
+        rng = random.Random(59)
+        for _ in range(200):
+            pairs, failed = [], False
+            for _ in range(12):
+                pairs.append((100 * rng.uniform(.97, 1.03), 100 * rng.uniform(.97, 1.03)))
+                status = qualify(series(pairs))["status"]
+                if failed:
+                    self.assertNotEqual(status, "passed")
+                failed |= status != "passed"
+
+    def test_order_statistic_bounds(self):
+        from resolve import order_index
+        self.assertIsNone(order_index(4, .05))
+        self.assertEqual([order_index(n, .05) for n in (5, 8, 11, 18)], [0, 1, 2, 5])
+
+    def test_flagged_rows_need_repetitions_within_margin(self):
+        steady = [(100 + e, 100 + f) for e, f in
+                  ((0, 1), (1, 0), (-1, 1), (0, -1), (1, 1), (-1, 0), (0, 0), (1, -1))]
+        self.assertEqual(self.resolve(steady)[0], "passed")
+        self.assertEqual(self.resolve(steady[:4])[0], "inconclusive")
+        # 10% slower in every pair fails; 8% in half the pairs stays unresolved.
+        self.assertEqual(self.resolve([(a, b + 10) for a, b in steady])[0], "failed")
+        half = [(a, b + 8 * (i % 2)) for i, (a, b) in enumerate(steady)]
+        self.assertEqual(self.resolve(half)[0], "inconclusive")
+        # The screen's own pass is not re-litigated, but a regression still fails.
+        self.assertEqual(self.resolve(half, flagged=False)[0], "passed")
+        self.assertEqual(self.resolve([(a, b + 10) for a, b in steady], flagged=False)[0],
+                         "failed")
+
+    def test_stalls_stay_visible_and_block_unless_stock_shares_them(self):
+        steady = [(175 + e, 175 + f) for e, f in
+                  ((0, 1), (1, 0), (-1, 1), (0, -1), (1, 1), (-1, 0), (0, 0), (1, -1))]
+        # A main-only short value (work moved before the first token) is not a
+        # PR stall, and a single pair cannot hold the median bound.
+        moved = steady[:-1] + [(95, 175)]
+        status, row = self.resolve(moved)
+        self.assertEqual((status, row["candidate_stalls"]), ("passed", []))
+        # One PR stall with no stock stall in the row blocks, even unflagged.
+        stalled = steady[:-1] + [(175, 260)]
+        status, row = self.resolve(stalled, flagged=False)
+        self.assertEqual((status, row["candidate_stalls"]), ("inconclusive", [7]))
+        # Stock showing the same stall in this row explains a single PR stall.
+        status, row = self.resolve(stalled, flagged=False, controls=[(175, 262)])
+        self.assertEqual((status, row["candidate_stalls"], row["stock_stalls"]), ("passed", [7], 1))
+        # PR stalls in most pairs against one stock stall fail.
+        frequent = [(175, 260)] * 6 + steady[:2]
+        self.assertEqual(self.resolve(frequent, controls=[(175, 262)])[0], "failed")
+        # Asynchronous capture time is reported with its stalls, never gated.
+        status, row = self.resolve(stalled, metric="cache_snapshot_ms")
+        self.assertEqual((status, row["status"], row["candidate_stalls"]),
+                         ("passed", "diagnostic", [7]))
+
+    def test_concurrent_queue_waits_are_compared_by_admission_rank(self):
+        from resolve import resolve
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def run(name, order, queues):
+                path = root / name
+                path.mkdir()
+                rows = []
+                for index, (body, rank) in enumerate(order):
+                    rows.append({"index": index, "case": "peers", "request_sha256": body,
+                                 "metrics": {"prompt_tokens": 9, "prefill_tokens": 9,
+                                             "cached_tokens": 0, "queue_ms": queues[rank - 1],
+                                             "resident_requests_at_admission": rank}})
+                (path / "tools.requests.json").write_text(json.dumps({"requests": rows}))
+                return path
+            runs, comparisons = [], []
+            for i in range(6):
+                swapped = i % 2
+                a = run(f"a{i}", [("x", 1), ("y", 2)], (7, 13))
+                b = run(f"b{i}", [("x", 2 if swapped else 1), ("y", 1 if swapped else 2)], (7.5, 13.5))
+                runs.append((a, b))
+                x_main, x_pr = 7, 13.5 if swapped else 7.5
+                y_main, y_pr = 13, 7.5 if swapped else 13.5
+                rows = []
+                for body, old, new in (("x", x_main, x_pr), ("y", y_main, y_pr)):
+                    from metrics import timing_measurement
+                    row = timing_measurement("peers", "queue_ms", old, new, 1,
+                                             ["tools.requests.json", body, 0])
+                    row["history_sha256"] = "h"
+                    rows.append(row)
+                comparisons.append({"measurements": rows, "quality_or_coverage_changes": [],
+                                    "slowdown_tolerance": .05, "noise_ms": 3})
+            flagged = {("tools.requests.json", "x", 0, "queue_ms")}
+            result = resolve(comparisons, [], runs, flagged)
+            statuses = {row["case"]: row["status"] for row in result["measurements"]}
+            self.assertEqual(result["status"], "passed")
+            self.assertEqual(statuses["peers"], "superseded")
+            self.assertEqual(sorted(s for c, s in statuses.items() if "admission" in c),
+                             ["passed", "passed"])
+            # A real follower slowdown still fails at its rank.
+            for a, b in runs:
+                payload = json.loads((b / "tools.requests.json").read_text())
+                for row in payload["requests"]:
+                    if row["metrics"]["resident_requests_at_admission"] == 2:
+                        row["metrics"]["queue_ms"] = 25
+                (b / "tools.requests.json").write_text(json.dumps(payload))
+            self.assertEqual(resolve(comparisons, [], runs, flagged)["status"], "failed")
+
+    def test_resolution_keeps_matching_coverage_and_margins(self):
+        from resolve import resolve
+        pairs = [self.comparison(("request", "decode_ms", 100, 100)) for _ in range(6)]
+        changed = self.comparison(("request", "decode_ms", 100, 100))
+        changed["noise_ms"] = 50
+        with self.assertRaisesRegex(ValueError, "margins"):
+            resolve([*pairs, changed], [], [], set())
+        extra = self.comparison(("other", "decode_ms", 100, 100))
+        with self.assertRaisesRegex(ValueError, "absent"):
+            resolve([*pairs, extra], [], [], set())
+        bad = self.comparison(("request", "decode_ms", 100, 100))
+        bad["quality_or_coverage_changes"] = ["output changed"]
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(resolve([*pairs, bad], [], [(directory, directory)] * 7,
+                                     set())["status"], "failed")
+
+
 if __name__ == "__main__":
     unittest.main()
