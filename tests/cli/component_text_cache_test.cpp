@@ -1,11 +1,17 @@
 #include "src/cli/serve/component_text_cache.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <mutex>
 #include <numeric>
+#include <streambuf>
+#include <string>
 #include <thread>
 
 #include "src/cli/serve/text_model_runner.hpp"
@@ -1038,6 +1044,117 @@ void PublishedResidentCheckpointKeepsDiskStep() {
   lease->Invalidate();
   std::filesystem::remove_all(directory);
 }
+void ResidentPublicationStepKeepsBranchesAndRestores() {
+  // Complements PublishedResidentCheckpointKeepsDiskStep: within the step a
+  // learned branch point is still written, the next prompt past the step is,
+  // and a restart restores it exactly.
+  // Collects clog so the test can wait for the background publication.
+  class Log final : public std::streambuf {
+  public:
+    Log() : previous_(std::clog.rdbuf(this)) {}
+    ~Log() override { std::clog.rdbuf(previous_); }
+    bool Wait(const std::string& event) {
+      std::unique_lock lock(mutex_);
+      return changed_.wait_for(lock, std::chrono::seconds(30), [&] {
+        return text_.find(event) != std::string::npos;
+      });
+    }
+
+  private:
+    std::streamsize xsputn(const char* data, std::streamsize size) override {
+      {
+        const std::lock_guard lock(mutex_);
+        text_.append(data, static_cast<std::size_t>(size));
+      }
+      changed_.notify_all();
+      return size;
+    }
+    int_type overflow(int_type c) override {
+      if (!traits_type::eq_int_type(c, traits_type::eof())) {
+        const char byte = traits_type::to_char_type(c);
+        (void)xsputn(&byte, 1);
+      }
+      return traits_type::not_eof(c);
+    }
+    std::streambuf* previous_;
+    std::mutex mutex_;
+    std::condition_variable changed_;
+    std::string text_;
+  };
+  char pattern[] = "/tmp/gufo-component-step-test-XXXXXX";
+  const std::filesystem::path directory = mkdtemp(pattern);
+  const TextRunnerDiskCacheOptions disk{.directory = directory.string(),
+                                        .capacity_bytes = 1 << 20,
+                                        .staging_capacity_bytes = 7,
+                                        .min_checkpoint_step_tokens = 16};
+  std::vector<TextRunnerToken> prompt(60);
+  std::iota(prompt.begin(), prompt.end(), 10);
+  const auto first = [&](std::size_t tokens) {
+    return std::vector<TextRunnerToken>(prompt.begin(),
+                                        prompt.begin() + tokens);
+  };
+  std::uint64_t hash;
+  {
+    Log log;
+    auto runner = std::make_shared<Runner>();
+    ComponentTextCache cache(runner, 1, 1 << 22, disk);
+    // Prefills to boundary and offers that checkpoint; true if disk took it.
+    const auto publish = [&](ComponentTextCache::Lease& lease,
+                             std::size_t boundary, SnapshotPurpose purpose) {
+      auto& state = dynamic_cast<State&>(lease.state());
+      const auto position =
+          runner->adapter->Positions(state.slot).front().valid_rows;
+      const auto added =
+          std::span(prompt).subspan(position, boundary - position);
+      runner->adapter->Append(state.slot, added, added);
+      const auto queued = lease.Metrics().disk_queued_bytes;
+      assert(lease.TryReserveSnapshot(lease.CaptureBytes(), boundary, false,
+                                      purpose, first(boundary)));
+      (void)lease.PublishSnapshot(first(boundary), lease.Capture(), false);
+      return lease.Metrics().disk_queued_bytes > queued;
+    };
+    {
+      auto lease = cache.Acquire(first(20), {}, {}, true, 0, true);
+      assert(publish(*lease, 20, SnapshotPurpose::kContinuation));
+      (void)lease->Commit(first(20), {}, first(20));
+    }
+    assert(log.Wait("event=published tokens=20 "));
+    // The published checkpoint is still resident in RAM. The next turn
+    // within the step reuses it rather than writing a near duplicate.
+    auto lease = cache.Acquire(prompt, {}, {}, true, 0, true);
+    assert(lease->cached_tokens() == 20);
+    assert(!publish(*lease, 30, SnapshotPurpose::kContinuation));
+    // A learned branch point is persisted inside the step.
+    assert(publish(*lease, 34, SnapshotPurpose::kBranchPoint));
+    assert(publish(*lease, 52, SnapshotPurpose::kContinuation));
+    auto& state = dynamic_cast<State&>(lease->state());
+    hash = runner->adapter->RecurrentHash(state.slot);
+    lease->Invalidate();
+  }
+  {
+    cache::ResourceLedger ledger({1 << 24, 1 << 24, 0, 0});
+    cache::DiskStore store(ledger, directory, disk.capacity_bytes);
+    std::vector<std::pair<std::size_t, cache::CheckpointPurpose>> stored;
+    for (const auto& entry : store.Entries())
+      stored.emplace_back(entry.Manifest().tokens.size(),
+                          entry.Manifest().purpose);
+    std::ranges::sort(stored);
+    assert((stored ==
+            std::vector<std::pair<std::size_t, cache::CheckpointPurpose>>{
+                {20, cache::CheckpointPurpose::kPrompt},
+                {34, cache::CheckpointPurpose::kLearned},
+                {52, cache::CheckpointPurpose::kPrompt}}));
+  }
+  {
+    auto runner = std::make_shared<Runner>();
+    ComponentTextCache cache(runner, 1, 1 << 22, disk);
+    auto lease = cache.Acquire(first(52), {}, {}, true, 0, true);
+    assert(lease->restored_from_disk() && lease->cached_tokens() == 52);
+    auto& state = dynamic_cast<State&>(lease->state());
+    assert(runner->adapter->RecurrentHash(state.slot) == hash);
+  }
+  std::filesystem::remove_all(directory);
+}
 void NearTailDiskBranchSurvivesRestart() {
   char pattern[] = "/tmp/gufo-component-branch-test-XXXXXX";
   const std::filesystem::path directory = mkdtemp(pattern);
@@ -1166,6 +1283,7 @@ void UnbackedDeepRowsSurviveDiskRestart() {
 }  // namespace
 int main() {
   PublishedResidentCheckpointKeepsDiskStep();
+  ResidentPublicationStepKeepsBranchesAndRestores();
   CancelledPrefillKeepsCompletedSteps();
   BackingPreparationAvoidsCachedDecodeAndShortTails();
   CompletedCancelledPromptGetsARetrySnapshot();
