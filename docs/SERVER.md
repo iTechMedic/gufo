@@ -234,6 +234,16 @@ With `preserve_thinking=false`, a new user turn removes reasoning from the
 preceding tool cycle. Gufo retains the state before that cycle and processes
 its changed suffix again.
 
+A loaded Qwen vision sidecar is prepared while the model loads, before the RAM
+cache is sized and before readiness: Gufo hashes the complete sidecar for image
+cache identities and uploads the encoder weights, so neither happens in the
+first image request and admission's free device memory already excludes them.
+The weights stay resident even if no image arrives, including a sidecar
+auto-discovered as `mmproj-BF16.gguf` in the model's directory or its parent.
+The startup line `event=vision_prepared` reports `resident_bytes`,
+`identity_ms` and `upload_ms`. Startup fails if the upload does not fit. Image
+encoding scratch is still allocated per image.
+
 `SIGINT` and `SIGTERM` cancel active requests and drain accepted disk writes
 before exiting. `--cache-disk DIR` defaults to 8 GiB retained on disk.
 
@@ -853,17 +863,6 @@ constrained. The startup line `event=structured_output_prepared` reports
 `vocabulary_tokens`, `prepare_ms` and `rss_delta_kib`. Startup fails if the
 model has no structured output. Grammars and their masks are unchanged.
 
-Image input to a Qwen model otherwise prepares its vision sidecar inside the
-first image request of each process: it hashes the complete sidecar for image
-cache identities (Flash-Next's 907 MB `mmproj-BF16.gguf`: about 0.4 s of queue
-time, and its file pages join the process RSS) and uploads the encoder weights
-(862 MiB of device memory) after admission and the RAM cache were sized without
-them. `gufo serve llm --prepare-vision` hashes and uploads while the model
-loads, before the cache is sized and before readiness. The startup line
-`event=vision_prepared` reports `resident_bytes`, `identity_ms` and
-`upload_ms`. Startup fails if the model has no vision sidecar or the upload
-does not fit. Image encoding scratch is still allocated per image.
-
 `</think>` ends reasoning before constrained JSON. Native tools also accept an
 unquoted function header as the boundary when the model omits `</think>`.
 Bare marker mentions and quoted examples remain reasoning; markers inside
@@ -1004,6 +1003,14 @@ positions and speculative state participate in restoration and cache isolation.
 service is ready, then reports `status` and the active model. Both read the
 recorded device state without performing GPU work on each poll. HTTP model replacement and persistent Responses
 conversations are not implemented.
+
+While `gufo serve llm` loads its model and walks the disk cache tier, the port
+already answers every request, `/health` included, with 503
+`{"error":{"message":"Loading model","type":"unavailable_error","code":"loading"}}`
+and `Retry-After: 1`, as llama-server does. A refused connection therefore
+means the process is not running; supervisors such as llama-swap, which treat
+only a 200 health check as ready, keep waiting until the model is loaded. If
+the address cannot be bound early, the port stays closed until the load ends.
 
 A GPU reset (for example `amdgpu` recovering from a MES hang) permanently
 invalidates the process's HIP context. The text scheduler checks it after five

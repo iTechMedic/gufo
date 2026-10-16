@@ -157,14 +157,15 @@ std::shared_ptr<const models::qwen::vision::Prompt> QwenPrompt(
   return image->prompt;
 }
 
-// Otherwise the first image request hashes the whole sidecar in its queue time
-// and uploads the weights in its prefill, after admission and the RAM cache
-// were sized without them.
+// Hash the sidecar and upload its weights while the model loads, before the
+// runner claims state capacity and the RAM cache is sized. Otherwise the first
+// image request hashes the whole sidecar in its queue time and uploads the
+// weights in its prefill, after admission and the cache were sized without
+// them.
 void PrepareVision(
     const std::shared_ptr<models::qwen::vision::Encoder>& encoder) {
   if (!encoder)
-    throw std::invalid_argument(
-        "--prepare-vision needs a Qwen vision sidecar (--mmproj)");
+    return;
   const auto started = Clock::now();
   (void)encoder->identity();
   const auto hashed = Clock::now();
@@ -172,8 +173,7 @@ void PrepareVision(
     encoder->Upload();
   } catch (const std::exception& e) {
     throw std::runtime_error(
-        std::string("--prepare-vision could not upload the vision sidecar: ") +
-        e.what());
+        std::string("could not upload the Qwen vision sidecar: ") + e.what());
   }
   const auto uploaded = Clock::now();
   std::size_t heap_free = 0, heap_total = 0;
@@ -2532,12 +2532,11 @@ public:
         throw std::invalid_argument("insufficient component backing budget");
       const auto& allocation = plan.front();
       // Pages commit as captures need them. A payload cannot span segments,
-      // so the edge of each one strands space a ~140 MB private state cannot
-      // use; equal segments of about 1 GiB, and at least two private states,
-      // keep that small. Completed append rows prepare more backing; private
-      // and tail copies commit only when needed. Pinning ahead after a final
-      // private copy can delay decoder launches. Growth stops when the host
-      // keeps less than its reserve.
+      // so equal segments of about 1 GiB bound stranded edge space and fit at
+      // least two payloads of the largest component. Completed append rows
+      // prepare more backing; private and tail copies commit only when needed.
+      // Pinning ahead after a final private copy can delay decoder launches.
+      // Growth stops when the host keeps less than its reserve.
       std::size_t largest = 0;
       for (const auto& [id, bytes] : backing->component_classes)
         largest = std::max(largest, bytes);
@@ -2639,6 +2638,9 @@ public:
               Logger::MemoryStatus());
     };
     result->prepare_prefill = [backing] { backing->pool->GrowAhead(2); };
+    result->can_capture = [backing](auto payloads) {
+      return backing->pool->CanFit(payloads);
+    };
     result->owner = backing;
     result->stream = [backing]() -> std::unique_ptr<cache::Stream> {
       return backing->streams.TryAcquire();
@@ -3565,8 +3567,7 @@ bool InferenceBackend::load(std::shared_ptr<const hip::QwenGpuModel> model,
       speculative_options.enable_adaptive_draft_length = false;
     }
 
-    if (scheduler_policy.prepare_vision)
-      PrepareVision(model->VisionEncoder());
+    PrepareVision(model->VisionEncoder());
     auto new_state = std::make_shared<Impl::State>();
     new_state->sampling_defaults.model =
         sampling::TextPreset(model->GetConfig());
@@ -3656,8 +3657,6 @@ bool InferenceBackend::load(
   }
 
   try {
-    if (scheduler_policy.prepare_vision)
-      PrepareVision({});
     auto new_state = std::make_shared<Impl::State>();
     new_state->sampling_defaults.model =
         sampling::TextModelPreset::kDeepSeekV4Flash;
@@ -3743,9 +3742,7 @@ bool InferenceBackend::load(
     return false;
   }
   try {
-    // Before the runner claims state capacity and the pool sizes the cache.
-    if (scheduler_policy.prepare_vision)
-      PrepareVision(model->VisionEncoder());
+    PrepareVision(model->VisionEncoder());
     auto new_state = std::make_shared<Impl::State>();
     new_state->sampling_defaults.model = sampling::TextModelPreset::kQwen38;
     new_state->sampling_defaults.supplied = {};

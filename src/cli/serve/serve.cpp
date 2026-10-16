@@ -614,7 +614,6 @@ void PrintServeHelp(std::string_view program_name,
     std::size_t cache_disk_staging_bytes = 0;
     bool log_progress = false;
     bool prepare_structured_output = false;
-    bool prepare_vision = false;
     std::string trace_path;
 
     gufo::cli::ArgParser parser(
@@ -746,11 +745,6 @@ void PrintServeHelp(std::string_view program_name,
         "the first constrained request; startup fails if the model has "
         "none",
         "Model", &prepare_structured_output);
-    parser.AddFlag(
-        "", "--prepare-vision",
-        "Hash and upload the Qwen vision sidecar before serving, not in the "
-        "first image request; startup fails if the model has none",
-        "Model", &prepare_vision);
     parser.AddFlag("", "--log-progress",
                    "Log live prefill and decode progress (needs "
                    "--log-level=info or debug)",
@@ -1182,7 +1176,6 @@ int RunServe(std::span<const char* const> args) {
     std::size_t cache_disk_staging_bytes = 0;
     bool log_progress = false;
     bool prepare_structured_output = false;
-    bool prepare_vision = false;
     std::string trace_path;
 
     gufo::cli::ArgParser llm_parser(
@@ -1310,11 +1303,6 @@ int RunServe(std::span<const char* const> args) {
         "the first constrained request; startup fails if the model has "
         "none",
         "Model", &prepare_structured_output);
-    llm_parser.AddFlag(
-        "", "--prepare-vision",
-        "Hash and upload the Qwen vision sidecar before serving, not in the "
-        "first image request; startup fails if the model has none",
-        "Model", &prepare_vision);
     llm_parser.AddFlag("", "--log-progress",
                        "Log live prefill and decode progress (needs "
                        "--log-level=info or debug)",
@@ -1446,45 +1434,47 @@ int RunServe(std::span<const char* const> args) {
     std::string err;
     ModelLoadLog load_log("text", model);
     backend = std::make_shared<server::InferenceBackend>();
-    if (!backend->load(
-            model, &err, max_context, session_count,
-            server::TextPrefillPolicy{
-                .decode_active_tokens = prefill_chunk_tokens,
-            },
-            server::TextSchedulerPolicy{
-                .max_pending_requests = max_pending_requests,
-                .max_pending_requests_per_client =
-                    max_pending_requests_per_client,
-                .max_output_bytes_per_request = max_output_bytes,
-                .max_buffered_output_bytes_per_request =
-                    max_buffered_output_bytes,
-                .max_buffered_output_bytes_total =
-                    max_buffered_output_bytes_total,
-                .request_timeout =
-                    std::chrono::milliseconds{
-                        static_cast<std::chrono::milliseconds::rep>(
-                            request_timeout_ms)},
-                .stall_timeout =
-                    std::chrono::milliseconds{
-                        static_cast<std::chrono::milliseconds::rep>(
-                            stall_timeout_ms)},
-                .log_progress = log_progress,
-                .prepare_structured_output = prepare_structured_output,
-                .prepare_vision = prepare_vision,
-            },
-            speculative_config,
-            server::TextDiskCacheConfig{
-                .directory = cache_disk_directory,
-                .capacity_bytes = cache_disk_bytes,
-                .staging_capacity_bytes = cache_disk_staging_bytes,
-                .model_artifact_fingerprint = {},
-            },
-            vision_model_path,
-            server::TextRunnerRamCacheOptions{
-                .capacity_bytes = cache_ram_bytes,
-                .commit = cache_ram_commit == "eager"
-                              ? server::TextRunnerRamCommit::kEager
-                              : server::TextRunnerRamCommit::kLazy})) {
+    // The disk snapshot tier is walked during load, which can take minutes.
+    // Answer 503 `Loading model` on the port meanwhile, as llama-server does,
+    // so supervisors see a loading server rather than a refused connection.
+    server::LoadingResponder loading(host, port);
+    const bool load_ok = backend->load(
+        model, &err, max_context, session_count,
+        server::TextPrefillPolicy{
+            .decode_active_tokens = prefill_chunk_tokens,
+        },
+        server::TextSchedulerPolicy{
+            .max_pending_requests = max_pending_requests,
+            .max_pending_requests_per_client = max_pending_requests_per_client,
+            .max_output_bytes_per_request = max_output_bytes,
+            .max_buffered_output_bytes_per_request = max_buffered_output_bytes,
+            .max_buffered_output_bytes_total = max_buffered_output_bytes_total,
+            .request_timeout =
+                std::chrono::milliseconds{
+                    static_cast<std::chrono::milliseconds::rep>(
+                        request_timeout_ms)},
+            .stall_timeout =
+                std::chrono::milliseconds{
+                    static_cast<std::chrono::milliseconds::rep>(
+                        stall_timeout_ms)},
+            .log_progress = log_progress,
+            .prepare_structured_output = prepare_structured_output,
+        },
+        speculative_config,
+        server::TextDiskCacheConfig{
+            .directory = cache_disk_directory,
+            .capacity_bytes = cache_disk_bytes,
+            .staging_capacity_bytes = cache_disk_staging_bytes,
+            .model_artifact_fingerprint = {},
+        },
+        vision_model_path,
+        server::TextRunnerRamCacheOptions{
+            .capacity_bytes = cache_ram_bytes,
+            .commit = cache_ram_commit == "eager"
+                          ? server::TextRunnerRamCommit::kEager
+                          : server::TextRunnerRamCommit::kLazy});
+    loading.stop();
+    if (!load_ok) {
       std::cerr << "Error loading model '" << model << "': " << err << "\n";
       return 1;
     }

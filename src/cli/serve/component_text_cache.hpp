@@ -39,6 +39,9 @@ struct ComponentCacheResources {
   cache::StagingAllocator staging;
   // Prepare on-demand backing while a substantial prefill can hide pinning.
   std::function<void()> prepare_prefill;
+  // Optional capacity bound before assigning a complete capture. False takes
+  // the ordinary reclamation path; true still requires every allocation.
+  std::function<bool(std::span<const cache::PayloadRequest>)> can_capture;
   // Optional initialization step after slots allocate. The provider leaves
   // payload backing uncommitted until serving selects the post-slot budget,
   // then commits it as the policy asks (throwing when kEager cannot).
