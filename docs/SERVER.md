@@ -853,6 +853,17 @@ constrained. The startup line `event=structured_output_prepared` reports
 `vocabulary_tokens`, `prepare_ms` and `rss_delta_kib`. Startup fails if the
 model has no structured output. Grammars and their masks are unchanged.
 
+Image input to a Qwen model otherwise prepares its vision sidecar inside the
+first image request of each process: it hashes the complete sidecar for image
+cache identities (Flash-Next's 907 MB `mmproj-BF16.gguf`: about 0.4 s of queue
+time, and its file pages join the process RSS) and uploads the encoder weights
+(862 MiB of device memory) after admission and the RAM cache were sized without
+them. `gufo serve llm --prepare-vision` hashes and uploads while the model
+loads, before the cache is sized and before readiness. The startup line
+`event=vision_prepared` reports `resident_bytes`, `identity_ms` and
+`upload_ms`. Startup fails if the model has no vision sidecar or the upload
+does not fit. Image encoding scratch is still allocated per image.
+
 `</think>` ends reasoning before constrained JSON. Native tools also accept an
 unquoted function header as the boundary when the model omits `</think>`.
 Bare marker mentions and quoted examples remain reasoning; markers inside

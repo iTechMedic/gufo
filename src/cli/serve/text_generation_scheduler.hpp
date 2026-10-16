@@ -59,6 +59,10 @@ struct TextSchedulerPolicy {
   /// before it admits requests, instead of in the first constrained request.
   /// Construction fails if the model has no structured output.
   bool prepare_structured_output{false};
+  /// Hash the Qwen vision sidecar and upload its weights while the model
+  /// loads, before admission and the RAM cache are sized, instead of in the
+  /// first image request. Loading fails if the model has no sidecar.
+  bool prepare_vision{false};
 };
 
 /// Single-owner scheduler for opaque text-model runner states.
