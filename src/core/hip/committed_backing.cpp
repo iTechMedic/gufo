@@ -2,6 +2,7 @@
 
 #include <hip/hip_runtime.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <atomic>
@@ -16,11 +17,18 @@ namespace {
 // Ordinary anonymous pages, then pinned. hipHostMalloc asks the kernel for
 // high-order pages: when most host RAM belongs to the GPU, that compacts
 // memory and stalls running kernels for up to seconds per GiB. Zero-filled.
+// MAP_POPULATE would fault a 1 GiB segment in under the process mmap lock
+// (about 100 ms), stalling every thread that maps or protects memory
+// meanwhile: new capture threads, malloc arenas and runtime mbind on the
+// request path. Faulting each page by a write does not hold that lock.
 void* CommitPages(std::size_t bytes) {
   void* data = mmap(nullptr, bytes, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (data == MAP_FAILED)
     return nullptr;
+  const auto page = static_cast<std::size_t>(sysconf(_SC_PAGESIZE));
+  for (std::size_t offset = 0; offset < bytes; offset += page)
+    static_cast<volatile std::byte*>(data)[offset] = std::byte{};
   if (hipHostRegister(data, bytes, hipHostRegisterDefault) != hipSuccess) {
     munmap(data, bytes);
     return nullptr;
@@ -291,14 +299,19 @@ std::optional<BackingBlock> CommittedBackingPool::TryAcquire(
       return std::nullopt;
   }
 }
-void CommittedBackingPool::GrowAhead() {
+void CommittedBackingPool::GrowAhead(std::size_t segments) {
   const auto committed = state_->committed.load(std::memory_order_acquire);
-  if (committed == state_->capacity)
+  if (!segments || committed == state_->capacity)
     return;
   const auto free_bytes =
       state_->ledger->Snapshot().bytes[static_cast<std::size_t>(
           cache::ResourceCategory::kBackingFree)];
-  if (free_bytes >= state_->segment_blocks * state_->block_bytes)
+  const auto target_blocks =
+      segments >= 1 + (state_->capacity - 1) / state_->segment_blocks
+          ? state_->capacity
+          : segments * state_->segment_blocks;
+  const auto target_bytes = target_blocks * state_->block_bytes;
+  if (free_bytes >= target_bytes)
     return;
   const std::lock_guard lock(ahead_mutex_);
   if (state_->growing_ahead.exchange(true))
@@ -306,15 +319,36 @@ void CommittedBackingPool::GrowAhead() {
   if (ahead_.joinable())
     ahead_.join();
   try {
-    ahead_ = std::jthread([state = state_, committed] {
+    ahead_ = std::jthread([state = state_, committed, target_bytes] {
       try {
-        (void)state->Grow(committed);
+        auto seen = committed;
+        while (state->ledger->Snapshot().bytes[static_cast<std::size_t>(
+                   cache::ResourceCategory::kBackingFree)] < target_bytes) {
+          if (!state->Grow(seen))
+            break;
+          seen = state->committed.load(std::memory_order_acquire);
+        }
       } catch (...) {
       }
       state->growing_ahead.store(false);
     });
   } catch (...) {
     state_->growing_ahead.store(false);
+  }
+}
+void CommittedBackingPool::WaitForGrowth() {
+  const std::lock_guard lock(ahead_mutex_);
+  if (ahead_.joinable())
+    ahead_.join();
+}
+bool CommittedBackingPool::CommitAll() {
+  WaitForGrowth();
+  for (;;) {
+    const auto committed = state_->committed.load(std::memory_order_acquire);
+    if (committed == state_->capacity)
+      return true;
+    if (!state_->Grow(committed))
+      return false;
   }
 }
 std::size_t CommittedBackingPool::BlockCount() const noexcept {

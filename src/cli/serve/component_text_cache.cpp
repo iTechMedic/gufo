@@ -84,6 +84,17 @@ void Check(cache::Completion completion) {
   if (completion.Wait() != cache::TransferResult::kSucceeded)
     throw std::runtime_error("component cache transfer failed");
 }
+// A published checkpoint that is still resident restores from RAM, so its
+// candidate carries no disk description; its availability still marks every
+// component durable.
+bool Published(const cache::PrefixCandidate& candidate) {
+  if (candidate.durable)
+    return true;
+  return candidate.availability &&
+         !candidate.availability->components.empty() &&
+         std::ranges::all_of(candidate.availability->components,
+                             &cache::ComponentAvailability::durable);
+}
 bool SameOwner(const std::shared_ptr<const void>& a,
                const std::shared_ptr<const void>& b) {
   return !a.owner_before(b) && !b.owner_before(a);
@@ -198,7 +209,7 @@ struct ComponentTextCache::Impl {
   Impl(std::shared_ptr<TextModelRunner> runner, std::size_t count,
        std::size_t ram,
        const std::optional<TextRunnerDiskCacheOptions>& options,
-       bool automatic_ram)
+       bool automatic_ram, TextRunnerRamCommit commit)
       : runner(std::move(runner)),
         // Disk transfers lease one fixed pinned staging buffer. Its size does
         // not change restore or write speed (#562), and a larger one only
@@ -267,7 +278,11 @@ struct ComponentTextCache::Impl {
       if (automatic_ram)
         ram = std::min(ram, automatic);
       ledger.ConstrainLimits({ram + staging, ram, staging, ram});
-      resources->commit_backing(ram);
+      resources->commit_backing(ram, commit);
+    } else if (commit == TextRunnerRamCommit::kEager) {
+      throw std::invalid_argument(
+          "--cache-ram-commit eager needs pinned cache backing, which this "
+          "model does not use; omit the option");
     }
     if (options) {
       catalog = std::make_unique<cache::DiskCatalog>(ledger, *disk, index);
@@ -356,6 +371,7 @@ struct ComponentTextCache::Impl {
                   "cache",
                   "schema=component-cache-v1 event=published tokens=" +
                       std::to_string(description->Manifest().tokens.size()) +
+                      " checkpoint_id=" + std::to_string(id.value) +
                       " payload_bytes=" +
                       std::to_string(PayloadBytes(description->Manifest())));
             }
@@ -422,10 +438,14 @@ struct ComponentTextCache::Impl {
                           checkpoint->Tokens().begin());
       };
       if (checkpoint->Purpose() != cache::CheckpointPurpose::kLearned) {
-        std::size_t prior = index.DurablePrefixTokens(
-            {identity, checkpoint->Tokens(),
-             cache::InputIdentity(checkpoint->Boundary(),
-                                  checkpoint->Input())});
+        auto found = index.Lookup({identity, checkpoint->Tokens(),
+                                   cache::InputIdentity(checkpoint->Boundary(),
+                                                        checkpoint->Input())});
+        std::size_t prior = 0;
+        for (const auto& candidate : found.candidates)
+          if (Published(candidate))
+            prior =
+                std::max(prior, static_cast<std::size_t>(candidate.boundary));
         for (const auto& queued : pending)
           if (queued && compatible_prefix(queued->Tokens(), queued->Input()))
             prior =
@@ -435,10 +455,12 @@ struct ComponentTextCache::Impl {
                                           queued->manifest.input))
             prior = std::max(prior, queued->manifest.tokens.size());
         if (prior && checkpoint->Boundary() - prior < disk_step) {
-          Logger::Info("cache",
-                       "schema=component-cache-v1 event=persistence_refused "
-                       "reason=min_step tokens=" +
-                           std::to_string(checkpoint->Boundary()));
+          Logger::Info(
+              "cache",
+              "schema=component-cache-v1 event=persistence_refused "
+              "reason=min_step tokens=" +
+                  std::to_string(checkpoint->Boundary()) +
+                  " checkpoint_id=" + std::to_string(checkpoint->Id().value));
           return 0;
         }
       }
@@ -528,8 +550,12 @@ struct ComponentTextCache::Impl {
   bool WithinDiskStep(std::span<const cache::Token> tokens,
                       const cache::Identity& input) {
     const std::lock_guard lock(mutex);
-    std::size_t prior = index.DurablePrefixTokens(
+    auto found = index.Lookup(
         {identity, tokens, cache::InputIdentity(tokens.size(), input)});
+    std::size_t prior = 0;
+    for (const auto& candidate : found.candidates)
+      if (Published(candidate))
+        prior = std::max(prior, static_cast<std::size_t>(candidate.boundary));
     const auto compatible = [&](auto prefix, const auto& prefix_input) {
       return prefix_input == input && prefix.size() <= tokens.size() &&
              std::equal(prefix.begin(), prefix.end(), tokens.begin());
@@ -800,6 +826,7 @@ ComponentTextCache::Lease::Impl::CaptureDurable() {
         });
   }
   ++metrics.captures;
+  metrics.captured_checkpoint_ids.push_back(durable->manifest.checkpoint.value);
   auto snapshot = std::make_unique<ComponentSnapshot>();
   snapshot->bytes = entry->history->NewPayloadBytes(positions);
   snapshot->durable = std::move(durable);
@@ -808,9 +835,10 @@ ComponentTextCache::Lease::Impl::CaptureDurable() {
 
 ComponentTextCache::ComponentTextCache(
     std::shared_ptr<TextModelRunner> runner, std::size_t count, std::size_t ram,
-    const std::optional<TextRunnerDiskCacheOptions>& disk, bool automatic_ram)
+    const std::optional<TextRunnerDiskCacheOptions>& disk, bool automatic_ram,
+    TextRunnerRamCommit commit)
     : impl_(std::make_unique<Impl>(std::move(runner), count, ram, disk,
-                                   automatic_ram)) {}
+                                   automatic_ram, commit)) {}
 ComponentTextCache::~ComponentTextCache() = default;
 std::size_t ComponentTextCache::capacity() const noexcept {
   return impl_->entries.size();
@@ -1223,6 +1251,11 @@ void ComponentTextCache::Lease::SkipSnapshot(SnapshotEventReason reason,
   } catch (...) {
   }
 }
+void ComponentTextCache::Lease::PreparePrefill() {
+  if (impl_->cache->resources->prepare_prefill)
+    impl_->cache->resources->prepare_prefill();
+}
+
 std::size_t ComponentTextCache::Lease::CaptureBytes() const {
   return impl_->entry->history->NewPayloadBytes(
       impl_->cache->resources->adapter->Positions(impl_->slot.Execution()));
@@ -1255,8 +1288,7 @@ std::unique_ptr<TextRunnerSnapshot> ComponentTextCache::Lease::Capture() {
       std::size_t next_buffer = 0;
       checkpoint = request.entry->history->Capture(
           {request.capture_tokens,
-           cache::InputIdentity(request.capture_tokens.size(), retain.input),
-           positions,
+           request.input.Through(request.capture_tokens.size()), positions,
            request.purpose == SnapshotPurpose::kHistory
                ? cache::CheckpointPurpose::kGrid
            : request.purpose == SnapshotPurpose::kBranchPoint
@@ -1364,6 +1396,7 @@ std::unique_ptr<TextRunnerSnapshot> ComponentTextCache::Lease::Capture() {
     }
   }
   ++request.metrics.captures;
+  request.metrics.captured_checkpoint_ids.push_back(checkpoint->Id().value);
   request.metrics.captured_bytes += captured_capacity;
   request.metrics.borrowed_capacity_bytes += borrowed_capacity;
   request.metrics.copied_payload_bytes += copied_payload;
@@ -1553,6 +1586,11 @@ void ServingCacheLease::AdoptRestoredPrefix(std::size_t tokens,
     throw std::logic_error("component restore is owned by the component cache");
   legacy_.AdoptRestoredPrefix(tokens, bytes, ms);
 }
+void ServingCacheLease::PreparePrefill() {
+  if (component_)
+    component_->PreparePrefill();
+}
+
 std::size_t ServingCacheLease::CaptureBytes() const {
   return component_->CaptureBytes();
 }

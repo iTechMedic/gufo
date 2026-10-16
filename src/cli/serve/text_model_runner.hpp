@@ -46,6 +46,16 @@ struct TextPreparedPrompt {
   std::size_t cache_prefix_tokens{0};
 };
 
+/// When a cache with pinned backing (Flash-Next) commits its RAM budget.
+enum class TextRunnerRamCommit : std::uint8_t {
+  /// About 1 GiB at a time on a background thread; two steps before
+  /// serving. The default.
+  kLazy,
+  /// All of it before serving, so no request shares the host with a commit.
+  /// Startup fails if any step is declined or fails.
+  kEager,
+};
+
 struct TextRunnerRamCacheOptions {
   static constexpr std::size_t kAutomaticMaxBytes = std::size_t{32} << 30;
   static constexpr std::size_t kMaxEntries = 128;
@@ -53,6 +63,8 @@ struct TextRunnerRamCacheOptions {
   /// Explicit limits may exceed that budget up to the model's ceiling, which
   /// keeps kHostSnapshotHeadroomBytes of host RAM free.
   std::size_t capacity_bytes{0};
+  /// kEager needs a cache with pinned backing; other models reject it.
+  TextRunnerRamCommit commit{TextRunnerRamCommit::kLazy};
 };
 
 struct TextRunnerDiskCacheOptions {
@@ -261,7 +273,8 @@ public:
   [[nodiscard]] virtual std::vector<TextExecutionPlan> SupportedPlans()
       const = 0;
 
-  /// Lazily built only for constrained requests; normal text loads pay nothing.
+  /// Built for the first constrained request, or before serving with
+  /// --prepare-structured-output; normal text loads pay nothing by default.
   [[nodiscard]] virtual std::shared_ptr<const sampling::ConstraintVocabulary>
   BuildConstraintVocabulary() const {
     throw std::invalid_argument("model does not support structured output");
@@ -273,6 +286,10 @@ public:
   /// Reuse a compiled grammar bound to this runner's vocabulary.
   [[nodiscard]] std::shared_ptr<const sampling::TokenConstraint> BindConstraint(
       std::shared_ptr<const sampling::JsonConstraint> grammar) const;
+  /// Builds the vocabulary BindConstraint uses now rather than in the first
+  /// constrained request; later calls reuse it. Returns its token count.
+  /// Throws std::invalid_argument when the model has no structured output.
+  std::size_t PrepareConstraintVocabulary() const;
 
   [[nodiscard]] virtual std::vector<TextRunnerToken> Tokenize(
       std::string_view text) const = 0;

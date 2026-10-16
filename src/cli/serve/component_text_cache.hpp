@@ -16,6 +16,7 @@ class TextRunnerState;
 class TextRunnerSnapshot;
 struct TextRunnerDiskCacheOptions;
 struct TextPromptContext;
+enum class TextRunnerRamCommit : std::uint8_t;
 
 // Model-independent serving orchestration; the model supplies physical storage
 // and binds its ordinary execution facade to adapter-owned slots.
@@ -36,9 +37,12 @@ struct ComponentCacheResources {
   cache::StreamLease stream;
   std::function<ComponentCaptureBuffer(const cache::PayloadRequest&)> allocate;
   cache::StagingAllocator staging;
+  // Prepare on-demand backing while a substantial prefill can hide pinning.
+  std::function<void()> prepare_prefill;
   // Optional initialization step after slots allocate. The provider leaves
-  // payload backing uncommitted until serving selects the post-slot budget.
-  std::function<void(std::size_t)> commit_backing;
+  // payload backing uncommitted until serving selects the post-slot budget,
+  // then commits it as the policy asks (throwing when kEager cannot).
+  std::function<void(std::size_t, TextRunnerRamCommit)> commit_backing;
   cache::PersistenceSource::CopyRows copy_observed_rows;
   // At most this many transfers of one capture/restore are in flight before
   // waiting (16 at most). When the shared pool is momentarily exhausted, the
@@ -78,6 +82,7 @@ public:
     [[nodiscard]] std::size_t CaptureBytes() const;
     [[nodiscard]] std::size_t CaptureBytes(std::size_t boundary) const;
     [[nodiscard]] std::unique_ptr<TextRunnerSnapshot> Capture();
+    void PreparePrefill();
     [[nodiscard]] ComponentCacheMetrics Metrics() const;
     [[nodiscard]] std::vector<std::size_t> PlannedCaptures(
         std::size_t stable) const;
@@ -89,7 +94,7 @@ public:
   ComponentTextCache(std::shared_ptr<TextModelRunner>, std::size_t,
                      std::size_t ram_bytes,
                      const std::optional<TextRunnerDiskCacheOptions>&,
-                     bool automatic_ram = false);
+                     bool automatic_ram = false, TextRunnerRamCommit = {});
   ~ComponentTextCache();
   [[nodiscard]] std::unique_ptr<Lease> Acquire(
       std::span<const ContinuationToken>,
@@ -147,6 +152,7 @@ public:
   [[nodiscard]] std::size_t CaptureBytes() const;
   [[nodiscard]] std::size_t CaptureBytes(std::size_t boundary) const;
   [[nodiscard]] std::unique_ptr<TextRunnerSnapshot> Capture();
+  void PreparePrefill();
   [[nodiscard]] std::optional<ComponentCacheMetrics> Metrics() const;
   [[nodiscard]] std::vector<std::size_t> PlannedCaptures(
       std::size_t stable) const;

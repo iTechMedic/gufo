@@ -607,11 +607,14 @@ void PrintServeHelp(std::string_view program_name,
     std::size_t max_buffered_output_bytes_total =
         server::kDefaultMaxBufferedOutputBytesTotal;
     std::size_t cache_ram_bytes = 0;
+    std::string cache_ram_commit = "lazy";
     std::filesystem::path cache_disk_directory;
     std::size_t cache_disk_bytes =
         server::TextRunnerDiskCacheOptions::kDefaultCapacityBytes;
     std::size_t cache_disk_staging_bytes = 0;
     bool log_progress = false;
+    bool prepare_structured_output = false;
+    bool prepare_vision = false;
     std::string trace_path;
 
     gufo::cli::ArgParser parser(
@@ -713,8 +716,15 @@ void PrintServeHelp(std::string_view program_name,
         "", "--cache-ram-bytes", "N",
         "Retained RAM-cache byte budget (default: 0 = auto: half of free "
         "RAM, at most 32 GiB; explicit values may use free RAM minus 4 GiB). "
-        "Flash-Next pins it about 1 GiB at a time as captures need it",
+        "Flash-Next pins it about 1 GiB at a time as captures need it, or all "
+        "of it before serving with --cache-ram-commit eager",
         "Cache", &cache_ram_bytes);
+    parser.AddOption(
+        "", "--cache-ram-commit", "MODE",
+        "Flash-Next: when to pin the RAM cache: lazy (default) as captures "
+        "need it, or eager: all of it before serving, so no request shares "
+        "the host with a commit; startup fails if it cannot",
+        "Cache", &cache_ram_commit);
     parser.AddOption("", "--cache-disk", "DIR",
                      "Opt-in restart-safe continuation cache directory "
                      "(Flash-Next: owned by one process)",
@@ -730,6 +740,17 @@ void PrintServeHelp(std::string_view program_name,
         "Other models: RAM limit for queued snapshots and each disk read "
         "(default: 0 = auto, at most the disk budget and 1/8 available RAM)",
         "Cache", &cache_disk_staging_bytes);
+    parser.AddFlag(
+        "", "--prepare-structured-output",
+        "Build the structured-output token vocabulary before serving, not in "
+        "the first constrained request; startup fails if the model has "
+        "none",
+        "Model", &prepare_structured_output);
+    parser.AddFlag(
+        "", "--prepare-vision",
+        "Hash and upload the Qwen vision sidecar before serving, not in the "
+        "first image request; startup fails if the model has none",
+        "Model", &prepare_vision);
     parser.AddFlag("", "--log-progress",
                    "Log live prefill and decode progress (needs "
                    "--log-level=info or debug)",
@@ -1154,11 +1175,14 @@ int RunServe(std::span<const char* const> args) {
     std::size_t max_buffered_output_bytes_total =
         server::kDefaultMaxBufferedOutputBytesTotal;
     std::size_t cache_ram_bytes = 0;
+    std::string cache_ram_commit = "lazy";
     std::filesystem::path cache_disk_directory;
     std::size_t cache_disk_bytes =
         server::TextRunnerDiskCacheOptions::kDefaultCapacityBytes;
     std::size_t cache_disk_staging_bytes = 0;
     bool log_progress = false;
+    bool prepare_structured_output = false;
+    bool prepare_vision = false;
     std::string trace_path;
 
     gufo::cli::ArgParser llm_parser(
@@ -1256,8 +1280,15 @@ int RunServe(std::span<const char* const> args) {
         "", "--cache-ram-bytes", "N",
         "Retained RAM-cache byte budget (default: 0 = auto: half of free "
         "RAM, at most 32 GiB; explicit values may use free RAM minus 4 GiB). "
-        "Flash-Next pins it about 1 GiB at a time as captures need it",
+        "Flash-Next pins it about 1 GiB at a time as captures need it, or all "
+        "of it before serving with --cache-ram-commit eager",
         "Cache", &cache_ram_bytes);
+    llm_parser.AddOption(
+        "", "--cache-ram-commit", "MODE",
+        "Flash-Next: when to pin the RAM cache: lazy (default) as captures "
+        "need it, or eager: all of it before serving, so no request shares "
+        "the host with a commit; startup fails if it cannot",
+        "Cache", &cache_ram_commit);
     llm_parser.AddOption("", "--cache-disk", "DIR",
                          "Opt-in restart-safe continuation cache directory "
                          "(Flash-Next: owned by one process)",
@@ -1273,6 +1304,17 @@ int RunServe(std::span<const char* const> args) {
         "Other models: RAM limit for queued snapshots and each disk read "
         "(default: 0 = auto, at most the disk budget and 1/8 available RAM)",
         "Cache", &cache_disk_staging_bytes);
+    llm_parser.AddFlag(
+        "", "--prepare-structured-output",
+        "Build the structured-output token vocabulary before serving, not in "
+        "the first constrained request; startup fails if the model has "
+        "none",
+        "Model", &prepare_structured_output);
+    llm_parser.AddFlag(
+        "", "--prepare-vision",
+        "Hash and upload the Qwen vision sidecar before serving, not in the "
+        "first image request; startup fails if the model has none",
+        "Model", &prepare_vision);
     llm_parser.AddFlag("", "--log-progress",
                        "Log live prefill and decode progress (needs "
                        "--log-level=info or debug)",
@@ -1349,6 +1391,11 @@ int RunServe(std::span<const char* const> args) {
       return 2;
     }
 
+    if (cache_ram_commit != "lazy" && cache_ram_commit != "eager") {
+      std::cerr << "Error: --cache-ram-commit must be lazy or eager\n";
+      return 2;
+    }
+
     server::TextSpeculativeConfig speculative_config;
     if (speculative_backend.empty() && !dspark_model_path.empty()) {
       speculative_backend = "dspark";
@@ -1399,39 +1446,45 @@ int RunServe(std::span<const char* const> args) {
     std::string err;
     ModelLoadLog load_log("text", model);
     backend = std::make_shared<server::InferenceBackend>();
-    if (!backend->load(model, &err, max_context, session_count,
-                       server::TextPrefillPolicy{
-                           .decode_active_tokens = prefill_chunk_tokens,
-                       },
-                       server::TextSchedulerPolicy{
-                           .max_pending_requests = max_pending_requests,
-                           .max_pending_requests_per_client =
-                               max_pending_requests_per_client,
-                           .max_output_bytes_per_request = max_output_bytes,
-                           .max_buffered_output_bytes_per_request =
-                               max_buffered_output_bytes,
-                           .max_buffered_output_bytes_total =
-                               max_buffered_output_bytes_total,
-                           .request_timeout =
-                               std::chrono::milliseconds{
-                                   static_cast<std::chrono::milliseconds::rep>(
-                                       request_timeout_ms)},
-                           .stall_timeout =
-                               std::chrono::milliseconds{
-                                   static_cast<std::chrono::milliseconds::rep>(
-                                       stall_timeout_ms)},
-                           .log_progress = log_progress,
-                       },
-                       speculative_config,
-                       server::TextDiskCacheConfig{
-                           .directory = cache_disk_directory,
-                           .capacity_bytes = cache_disk_bytes,
-                           .staging_capacity_bytes = cache_disk_staging_bytes,
-                           .model_artifact_fingerprint = {},
-                       },
-                       vision_model_path,
-                       server::TextRunnerRamCacheOptions{
-                           .capacity_bytes = cache_ram_bytes})) {
+    if (!backend->load(
+            model, &err, max_context, session_count,
+            server::TextPrefillPolicy{
+                .decode_active_tokens = prefill_chunk_tokens,
+            },
+            server::TextSchedulerPolicy{
+                .max_pending_requests = max_pending_requests,
+                .max_pending_requests_per_client =
+                    max_pending_requests_per_client,
+                .max_output_bytes_per_request = max_output_bytes,
+                .max_buffered_output_bytes_per_request =
+                    max_buffered_output_bytes,
+                .max_buffered_output_bytes_total =
+                    max_buffered_output_bytes_total,
+                .request_timeout =
+                    std::chrono::milliseconds{
+                        static_cast<std::chrono::milliseconds::rep>(
+                            request_timeout_ms)},
+                .stall_timeout =
+                    std::chrono::milliseconds{
+                        static_cast<std::chrono::milliseconds::rep>(
+                            stall_timeout_ms)},
+                .log_progress = log_progress,
+                .prepare_structured_output = prepare_structured_output,
+                .prepare_vision = prepare_vision,
+            },
+            speculative_config,
+            server::TextDiskCacheConfig{
+                .directory = cache_disk_directory,
+                .capacity_bytes = cache_disk_bytes,
+                .staging_capacity_bytes = cache_disk_staging_bytes,
+                .model_artifact_fingerprint = {},
+            },
+            vision_model_path,
+            server::TextRunnerRamCacheOptions{
+                .capacity_bytes = cache_ram_bytes,
+                .commit = cache_ram_commit == "eager"
+                              ? server::TextRunnerRamCommit::kEager
+                              : server::TextRunnerRamCommit::kLazy})) {
       std::cerr << "Error loading model '" << model << "': " << err << "\n";
       return 1;
     }

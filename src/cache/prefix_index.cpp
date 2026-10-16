@@ -814,23 +814,6 @@ Rows PrefixIndex::CommonPrefixTokens(const PrefixQuery& query) const {
   }
   return longest;
 }
-Rows PrefixIndex::DurablePrefixTokens(const PrefixQuery& query) const {
-  if (query.input.TokenCount() != query.tokens.size())
-    throw std::invalid_argument("invalid prefix query boundaries");
-  auto it = impl_->trees.find(query.compatibility);
-  if (it == impl_->trees.end())
-    return 0;
-  Rows deepest = 0;
-  impl_->Path(it->second, query.tokens, [&](const auto& node) {
-    for (const auto& [id, r] : node.records) {
-      (void)id;
-      if (r.durable && !r.durable->Quarantined() &&
-          std::ranges::equal(r.Input(), query.input.At(r.Boundary())))
-        deepest = std::max(deepest, r.Boundary());
-    }
-  });
-  return deepest;
-}
 std::size_t PrefixIndex::MetadataBytes() const {
   std::size_t bytes = sizeof(Impl);
   std::vector<const Impl::Node*> pending;

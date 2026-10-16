@@ -129,9 +129,6 @@ public:
   // Conservative input-identity check at the stored record's full boundary,
   // including records longer than the query and temporarily unavailable lives.
   [[nodiscard]] Rows CommonPrefixTokens(const PrefixQuery&) const;
-  // Deepest input-compatible prefix with a durable publication, including
-  // one whose RAM copy is still resident: Lookup then offers only that copy.
-  [[nodiscard]] Rows DurablePrefixTokens(const PrefixQuery&) const;
   // Charged object sizes and retained capacities, excluding allocator/control
   // block/ledger bookkeeping and separately charged checkpoint/descriptions.
   [[nodiscard]] std::size_t MetadataBytes() const;

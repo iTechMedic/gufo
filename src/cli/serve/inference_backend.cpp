@@ -157,6 +157,38 @@ std::shared_ptr<const models::qwen::vision::Prompt> QwenPrompt(
   return image->prompt;
 }
 
+// Otherwise the first image request hashes the whole sidecar in its queue time
+// and uploads the weights in its prefill, after admission and the RAM cache
+// were sized without them.
+void PrepareVision(
+    const std::shared_ptr<models::qwen::vision::Encoder>& encoder) {
+  if (!encoder)
+    throw std::invalid_argument(
+        "--prepare-vision needs a Qwen vision sidecar (--mmproj)");
+  const auto started = Clock::now();
+  (void)encoder->identity();
+  const auto hashed = Clock::now();
+  try {
+    encoder->Upload();
+  } catch (const std::exception& e) {
+    throw std::runtime_error(
+        std::string("--prepare-vision could not upload the vision sidecar: ") +
+        e.what());
+  }
+  const auto uploaded = Clock::now();
+  std::size_t heap_free = 0, heap_total = 0;
+  (void)hipMemGetInfo(&heap_free, &heap_total);
+  using Milliseconds = std::chrono::duration<double, std::milli>;
+  Logger::Info("loader",
+               "event=vision_prepared resident_bytes=" +
+                   std::to_string(encoder->ResidentBytes()) + " identity_ms=" +
+                   std::to_string(Milliseconds(hashed - started).count()) +
+                   " upload_ms=" +
+                   std::to_string(Milliseconds(uploaded - hashed).count()) +
+                   " device_heap_free_bytes=" + std::to_string(heap_free) +
+                   " " + Logger::MemoryStatus());
+}
+
 constexpr std::string_view kDeepSeekStateAbi =
     "deepseek-v4-flash-gfx1151-state-v4";
 constexpr std::array<std::uint8_t, 8> kQwenPersistentSnapshotMagic = {
@@ -2490,8 +2522,9 @@ public:
     // The remainder belongs to index, histories, disk catalog and queue
     // metadata. The pools charge their own per-block allocator headroom.
     result->commit_backing = [backing, &ledger,
-                              adapter =
-                                  result->adapter.get()](std::size_t budget) {
+                              adapter = result->adapter.get()](
+                                 std::size_t budget,
+                                 TextRunnerRamCommit commit) {
       const auto plan =
           static_cast<models::qwen38_flash_next::ContinuationAdapter*>(adapter)
               ->BackingPlan(budget);
@@ -2501,11 +2534,10 @@ public:
       // Pages commit as captures need them. A payload cannot span segments,
       // so the edge of each one strands space a ~140 MB private state cannot
       // use; equal segments of about 1 GiB, and at least two private states,
-      // keep that small. A step costs about 200 ms of page faults and pinning
-      // (more when the host must reclaim page cache), so it runs ahead on a
-      // background thread; only a capture that outruns it grows on its own
-      // thread. Growth stops early when the host would keep less than its
-      // reserve.
+      // keep that small. Completed append rows prepare more backing; private
+      // and tail copies commit only when needed. Pinning ahead after a final
+      // private copy can delay decoder launches. Growth stops when the host
+      // keeps less than its reserve.
       std::size_t largest = 0;
       for (const auto& [id, bytes] : backing->component_classes)
         largest = std::max(largest, bytes);
@@ -2520,13 +2552,14 @@ public:
         std::chrono::steady_clock::time_point refused;
         bool active{};
       };
+      const auto limited = std::make_shared<Limited>();
       backing->pool = std::make_unique<hip::CommittedBackingPool>(
           ledger,
           hip::BackingPoolConfig{
               allocation.blocks * allocation.block_bytes +
                   allocation.metadata_bytes,
               allocation.block_bytes, allocation.metadata_bytes, segment,
-              [limited = std::make_shared<Limited>()](std::size_t bytes) {
+              [limited](std::size_t bytes) {
                 const std::lock_guard lock(limited->mutex);
                 const auto now = std::chrono::steady_clock::now();
                 // Pressure retries ask once per capture; recheck at most
@@ -2561,10 +2594,51 @@ public:
                 limited->refused = now;
                 return false;
               }});
-      // The first capture would otherwise commit the first segment on the
-      // request path (seconds while the host reclaims page cache).
-      backing->pool->GrowAhead();
+      const auto started = std::chrono::steady_clock::now();
+      if (commit == TextRunnerRamCommit::kEager) {
+        // Every segment, in the on-demand layout and with the same host and
+        // device-heap admission, so no request overlaps page commitment or
+        // registration: either competes with request CPU and GPU work.
+        if (!backing->pool->CommitAll())
+          throw std::runtime_error(
+              "--cache-ram-commit eager could not commit the Flash-Next RAM "
+              "cache before serving: " +
+              std::to_string(backing->pool->CommittedBytes()) + " of " +
+              std::to_string(allocation.blocks * block) + " bytes (" +
+              std::to_string(backing->pool->PageCommitAllocations()) + " of " +
+              std::to_string(parts) + " segments) committed, then " +
+              (limited->active
+                   ? "a segment would cut into the host or device-heap "
+                     "reserve (see the backing_limited warning)"
+                   : "committing or registering a segment failed") +
+              ". Lower --cache-ram-bytes or use --cache-ram-commit lazy");
+      } else {
+        // Prepare a bounded reserve before readiness. The first shared-prefix
+        // capture needs more than one segment; preparing both avoids moving
+        // registration onto that request's capture or decode path.
+        backing->pool->GrowAhead(2);
+        backing->pool->WaitForGrowth();
+      }
+      std::size_t heap_free = 0, heap_total = 0;
+      (void)hipMemGetInfo(&heap_free, &heap_total);
+      Logger::Info(
+          "cache",
+          "schema=component-cache-v1 event=backing_prepared commit=" +
+              std::string(commit == TextRunnerRamCommit::kEager ? "eager"
+                                                                : "lazy") +
+              " budget_bytes=" + std::to_string(budget) + " backing_bytes=" +
+              std::to_string(allocation.blocks * block) + " committed_bytes=" +
+              std::to_string(backing->pool->CommittedBytes()) + " segments=" +
+              std::to_string(backing->pool->PageCommitAllocations()) + "/" +
+              std::to_string(parts) +
+              " segment_bytes=" + std::to_string(segment) + " prepare_ms=" +
+              std::to_string(std::chrono::duration<double, std::milli>(
+                                 std::chrono::steady_clock::now() - started)
+                                 .count()) +
+              " device_heap_free_bytes=" + std::to_string(heap_free) + " " +
+              Logger::MemoryStatus());
     };
+    result->prepare_prefill = [backing] { backing->pool->GrowAhead(2); };
     result->owner = backing;
     result->stream = [backing]() -> std::unique_ptr<cache::Stream> {
       return backing->streams.TryAcquire();
@@ -2594,10 +2668,11 @@ public:
                                    .count()));
       if (!block)
         throw cache::ResourceExhausted();
-      // Commit the next segment off the capturing thread, which otherwise
-      // stalls this and every peer request for the allocation (up to seconds
-      // while the host reclaims page cache).
-      backing->pool->GrowAhead();
+      // Completed append rows prepare backing for subsequent prefill/guard
+      // work. Final private-state and partial-tail copies must not start
+      // speculative pinning that delays the next decode step.
+      if (request.category == cache::ResourceCategory::kBackingAssigned)
+        backing->pool->GrowAhead();
       auto owner = std::make_shared<hip::BackingBlock>(std::move(*block));
       return ComponentCaptureBuffer{
           owner->Bytes(),
@@ -3314,13 +3389,18 @@ bool InferenceBackend::load(const std::string& model_path, std::string* error,
                "Failed to create Qwen3.8-Flash-Next model: " + load_error);
       return false;
     }
-    if (resolved_disk_cache_config.model_artifact_fingerprint.empty() &&
+    // RAM checkpoints cannot outlive this loaded model. Their process-local
+    // identity is sufficient; hashing every shard here adds a complete model
+    // read on each fresh container start even when disk caching is disabled.
+    if (DiskCacheEnabled(resolved_disk_cache_config) &&
+        resolved_disk_cache_config.model_artifact_fingerprint.empty() &&
         !FingerprintArtifact(
             "Qwen3.8-Flash-Next", *reader,
             &resolved_disk_cache_config.model_artifact_fingerprint, error)) {
       return false;
     }
-    if (speculative_config.backend == TextSpeculativeBackend::kMtp &&
+    if (DiskCacheEnabled(resolved_disk_cache_config) &&
+        speculative_config.backend == TextSpeculativeBackend::kMtp &&
         resolved_disk_cache_config.draft_model_artifact_fingerprint.empty() &&
         !FingerprintArtifactFile(
             "Qwen3.8-Flash-Next MTP", speculative_config.draft_model_path,
@@ -3485,6 +3565,8 @@ bool InferenceBackend::load(std::shared_ptr<const hip::QwenGpuModel> model,
       speculative_options.enable_adaptive_draft_length = false;
     }
 
+    if (scheduler_policy.prepare_vision)
+      PrepareVision(model->VisionEncoder());
     auto new_state = std::make_shared<Impl::State>();
     new_state->sampling_defaults.model =
         sampling::TextPreset(model->GetConfig());
@@ -3574,6 +3656,8 @@ bool InferenceBackend::load(
   }
 
   try {
+    if (scheduler_policy.prepare_vision)
+      PrepareVision({});
     auto new_state = std::make_shared<Impl::State>();
     new_state->sampling_defaults.model =
         sampling::TextModelPreset::kDeepSeekV4Flash;
@@ -3659,6 +3743,9 @@ bool InferenceBackend::load(
     return false;
   }
   try {
+    // Before the runner claims state capacity and the pool sizes the cache.
+    if (scheduler_policy.prepare_vision)
+      PrepareVision(model->VisionEncoder());
     auto new_state = std::make_shared<Impl::State>();
     new_state->sampling_defaults.model = sampling::TextModelPreset::kQwen38;
     new_state->sampling_defaults.supplied = {};

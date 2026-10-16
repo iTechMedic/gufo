@@ -618,7 +618,8 @@ struct TextRunnerPool::Impl {
       // state claim includes lazy image/rollback storage, not startup usage.
       component_cache = std::make_unique<ComponentTextCache>(
           validated.runner, state_count, std::min(requested, ceiling),
-          disk_cache_options, !ram_cache_options.capacity_bytes);
+          disk_cache_options, !ram_cache_options.capacity_bytes,
+          ram_cache_options.commit);
       if (disk_cache_options) {
         shared_prefix_min_tokens = disk_cache_options->shared_prefix_min_tokens;
         shared_prefix_max_boundaries =
@@ -626,6 +627,10 @@ struct TextRunnerPool::Impl {
       }
       return;
     }
+    if (ram_cache_options.commit == TextRunnerRamCommit::kEager)
+      throw std::invalid_argument(
+          "--cache-ram-commit eager applies only to models with pinned cache "
+          "backing (Qwen3.8-Flash-Next); omit the option");
     cache = std::make_unique<ContinuationCache>(
         state_count,
         [this] {
@@ -705,6 +710,13 @@ TextModelRunner::BindConstraint(
   return binding;
 }
 
+std::size_t TextModelRunner::PrepareConstraintVocabulary() const {
+  const std::lock_guard lock(constraint_mutex_);
+  if (!constraint_vocabulary_)
+    constraint_vocabulary_ = BuildConstraintVocabulary();
+  return constraint_vocabulary_->size();
+}
+
 void TextModelRunner::StreamPersistentSnapshot(
     const TextRunnerSnapshot& snapshot, const SnapshotSink& sink) const {
   std::vector<std::uint8_t> payload(PersistentSnapshotPayloadBytes(snapshot));
@@ -763,6 +775,11 @@ struct TextRunnerPool::Request::Impl {
       count = prefill_offset;
     }
     if (lease.restored_from_disk() && prefill_offset == prompt.size())
+      count = prompt.size();
+    // Cancellation can leave a component live frontier past the stable
+    // checkpoint. That earlier state cannot be captured here; keep its
+    // immutable fallback and freeze the complete prompt before decoding.
+    if (lease.component() && prefill_offset > count)
       count = prompt.size();
     snapshot_tokens.reserve(prompt.size());
     snapshot_tokens.assign(prompt.begin(), prompt.begin() + count);
@@ -1330,6 +1347,11 @@ TextPrefillStep TextRunnerPool::Request::Prefill(std::size_t max_input_tokens) {
     throw std::invalid_argument(
         "text runner prefill budget must be at least one token");
   }
+
+  // Start pinning before prefill, while at least 512 tokens of GPU work
+  // remain. Cached decode and short final tails must not start registration.
+  if (impl_->prompt.size() - impl_->prefill_offset >= 512)
+    impl_->lease.PreparePrefill();
 
   // Stop exactly on the next shared-prefix boundary so it can be persisted.
   // Direct callers join any capture before mutating its borrowed state.

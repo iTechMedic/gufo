@@ -1,3 +1,5 @@
+#include <sys/mman.h>
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -445,6 +447,123 @@ void OnDemandBacking() {
   assert(ahead.BlockCount() == 4 && ahead.PageCommitAllocations() == 2);
   ahead.GrowAhead();
   assert(ahead.BlockCount() == 4);
+  // A bounded startup reserve finishes before requests acquire its pages.
+  // Observe real HIP allocations: neither request below may commit a segment.
+  cache::ResourceLedger startup_ledger(Limits(ahead_capacity));
+  hip::CommittedBackingPool startup(
+      startup_ledger,
+      {ahead_capacity, block_bytes, headroom, 2 * block_bytes, {}});
+  startup.GrowAhead();
+  startup.WaitForGrowth();
+  assert(startup.BlockCount() == 2);
+  startup.GrowAhead(2);
+  startup.WaitForGrowth();
+  assert(startup.BlockCount() == 4 && startup.PageCommitAllocations() == 2);
+  const auto committed_allocations = allocations.load();
+  auto startup_first =
+      startup.TryAcquire(Category::kPrivateTail, 2 * block_bytes);
+  auto startup_second =
+      startup.TryAcquire(Category::kPrivateTail, 2 * block_bytes);
+  assert(startup_first && startup_second &&
+         allocations.load() == committed_allocations);
+}
+void EagerCommit() {
+  // Serving may commit the whole pool before it starts. Segments, admission
+  // and accounting stay those of on-demand growth, and nothing grows later.
+  constexpr std::size_t pages = 5, headroom = 16 << 10;
+  constexpr std::size_t capacity = pages * block_bytes + headroom;
+  cache::ResourceLedger ledger(Limits(capacity));
+  std::size_t asked{};
+  {
+    const auto physical = allocations.load();
+    hip::CommittedBackingPool pool(
+        ledger, {capacity, block_bytes, headroom, 2 * block_bytes,
+                 [&](std::size_t bytes) {
+                   asked += bytes;
+                   return true;
+                 }});
+    assert(pool.CommitAll());
+    assert(pool.BlockCount() == pages && pool.PageCommitAllocations() == 3);
+    assert(allocations == physical + 3 && asked == pages * block_bytes);
+    assert(ledger.Snapshot().total_bytes == headroom + pages * block_bytes);
+    assert(pool.CommitAll());
+    // Neither capture-time growth nor the reserve before a long prefill can
+    // grow a full pool.
+    pool.GrowAhead();
+    pool.GrowAhead(2);
+    pool.WaitForGrowth();
+    // Runs still end with their segment: after one block, a single pair fits
+    // (one coalesced region would take two), then the singles left.
+    auto first = pool.TryAcquire(Category::kPrivateState);
+    auto pair = pool.TryAcquire(Category::kBackingAssigned, 2 * block_bytes);
+    assert(first && pair);
+    assert(!pool.TryAcquire(Category::kBackingAssigned, 2 * block_bytes));
+    auto second = pool.TryAcquire(Category::kPrivateTail);
+    auto third = pool.TryAcquire(Category::kPrivateTail);
+    assert(second && third && !pool.TryAcquire(Category::kPrivateTail));
+    assert(pool.PageCommitAllocations() == 3 && allocations == physical + 3 &&
+           asked == pages * block_bytes);
+  }
+  assert(ledger.Snapshot().total_bytes == 0);
+  // A declined segment stops it; what committed stays accounted until the
+  // pool, and with it the failed server, releases it.
+  std::size_t admitted{};
+  {
+    hip::CommittedBackingPool pool(
+        ledger, {capacity, block_bytes, headroom, 2 * block_bytes,
+                 [&](std::size_t) { return admitted++ == 0; }});
+    assert(!pool.CommitAll());
+    assert(pool.BlockCount() == 2 && pool.PageCommitAllocations() == 1);
+    assert(ledger.Snapshot().total_bytes == headroom + 2 * block_bytes);
+  }
+  assert(admitted == 2 && ledger.Snapshot().total_bytes == 0);
+  // So does a segment whose pages cannot be pinned.
+  {
+    hip::CommittedBackingPool pool(
+        ledger, {capacity, block_bytes, headroom, 2 * block_bytes, {}});
+    fail_alloc = true;
+    assert(!pool.CommitAll());
+    fail_alloc = false;
+    assert(pool.BlockCount() == 0 && pool.PageCommitAllocations() == 0 &&
+           ledger.Snapshot().total_bytes == headroom);
+  }
+  assert(ledger.Snapshot().total_bytes == 0);
+}
+void GrowthKeepsMappingsAvailable() {
+  // Committing a segment ahead must not hold the process mmap lock while its
+  // pages fault in: request threads map and protect memory meanwhile (thread
+  // stacks, malloc arenas, runtime mbind). Registration may still pin under
+  // it, so a mapping waits at most a small part of the commit.
+  constexpr std::size_t segment = std::size_t{512} << 20;
+  constexpr std::size_t headroom = (2 * segment / block_bytes + 4) * 1024;
+  constexpr std::size_t capacity = 2 * segment + headroom;
+  cache::ResourceLedger ledger(Limits(capacity));
+  hip::CommittedBackingPool pool(
+      ledger, {capacity, block_bytes, headroom, segment, {}});
+  auto held = pool.TryAcquire(Category::kPrivateTail);
+  assert(held && pool.CommittedBytes() == segment);
+  const auto started = std::chrono::steady_clock::now();
+  pool.GrowAhead();
+  std::chrono::duration<double, std::milli> worst{};
+  while (pool.CommittedBytes() != 2 * segment &&
+         std::chrono::steady_clock::now() - started <
+             std::chrono::seconds(20)) {
+    const auto before = std::chrono::steady_clock::now();
+    void* mapping =
+        mmap(nullptr, 1 << 20, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    assert(mapping != MAP_FAILED);
+    assert(mprotect(mapping, 1 << 16, PROT_READ | PROT_WRITE) == 0);
+    assert(munmap(mapping, 1 << 20) == 0);
+    worst = std::max(worst, std::chrono::duration<double, std::milli>(
+                                std::chrono::steady_clock::now() - before));
+    std::this_thread::sleep_for(std::chrono::microseconds(200));
+  }
+  const std::chrono::duration<double, std::milli> commit =
+      std::chrono::steady_clock::now() - started;
+  assert(pool.CommittedBytes() == 2 * segment);
+  std::printf("segment commit %.1f ms, longest concurrent mapping %.1f ms\n",
+              commit.count(), worst.count());
+  assert(worst < commit / 2);
 }
 void Transfers() {
   cache::ResourceLedger ledger(Limits());
@@ -645,6 +764,8 @@ int main() {
   Backing();
   GroupedBacking();
   OnDemandBacking();
+  EagerCommit();
+  GrowthKeepsMappingsAvailable();
   Transfers();
   LifetimeAndFailures();
   PendingStreams();
