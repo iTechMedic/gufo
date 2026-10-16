@@ -167,6 +167,66 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream sync onto main `baf5a1b` (October 16, 2026): a checked
+integration, not a new timing qualification.** Source `510f37e` is an
+ordinary merge of upstream main `baf5a1b` (release v0.16.0 `b1c46d6` plus
+#614, #616 and #622, merged after the release) into the v0.15.1 release
+`1785483`. It keeps prompt lookup, `--prepare-structured-output` and
+`--cache-ram-commit eager` (with `CommitAll`). Upstream replaced two of our
+patches: #616's automatic vision preparation (`--prepare-vision` is removed)
+and #615's backing population (instead of our page-by-page commit). #613 is not
+imported. The 913-row 32K qualification below remains evidence for `8b138ee`
+only; the new binary was not re-timed against it.
+
+- **Build:** pinned flake; release `bin/gufo` sha256 `a4d404ed…cb218`.
+  Formatting, the hosted PR suite and the CPU `prompt_lookup`/`draft_vocab`
+  tests pass.
+- **GPU checks, each run once (982.7 s in total):**
+  - `cache_backing_test` ×3: commit 29–31 ms, longest concurrent mapping
+    14.9–16.1 ms (bound 30 ms).
+  - `session_test --batch-only`: serial and batched greedy C2–C8 and seeded
+    runs are exact, including lookup and small-head counters; 5 sampled
+    lookup copies.
+  - `session_test --cache-only`: lookup replay after diverged and
+    mid-generation restores is exact (17 greedy and 174 sampled copies), and
+    so are #603's draft-policy snapshots.
+- **262K deployment configuration** (Intel 670p models, 1 session, vision,
+  16 GiB eager cache, structured-output preparation):
+  - The harness passes over discovery, state-edges, tool-agent, image-inputs
+    and cache with its restart. All 117 requests match the `8b138ee` run in
+    output and token/cache counts; only the 3 discovery outputs differ, by the
+    served model name.
+  - In every process, preparation runs vision, then the eager backing (15/15
+    segments), then structured output, all before readiness.
+  - Screenshot: the answer is identical on the first request, the cache-hit
+    repeat (2,077 cached, 0 prefilled) and after restart, and to `8b138ee`'s.
+    The tool call, schema-valid structured output (identical after restart)
+    and a continuation (2,077 cached) succeed. GTT grows +438 MiB at the first
+    image and ≤ 105 MiB at later requests. At least 16.4 GiB host and 17.1 GB
+    device heap remain at preparation. Zero direct reclaim, compaction,
+    container PSI and major faults; image queue 53–56 ms.
+- **Performance sanity** (fresh processes, order A B B A; A = `8b138ee` with
+  its own command): identical outputs and work. The rewrite decodes in
+  19,294 ms (A: 19,312–19,331 ms) with 1,704 of 1,710 drafts accepted. The
+  `prose` request decodes in 10,020–10,027 ms (A: 10,037–10,042 ms).
+  - Stock `baf5a1b` control: `prose` 10,017 ms, and the rewrite 27,054–27,063
+    ms with 1,639 of 1,772 drafts accepted. So lookup cuts the rewrite's
+    decode by 28.7%.
+  - #603's reported greedy gain does not appear in this request on stock
+    either.
+- **Not covered:** the 35-pair timing qualification; timing at 262K;
+  full-context capacity; concurrent or multi-session vision; images above
+  1920×1088.
+- **Deployment command:** `gufo serve --host … --port … llm --model
+  UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+  --served-model-name Qwen3.8-Flash-Next-UD-Q4_K_XL --mmproj mmproj-BF16.gguf
+  --speculative mtp --mtp-model MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
+  --sessions 1 --context 262144 --cache-ram-bytes 17179869184
+  --cache-ram-commit eager --prepare-structured-output`. It drops
+  `--prepare-vision`, which no longer exists. Commands in the records below
+  apply to their own revisions.
+- Evidence: [upstream-sync-v016.json](artifacts/upstream-sync-v016.json).
+
 **Prompt lookup on v0.15.1 (October 15, 2026): timing-qualified for the
 2-session 32K gate configuration. The final candidate adds opt-in vision
 preparation, with deployment compatibility evidence at 1 session and a

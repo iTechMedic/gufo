@@ -1,0 +1,80 @@
+{
+ "date": "2026-10-16",
+ "title": "Prompt lookup and opt-in serving preparation synced onto upstream main baf5a1b: checked integration",
+ "kind": "checked upstream integration; not a new timing qualification",
+ "upstream": {
+  "target": "baf5a1bbab5b99a8278c4869122fd173b205671b",
+  "published_release": {"tag": "v0.16.0", "commit": "b1c46d6337420b1839827c5a5a885e18082fb370",
+                        "contains": ["#592", "#610", "#603", "#615"]},
+  "merged_after_release": ["#614 22e3676", "#616 0604e9e", "#622 baf5a1b"],
+  "not_imported": ["#613 (open)"]
+ },
+ "integration": {
+  "revision": "510f37e94372262d74ba3a2c273b3fcd15678740",
+  "parents": ["1785483e17066a22a75a14978e9e1a74f9640544", "baf5a1bbab5b99a8278c4869122fd173b205671b"],
+  "archived_start": "archive/validated-v0151-1785483",
+  "release_binary": {"store_path": "/nix/store/py0p48mfph40v4pqnhxni5nvqk330924-gufo-0-unstable-510f37e",
+                     "bin_gufo_sha256": "a4d404ede375e34302fac77ecfbeea4b4cd35c30e8a60c63bca62390189cb218"},
+  "gpu_test_binaries": {"cache_backing_test": "ec9a673c1a40fb36ad97dd3a66c0e9c2310c630320b0af664cf1e6f4da9e9fed",
+                        "qwen38_flash_next_session_test": "49a24a0f0ec593347282a45b5581ee897245e935603ee670f35ed12a98ad0789"},
+  "flake_lock_sha256_prefix": "faabad820ec09caa"
+ },
+ "reconciliation": {
+  "retained": ["prompt lookup (prompt_lookup.hpp, anchor and post-draft copies, batched insertion, stop tokens, Sync for restore/rewind, counters)",
+               "lookup-aware length and batch-cost controllers",
+               "--prepare-structured-output",
+               "--cache-ram-commit eager and CommittedBackingPool::CommitAll",
+               "resolve.py and corrected compare.py screen with runner tests",
+               "independent regression tests (lookup, eager, structured output, resident-publication step)"],
+  "adapted": ["EagerCommit test: forward-filled first block (#615 allocates private states from the end)",
+              "GrowthKeepsMappingsAvailable: absolute 30 ms bound per 512 MiB segment, flushed output",
+              "batched session test also requires equal #603 small_head_cycles"],
+  "replaced_by_upstream": ["--prepare-vision -> #616 automatic preparation (flag, policy field, DeepSeek call, docs and CLI assertions removed)",
+                           "page-by-page backing commit b82db2e -> #615 MADV_NOHUGEPAGE + parallel MADV_POPULATE_WRITE"],
+  "retired_not_resurrected": ["a45a0d2 queued-checkpoint step patch", "9129bb2 durable-step fix (fixed upstream in v0.15.1)"]
+ },
+ "cpu_checks": {"formatting": "pass (581 C++ files)", "checks.pr": "pass",
+                "cpu_tests": "qwen38_flash_next.prompt_lookup, draft_vocab, mtp_sampling pass"},
+ "gpu_checks": {
+  "gpu_server_seconds": 982.7, "ceiling_seconds": 3600,
+  "host": "halo-llm1 gfx1151, GPU level auto, TuneD accelerator-performance, Intel 670p nvme0 PCIe 3.0 x4 (UUID 9722e5df), container bind read-only",
+  "S1_backing_x3": {"rc": [0, 0, 0], "segment_commit_ms": [29.4, 31.3, 30.8], "longest_concurrent_mapping_ms": [14.9, 15.0, 16.1]},
+  "S2_batch": {"rc": 0, "greedy_batches_exact": ["C2", "C4", "C6", "C8"], "sampled_accepted": 19, "sampled_lookup": 5, "rejected_cycles": 7},
+  "S3_cache": {"rc": 0, "quoted_value": {"greedy_lookup": 17, "sampled_lookup": 174, "sampled_anchor": 83, "sampled_accepted": 152},
+               "lookup_greedy_ar_exact": true, "lookup_sampled_replay_exact": true, "draft_policy_snapshots_exact": true},
+  "S4_harness": {"status": "passed", "suites": ["discovery", "state-edges", "tool-agent", "image-inputs", "cache (restart)"],
+                 "vs_8b138ee_sp73_v2": {"matched": 117, "output_or_count_differences": 5,
+                                        "explained": "3 discovery outputs carry --served-model-name; agent_sampled_peers 372/374 common-prefix swap between concurrent peers (admission order, sp60)",
+                                        "accepted_drafts": [930, 930]},
+                 "preparation_order_each_process": "vision_prepared < backing_prepared (eager 15/15) < structured_output_prepared < load_completed < listening"},
+  "S5_deploy": {"check76": "pass", "ready_s": [33.2, 31.0],
+                "R1_equal_R2_equal_restart_equal_8b138ee": true, "R2_cached_tokens": 2077, "R5_cached_tokens": 2077,
+                "gtt_growth_mib": {"R1": 438.1, "R2": 1.7, "R3": 105.2, "R4": -4.4, "R5": -19.0, "R1_restart": 438.1, "R4_restart": 100.4},
+                "min_free_at_preparation": {"host_mib": 16418, "device_heap_bytes": 17102430208},
+                "pressure": "zero direct reclaim, compaction stalls, container PSI, major faults, kswapd scans",
+                "queue_ms": {"image": [53.2, 55.6], "text_tool": 13.6}},
+  "S6_perf": {
+   "schedule": "A B B A, fresh processes, each build's own deployment command",
+   "A": "8b138ee e31a72ae (with --prepare-vision)", "B": "510f37e a4d404ed",
+   "rewrite": {"output": "identical and correct on all units", "drafts_accepted_proposed_rounds": [1704, 1710, 245],
+               "decode_ms": {"A": [19311.7, 19330.9], "B": [19294.7, 19294.4]},
+               "wall_ms": {"A": [20700.8, 20722.3], "B": [20701.1, 20685.9]}},
+   "prose": {"output": "identical on all units", "drafts_accepted_proposed_rounds": [197, 308, 187],
+             "decode_ms": {"A": [10036.6, 10041.5], "B": [10027.2, 10020.0]},
+             "wall_ms": {"A": [10197.0, 10202.2], "B": [10186.8, 10180.0]}},
+   "concern": "none under the fixed rule (B slower than A by >5% and >3 ms in both pairs)"
+  },
+  "C6_stock_control": {
+   "why": "#603 reports 5-12% greedy C1 MTP gains; B was not faster than A on prose",
+   "schedule": "C B C", "C": "stock baf5a1b 1277c475 (no eager/structured-output options)",
+   "prose_decode_ms": {"C": [10017.0, 10017.2], "B": [10025.2]},
+   "rewrite_decode_ms": {"C": [27062.7, 27054.3], "B": [19278.7]},
+   "reading": "B within 5% of stock: the integration did not lose #603's gain; the gain does not appear in this request. Lookup cuts the rewrite's decode 28.7% versus stock with identical output"
+  }
+ },
+ "deployment_command": "gufo serve --host ... --port ... llm --model UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf --served-model-name Qwen3.8-Flash-Next-UD-Q4_K_XL --mmproj mmproj-BF16.gguf --speculative mtp --mtp-model MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf --sessions 1 --context 262144 --cache-ram-bytes 17179869184 --cache-ram-commit eager --prepare-structured-output",
+ "deployment_command_change": "removed --prepare-vision (vision preparation is automatic upstream)",
+ "not_covered": ["35-pair 913-row timing qualification of the new binary", "timing at 262K", "full-context capacity",
+                 "concurrent or multi-session vision", "images above 1920x1088", "32K 2-session gate configuration"],
+ "evidence_local": "validation/sp76 (PLAN.md frozen before GPU work, addendum 1 before the control, results/, results-c/)"
+}
