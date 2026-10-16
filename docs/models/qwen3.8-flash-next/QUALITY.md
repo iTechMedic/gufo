@@ -46,6 +46,66 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Prompt lookup on v0.15.1 (October 15, 2026): timing-qualified for the
+2-session 32K gate configuration. The final candidate adds opt-in vision
+preparation, with deployment compatibility evidence at 1 session and a
+configured 262K context for the tested image workloads.** Final source `8b138ee`
+(release `bin/gufo` sha256 `e31a72ae…`) is upstream v0.15.1 with the shared
+serving fixes, the four prompt-lookup files, and `--prepare-vision`. The
+baseline `924010e` differs from it only by the prompt-lookup files.
+
+- **Timing (screen-resolution-v2, 5%/3 ms, unchanged):** 35 alternating matched
+  pairs of `6c1838b` against `7a4c5bb`. Configuration: 2 sessions, 32768
+  context, harness disk cache, 16 GiB eager RAM cache and
+  `--prepare-structured-output`, over state-edges, tool-agent, long-context and
+  cache. Result: 913 rows pass, 0 inconclusive, 0 failed (63 diagnostic, 2
+  superseded).
+  - The 27 pairs added to sp71's 8 were fixed before data. sp71's 3
+    inconclusive rows now resolve, with bounds 1.09/3.32 and 0.10/3.00 ms.
+  - `long_schema_cold`'s slow state occurred in 6/35 A and 11/35 B runs
+    (p = 0.26). A modest increase in its frequency is not excluded.
+  - **The final binaries were not measured in this comparison.** Their only
+    addition runs only with `--prepare-vision`, which this configuration does
+    not pass.
+- **Vision preparation (`--prepare-vision`):**
+  - Without the flag, the first image request of each process hashes the 907 MB
+    sidecar in its queue (371–490 ms). After admission and the cache were sized,
+    it also uploads 862 MiB of weights.
+  - With the flag, loading does both before readiness.
+  - Cost per process start: 0.39–0.42 s of hashing and 39–42 ms of upload.
+    Device memory at readiness rises by 1,004 MiB: 862.1 MiB of weights plus
+    141.9 MiB of one-time GPU runtime state that otherwise appears at an early
+    request. RSS includes about 866 MiB of clean sidecar file pages.
+- **262K vision compatibility:** two harness runs with 128×128 fixtures, and one
+  1920×1080 screenshot (2,040 image tokens).
+  - The 117 harness requests are identical to the run before the fix.
+  - The first image request no longer waits or allocates.
+  - About 25 repeated encodes per process do not accumulate memory.
+  - The screenshot is described correctly and its repeat is reused.
+  - Host and GTT headroom stay at least 10.5 and 33.9 GiB.
+  - There is no direct reclaim, compaction, or container memory pressure in any
+    of these runs.
+- **Specification errors accepted in the release decision:** two sp73 checker
+  criteria and one in the screenshot check. Their original failed results are
+  retained.
+  - The readiness memory expectation omitted the 141.9 MiB.
+  - System memory pressure counted kswapd. In that run, ~200 ms slower requests
+    coincided with the server faulting file-backed model data back in after a
+    cold page cache.
+  - A 50 ms queue limit was calibrated on 128×128 images. The screenshot's
+    per-request decode, resize and hash take 51–58 ms.
+- **Not tested:** timing at 262K; full-context capacity; images above 1920×1088
+  (up to 16.7 MP; per-encode scratch up to ~3.4 GB, not reserved by admission);
+  concurrent or multi-session vision; image requests without
+  `--prepare-vision`.
+- **Tested deployment command:** `gufo serve --host … --port … llm --model
+  UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+  --served-model-name Qwen3.8-Flash-Next-UD-Q4_K_XL --mmproj mmproj-BF16.gguf
+  --speculative mtp --mtp-model MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
+  --sessions 1 --context 262144 --cache-ram-bytes 17179869184
+  --cache-ram-commit eager --prepare-structured-output --prepare-vision`.
+- Evidence: [prompt-lookup-v0151-release.json](artifacts/prompt-lookup-v0151-release.json).
+
 **Correction (October 15, 2026): the timing qualification recorded below
 is withdrawn; timing qualification of prompt lookup on v0.15.0 is
 inconclusive.** This withdraws an unsupported claim and qualifies no new

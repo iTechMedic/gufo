@@ -1,0 +1,110 @@
+{
+ "date": "2026-10-15",
+ "title": "Prompt lookup on v0.15.1: 32K timing qualification and 262K vision deployment compatibility",
+ "final_candidate": {
+  "branch": "codex/v0151-vision-prep-lookup",
+  "revision": "8b138eec7951bd474232655765a7c6a816a3c3c1",
+  "release_binary": {
+   "store_path": "/nix/store/psdmzl8nz6dmyiv5sjbyazmmxx499ixf-gufo-0-unstable-8b138ee",
+   "bin_gufo_sha256": "e31a72ae76e6c369131bbaf6c95678a95d4fd573d4b828a9e68a0a1c21246630"
+  },
+  "baseline": {
+   "branch": "codex/v0151-vision-prep",
+   "revision": "924010eb989017f8f6aa0979a4b2f0a971661cfe",
+   "bin_gufo_sha256": "e60ab9d461fb6b3e8a3486c4295c59d00e3b454d013569838559f6bcf55ce60e"
+  },
+  "contents": "upstream v0.15.1 f7116129 + resolve.py port, spacing test, page-by-page backing commit, --prepare-structured-output, --cache-ram-commit eager (baseline); + the four prompt-lookup files (candidate); + opt-in --prepare-vision (both lines, patch-id 1c1a86d8)",
+  "candidate_minus_baseline_equals_timed_diff": true,
+  "checks": "formatting and hosted PR suite (format, dependencies, docs, CPU contract suite incl. serve_cli_test, CLI strings) pass on both; gpu-test qwen_vision_prepare_test passes; no diagnostic strings"
+ },
+ "timing_qualification": {
+  "measured_builds": {
+   "A": "6c1838b (bin sha256 9268da5f6bb9616365605c1bf2ea02051d4e1fde278af3fa4f8aa2f6c8f3d8ca)",
+   "B": "7a4c5bb (bin sha256 25e552e35a9b15d122247b04c246bf1a94701b50309acd5d2a551a26d848ce5f)"
+  },
+  "final_binaries_measured": false,
+  "why_applicable_to_final": "the final candidate adds only --prepare-vision, whose code runs only when the flag is passed; the timed configuration does not pass it; the newer binaries were not re-timed",
+  "policy": "tests/functional/resolve.py screen-resolution-v2 (sha256 ee30e19c...), 5% / 3 ms per request and phase, unchanged",
+  "design": "35 alternating matched pairs (sp71 q1-q8 + sp72 q9-q35, fixed count of 27 additional pairs chosen before data), control q1-A + vA1",
+  "configuration": "1 host (Strix Halo gfx1151), Qwen3.8-Flash-Next UD-Q4_K_XL + shared Q8_0 MTP, 2 sessions, context 32768, harness disk cache, --cache-ram-bytes 17179869184 --cache-ram-commit eager --prepare-structured-output; suites state-edges, tool-agent, long-context, cache (with restart); harness sha256 ce4f7ede...",
+  "result": {
+   "passed": 913,
+   "inconclusive": 0,
+   "failed": 0,
+   "diagnostic": 63,
+   "superseded": 2
+  },
+  "formerly_inconclusive_rows": [
+   {
+    "row": "long-context long_schema_cold max_inter_token_ms",
+    "bound_ms": 1.085,
+    "margin_ms": 3.322,
+    "pairs_over_margin": "8/35",
+    "note": "slow state (>69.5 ms) in 6/35 A runs and 11/35 B runs (Fisher two-sided p = 0.26); a modest frequency increase is not excluded"
+   },
+   {
+    "row": "thinking-tool-cancel 4:2 queue_ms",
+    "bound_ms": 0.102,
+    "margin_ms": 3.0,
+    "pairs_over_margin": "2/35"
+   },
+   {
+    "row": "thinking-tool-cancel 4:2 ttft_ms",
+    "bound_ms": 0.104,
+    "margin_ms": 3.0,
+    "pairs_over_margin": "2/35"
+   }
+  ],
+  "history": "sp71 8-pair campaign of the same builds: 910 passed, 3 inconclusive (retained); v0.15.0 claim withdrawn 2026-10-15 (prompt-lookup-v015-correction.json)"
+ },
+ "deployment_compatibility": {
+  "scope": "final candidate, 1 session, configured context 262144, vision, --cache-ram-bytes 17179869184 --cache-ram-commit eager --prepare-structured-output --prepare-vision; compatibility evidence, not timing qualification",
+  "sp73_harness_runs": {
+   "runs": "v1 (sidecar page cache dropped first) and v2",
+   "sequence": "discovery, state-edges, tool-agent, image-inputs, cache with restart; 128x128 image fixtures; harness disk cache",
+   "results": "all 117 requests identical to the pre-fix run (hashes, outputs, token and cache counts, 10 disk restores); preparation before readiness; first image request queue 6.7-6.9 ms (pre-fix 371-490 ms), TTFT 640-642 ms (pre-fix 1,042-1,056 ms); about 25 fresh image encodes per process without persistent growth; minimum host available 10,728 MiB, GTT free 34,775 MiB"
+  },
+  "sp74_representative_image": {
+   "image": "1920x1080 screenshot-style PNG (fictional app, sha256 1a573da1...), resized by the encoder to 1920x1088 = 8,160 patches = 2,040 image tokens",
+   "server": "deployment command, no disk cache",
+   "requests": "fresh image request, identical repeat, strict tool request, model listing",
+   "results": "correct description (application, window title, button); repeat fully reused (2,077 cached tokens); correct get_weather(Paris, celsius); server GTT +438 MiB at the first request (text-path first-request buffers + 19.9 MiB embedding), +1.7 MiB on repeat, +105 MiB on the tool request; zero direct reclaim, compaction and container memory pressure; host available >= 15,184 MiB, GTT free >= 34,804 MiB; encoder transient peak for this grid 430.6 MiB (from its allocations); ready in 36.0 s"
+  }
+ },
+ "preparation_costs": {
+  "vision_identity_ms": "393-417",
+  "vision_upload_ms": "39-42",
+  "eager_backing_ms": "2,006-2,231",
+  "structured_output_ms": "30-34",
+  "device_memory_at_readiness": "+1,004 MiB (903,984,064 B weights + 141.9 MiB one-time GPU runtime state)",
+  "process_rss": "includes about 866 MiB of clean, mapped sidecar pages",
+  "startup_s": "35.8 to load_completed without disk cache; 82.9-83.3 with the harness disk cache (artifact fingerprinting)"
+ },
+ "accepted_specification_errors": [
+  {
+   "check": "sp73 check73.py C4a readiness GTT",
+   "original": "FAIL in v1 and v2, both processes: 91,611.4 MiB vs expected 91,469.5 +/- 64 MiB",
+   "disposition": "the criterion expected only the weights; preparation also performs a one-time process-wide GPU runtime/library allocation (141.9 MiB) that the unchanged build made lazily at an early text request: that +145/151 MiB serving step disappears, the initial process ends serving with identical device memory (92,167.5 MiB), repeated requests do not accumulate it, and admission's free-memory figure is 1,873 MiB lower; a process that never encodes an image holds +1,004 MiB from readiness; the owning allocation was not identified at code level"
+  },
+  {
+   "check": "sp73 check73.py C6 serving pressure (v1)",
+   "original": "FAIL: system PSI memory some +17.3 ms while serving",
+   "disposition": "system PSI also counts kswapd; the server container's memory PSI was 0 and there was no direct reclaim or compaction; headroom held. Request-level effect recorded, not dismissed: r85 and r94 took +201/+186 ms wall and r102 +37 ms TTFT while the server major-faulted (102/100/17) on about 870 MiB of file-backed model data read from the SSD after a cold page cache (sidecar not involved); the same requests in v2 and the pre-fix run had no faults; shared text-path behavior unchanged by the candidate"
+  },
+  {
+   "check": "sp74 check74.py P5 queue <= 50 ms",
+   "original": "FAIL: R1 51.2 ms, R2 58.4 ms",
+   "disposition": "the threshold was calibrated on 128x128 images to detect the 371-490 ms lazy preparation; every image request decodes, resizes and hashes its pixels before admission (vision::Prepare), about 51-58 ms for 1920x1088; R2 was a full cache hit with no encoding yet queued 58.4 ms, and R1 showed no lazy-preparation signature (RssFile +12 MiB)"
+  }
+ ],
+ "not_tested": [
+  "timing of the final binaries",
+  "timing at 262K",
+  "full-context capacity",
+  "images larger than 1920x1088 (up to 16.7 MP; per-encode scratch up to about 3.4 GB of device memory, not reserved by admission)",
+  "concurrent image requests or multiple sessions with vision",
+  "image requests on the default lazy path (without --prepare-vision)",
+  "other hosts or models"
+ ],
+ "evidence": "validation/sp72, sp73 (REPORT, PROGRESS, VERIFY, check outputs), sp74 (CHECK, RELEASE-DECISION, results); untracked evidence in the maintainer workspace"
+}
