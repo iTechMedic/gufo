@@ -72,8 +72,8 @@
    "reading": "B within 5% of stock: the integration did not lose #603's gain; the gain does not appear in this request. Lookup cuts the rewrite's decode 28.7% versus stock with identical output"
   }
  },
- "deployment_command": "gufo serve --host ... --port ... llm --model UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf --served-model-name Qwen3.8-Flash-Next-UD-Q4_K_XL --mmproj mmproj-BF16.gguf --speculative mtp --mtp-model MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf --sessions 1 --context 262144 --cache-ram-bytes 17179869184 --cache-ram-commit eager --prepare-structured-output",
- "deployment_command_change": "removed --prepare-vision (vision preparation is automatic upstream)",
+ "deployment_command": "gufo serve --host ... --port ... --max-request-bytes 67108864 llm --model UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf --served-model-name Qwen3.8-Flash-Next-UD-Q4_K_XL --mmproj mmproj-BF16.gguf --speculative mtp --mtp-model MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf --sessions 1 --context 262144 --cache-ram-bytes 17179869184 --cache-ram-commit eager --prepare-structured-output",
+ "deployment_command_change": "removed --prepare-vision (vision preparation is automatic upstream); added --max-request-bytes 67108864 after the checks (live Pi session with screenshots exceeded the 8 MiB default at ~165K tokens, HTTP 413); it changes only the HTTP body limit and was not part of the sp76 checks",
  "not_covered": ["35-pair 913-row timing qualification of the new binary", "timing at 262K", "full-context capacity",
                  "concurrent or multi-session vision", "images above 1920x1088", "32K 2-session gate configuration"],
  "evidence_local": "validation/sp76 (PLAN.md frozen before GPU work, addendum 1 before the control, results/, results-c/)"

@@ -217,14 +217,21 @@ only; the new binary was not re-timed against it.
 - **Not covered:** the 35-pair timing qualification; timing at 262K;
   full-context capacity; concurrent or multi-session vision; images above
   1920×1088.
-- **Deployment command:** `gufo serve --host … --port … llm --model
+- **Deployment command:** `gufo serve --host … --port …
+  --max-request-bytes 67108864 llm --model
   UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
   --served-model-name Qwen3.8-Flash-Next-UD-Q4_K_XL --mmproj mmproj-BF16.gguf
   --speculative mtp --mtp-model MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
   --sessions 1 --context 262144 --cache-ram-bytes 17179869184
   --cache-ram-commit eager --prepare-structured-output`. It drops
-  `--prepare-vision`, which no longer exists. Commands in the records below
-  apply to their own revisions.
+  `--prepare-vision`, which no longer exists.
+  - `--max-request-bytes 67108864` was added after the checks above, which
+    used the 8 MiB default. In live use, a Pi coding session with screenshots
+    reached about 7.3 MB per request at 165K tokens. The next request was
+    rejected with HTTP 413 `payload_too_large`.
+  - The option raises only the HTTP request-body limit to 64 MiB. Image-byte,
+    pixel and context limits are unchanged.
+  - Commands in the records below apply to their own revisions.
 - Evidence: [upstream-sync-v016.json](artifacts/upstream-sync-v016.json).
 
 **Prompt lookup on v0.15.1 (October 15, 2026): timing-qualified for the
