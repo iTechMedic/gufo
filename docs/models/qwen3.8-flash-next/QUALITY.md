@@ -1,5 +1,30 @@
 # Qwen3.8 Flash-Next quality
 
+**PR #626 follow-up, October 17:** sparse attention bounds temporary K-fragment
+scheduling while retaining every dot product and softmax operation. Healthy
+MTP cache-slot reassignment retains bounded rollback scratch and its graphs;
+failure and explicit reset still free it. Prepared Qwen vision weights use
+coarse managed storage, removing the reproduced text-dispatch stalls after
+sidecar upload. Image activations and encoder arithmetic are unchanged.
+The focused numerical, cache and image checks are listed below.
+
+The complete HTTP C1 sweep retains all 24 completion hashes and prompt/cache/
+draft counts. Its 12 AR requests match current main `78248de2` and pass every
+measured phase at 5% and 3 ms. The affected mixed-MTP history was replayed
+through 64K; two unprofiled follow-ups reach 1551.64 and 1558.51 tok/s. The
+second pins the initial run's exact cache budget and matches all 11 request
+identities with no phase flags against that candidate control. That request
+shows no reclaim, swap or compaction activity. The table uses the faster
+follow-up; neither a specific driver cause nor worst-case latency is claimed.
+Raw attempts and diagnostics remain outside Git.
+
+The canonical repetitive d0 measurement is 73.80 tok/s with the full vision
+sidecar ready. In the isolated allocation control it is 73.77, versus 73.35
+on the exact published `32c4ece8` binary and 42.53 with the current raw device
+uploads. Four image/text HTTP controls preserve outputs and cache/draft work
+and pass the per-request phase gate. This focused evidence does not replace
+the older functional timing limits or upstream accuracy qualifications below.
+
 **PR #603's reduced draft vocabulary preserves the target distribution and
 supports the real sampling defaults.** The final review keeps the established
 length controller and AR backoff for every request; it removes the proposed
@@ -550,6 +575,9 @@ Evidence: [decode-prompt-lookup.json](artifacts/decode-prompt-lookup.json),
 
 | Check | Result |
 | --- | --- |
+| Vision weight storage, October 17 | Flash-Next and 27B each retain 29 finite, byte-identical encoder stages on a deterministic 1024² texture: 134,742,016 and 137,363,456 F32 values respectively. Prepared upload, repeated upload, resident-byte accounting and later encoding pass with both projectors. Four matched production image/text requests retain exact outputs and token/cache/draft counts, with no phase exceeding both 5% and 3 ms; cached image retry performs zero prefill. The original uncached repetitive text history recovers 73.77 tok/s with the full vision sidecar prepared, versus 73.35 on the exact published binary. Native storage parity does not resolve the existing image accuracy gap against the reference. |
+| Sparse scheduling, October 17 | Against PR #626 head `c1088f89`, 17,134,080 finite full-vocabulary logits are byte-identical after 133,945 prompt tokens and 69 fixed continuation steps. The complete independent FP64 attention error report is identical, including ragged and 128K cases; all 12 saved real selection masks retain exact attention outputs. |
+| Healthy MTP slot reassignment, October 17 | The new adapter regression fails before the fix and passes afterward in AR/MTP. Reused and fresh sessions agree on full logits, greedy/sampled tokens and draft counts; memory stays within the existing reservation, while cancellation and explicit reset release scratch. Guard lifetime and seeded native RAM/serialized cache replay pass. The focused HTTP `cache` and `long-context` suites pass with the Qwen sampling preset, 624 actual drafts and 458 accepted drafts, including text/thinking/tool/image cancellation and disk resume. These are correctness results, not a global timing pass. |
 | Wave-owned prefill weights, October 13 | Routed WMMA, projection/convolution, MoE epilogue and HC mix checks pass with unchanged tolerances. Routed inputs end at their allocation boundary; independently reset output tails retain their guards. Fused SSM output/state/replay and full fixed-history logits are exact. HTTP C1 pp2048/tg128, two AR captures with two repetitions and two mixed/repetitive MTP captures: 16 exact measured completions, including actual drafts. All request phases pass the timing gate; the anomalous first mixed-MTP control is excluded. |
 | Prompt lookup on main, October 13 | Rebased onto main `2599ad6` with an identical `src/`/`tests/` diff. Nix production build `70315c24` and `checks.pr` (57/57) pass. The pinned-toolchain session test matches the `dcd7a8c` log, including lookup counters. Timing remains inconclusive without stable GPU clocks. Host-disk restore failures are a shared staging-admission defect, reproduced on main and fixed separately (`7e72453`). [Evidence](artifacts/decode-prompt-lookup.json). |
 | Prompt lookup, October 12 | Final candidate `a0aee02` (binary `14a7cc1f`) versus v0.13.0 `fcf8bf7` (`d781bceb`), matched ROCm 10 container build. All 15 Flash-Next CTest cases (including the copy-evidence checks) pass. The session test's 61 exact checks match the earlier build's log, and snapshot round trips are exact. Greedy MTP with copies equals AR, including stop-terminated replies. Seeded sampled replay is exact after restoring onto a diverged session and from a mid-copy snapshot. Batched sessions copy (8 sampled copies) and match isolated tokens, RNG, acceptance and snapshot bytes. HTTP greedy output is byte-identical to v0.13.0 in 10/10 ABBA cells and 18/18 cold three-way per-pass pairs (with an unchanged-base control). Same-build seeded replay is exact in 20/20 seed cells per build. C1–C8 mixed/repetitive MTP completions match the same-toolchain AR reference. `state-edges`, `tool-agent`, `long-context` and `cache` pass with the cache on RAM and on host disk. C2/C4 mixed batches make no copies and match base cycle costs. Final source `9e7784f`: Nix production build and `checks.pr` pass, and Flash-Next CTest, session and snapshot tests pass on the pinned `nix develop` toolchain. The quoted-argument regression is fixed (`0821c8a`); timing qualification is inconclusive and host-disk cases fail on the baseline (above). [Evidence](artifacts/decode-prompt-lookup.json). |
@@ -625,19 +653,18 @@ weights. [Vision reproduction](../qwen3.8-27b/QUALITY.md#vision).
 
 ## Benchmark method
 
-All six Gufo benchmark sections were refreshed on October 16, 2026.
-Loading and memory use clean production Nix build `fdc21849` of PR #615
-(binary SHA-256 prefix `b1ab0e9795df6fba`). Single-user and concurrency tables
-were then remeasured with clean production build `32c4ece8`, PR #622 rebased on
-`22e36769` (binary SHA-256 prefix `2361bcffddf74773`), with the unchanged pinned
-toolchain. Every row reproduced the `fdc21849` completion hashes; single-user
-draft counts were also identical. Alternating native `gufo bench -p 16 -n 64`
-controls against main `22e36769` measured decode +2.9% MTP and +0.8% AR at 128K,
-+0.8% MTP at 32K and no change at depth 0. Four alternating mixed MTP C2
-repeats gave 110 drafts (about 54 tok/s) on main twice and the PR once, and 144
-drafts (about 60 tok/s) on the PR once, all with identical text.
-The platform profile is `performance`, with tuned `accelerator-performance`;
-temperatures and the profile are monitored throughout. Each independent AR,
+Single-user tables were refreshed on October 17, 2026, with production Nix
+build `c1088f89` plus the PR #626 follow-up (binary SHA-256 prefix
+`fc0a6628055f970e`); the exact source and binary identities are retained.
+Concurrency still uses October 16 build `32c4ece8`, PR #622 rebased on
+`22e36769` (binary prefix `2361bcffddf74773`). Loading and memory use the
+October 16 `fdc21849` capture (binary prefix `b1ab0e9795df6fba`).
+The pinned toolchain is unchanged. Every single-user row reproduces the
+previous completion hashes and draft counts. Four prior alternating mixed
+MTP C2 repeats gave 110 drafts (about 54 tok/s) on main twice and the PR once,
+and 144 drafts (about 60 tok/s) on the PR once, all with identical text.
+The checked platform profile is `performance`, with tuned
+`accelerator-performance`. Each independent AR,
 mixed MTP and repetitive MTP depth server starts after at least 90 seconds of
 idle recovery and the recorded temperature limits. Commands, binary/model identities, counts and
 retained samples are in [artifacts](artifacts/bench.json) and
@@ -646,12 +673,14 @@ timings, diagnostic profiles and repeated controls are retained outside Git.
 
 The driver is `tools/bench/model-bench.py run --target gufo --fresh`.
 One warmed sample per point, HTTP, greedy, thinking off, penalties disabled;
-automatic cache RAM budget. Single-user uses ordered pp2048/tg128 histories at
+automatic cache RAM budget except the retained mixed 64K follow-up, which pins
+the initial run's 17145280512-byte budget. Single-user uses ordered pp2048/tg128 histories at
 every depth from 0 to 131072, with capacity 133760. MTP pp is the maximum across
 the independently retained mixed/repetitive workloads. Diagnostic profiled
 runs and abandoned candidates do not supply published cells. Matched main
-controls use post-#603 main `51a8b00d` (the same source tree as reviewed
-`c4177e37`), identical prompts, settings and ordered cache histories;
+AR controls for this refresh use main `78248de2`; the retained October 16
+cache review used post-#603 main `51a8b00d` (the same source tree as reviewed
+`c4177e37`). Controls preserve prompts, settings and ordered cache histories;
 per-request phase flags require both a 5% and a 3 ms increase.
 
 C1/2/4/6/8 use the same d0 prompts. Every session prefills before measured tg128,
