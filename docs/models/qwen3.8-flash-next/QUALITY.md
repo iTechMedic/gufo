@@ -192,6 +192,70 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream sync onto main `3389a58` (October 17, 2026): a checked
+integration, not a new timing qualification.** Source `bf6e11a` is an
+ordinary merge of upstream main `3389a58` into the previous sync `825b714`.
+The target is release v0.17.0 `2af314b` (#623, #621 and #625 over `baf5a1b`)
+plus #626 `5a1669a` and #630 `3389a58`, which were merged after the release.
+It keeps prompt lookup, `--prepare-structured-output` and
+`--cache-ram-commit eager`. None of them has an upstream equivalent, and #613
+is not imported. The remaining diff against upstream is line-for-line the
+previous diff against `baf5a1b`. Prompt lookup's state is cleared in #626's
+`Session::ResetImpl`, so it is cleared both by explicit reset and by healthy
+slot reassignment, which now keeps MTP rollback scratch.
+
+- **Build:** pinned flake; release `bin/gufo` sha256 `ae530008…56ec63`.
+  Formatting (584 files), the hosted PR suite and the CPU
+  `prompt_lookup`/`draft_vocab`/`mtp_sampling` tests pass.
+- **GPU checks, each run once (1,014 s in total):**
+  - `continuation_adapter_test --reuse-only` (#626's regression, here with
+    lookup present): fresh and reused AR and MTP slots give identical logits,
+    greedy and sampled tokens and draft counts. Retained scratch stays within
+    `SessionBytes`, and a cancelled slot and `Reset` release it.
+  - `session_test --batch-only`: serial and batched greedy C2–C8 and seeded
+    runs are exact; 5 sampled lookup copies.
+  - `session_test --cache-only`: lookup replay after diverged and
+    mid-generation restores is exact (17 greedy and 174 sampled copies), and
+    so are MTP cache replay and the draft-policy snapshots.
+- **262K deployment configuration** (the command below, Intel 670p models):
+  - The harness passes over discovery, state-edges, tool-agent,
+    tool-choice-cache, image-inputs, and cache with its disk restart.
+  - Against `510f37e`, the 117 shared requests match except where #623
+    changes them: 10 state-edges prompts with a required or named tool choice
+    are 17 tokens shorter (one free-form tool argument differs), and
+    `agent_limit` now reuses 505 cached tokens instead of prefilling 522. The
+    known `agent_sampled_peers` 372/374 peer swap recurs. Accepted drafts are
+    930 on both.
+  - Preparation order is unchanged: vision, then the eager backing (15/15
+    segments), then structured output, all before readiness.
+  - Screenshot: the answer is identical on the first request, the cache-hit
+    repeat (2,077 cached), after restart, and to `510f37e`'s. The tool call,
+    structured output and continuation are identical to `510f37e`'s.
+  - Memory: #626 moves the 862 MiB of vision weights from device-heap GTT to
+    managed memory. Server GTT at readiness is 946 MiB lower and RssAnon is
+    864 MiB higher; vision upload takes 148 ms instead of 58 ms. The eager
+    commit is unchanged (15,220,277,248 bytes). At least 17.2 GiB host and
+    18.1 GB device heap remain at preparation (8 GiB required). Zero direct
+    reclaim, compaction, PSI and major faults; image queue 51–53 ms.
+- **Performance sanity** (fresh processes, A B B A; A = `510f37e`
+  `a4d404ed` with the same command): identical outputs and work in every
+  request, and no request is slower by more than 5% and 3 ms in both pairs.
+  - The warm-up, the first text request after vision preparation, decodes 64
+    tokens in 759.6–761.0 ms (A: 759.7–759.9 ms), and `prose` in
+    10,007–10,012 ms (A: 9,985 ms). #626's reported vision-preparation
+    slowdown does not appear in these requests.
+  - The rewrite decodes in 19,137–19,156 ms (A: 19,230–19,235 ms).
+  - The deep rewrite (decode_ab's 46,739-token prefix, then the rewrite;
+    1,704 of 1,708 drafts accepted) prefills in 27,579–27,969 ms
+    (A: 27,895–27,946 ms) and decodes in 18,720–18,725 ms
+    (A: 18,857–18,860 ms).
+- **Not covered:** the 35-pair timing qualification; timing at 262K;
+  full-context capacity; the long-context suite at 262K; concurrent or
+  multi-session vision; images above 1920×1088.
+- **Deployment command:** unchanged from the record below, including
+  `--max-request-bytes 67108864`.
+- Evidence: [upstream-sync-v017.json](artifacts/upstream-sync-v017.json).
+
 **Upstream sync onto main `baf5a1b` (October 16, 2026): a checked
 integration, not a new timing qualification.** Source `510f37e` is an
 ordinary merge of upstream main `baf5a1b` (release v0.16.0 `b1c46d6` plus

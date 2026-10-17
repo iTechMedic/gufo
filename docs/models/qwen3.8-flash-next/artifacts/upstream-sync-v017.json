@@ -1,0 +1,284 @@
+{
+ "date": "2026-10-17",
+ "title": "Prompt lookup and opt-in serving preparation synced onto upstream main 3389a58: checked integration",
+ "kind": "checked upstream integration; not a new timing qualification",
+ "upstream": {
+  "target": "3389a585ef9eb59f8226e177455820c4d8390f46",
+  "published_release": {
+   "tag": "v0.17.0",
+   "commit": "2af314b117190e0cdb79c33128f9886590508ae4",
+   "new_over_previous_base_baf5a1b": [
+    "#623 23d970d",
+    "#621 e8e508f",
+    "#625 78248de"
+   ]
+  },
+  "merged_after_release": [
+   "#626 5a1669a6c15129917a4e91b77bd36ddaa3e7b0d8",
+   "#630 3389a585ef9eb59f8226e177455820c4d8390f46"
+  ],
+  "not_imported": [
+   "#613 (open)"
+  ],
+  "related_open_issue": "#627 repeated screenshot preprocessing (open, no replies; image path unchanged except #626's weight allocation)"
+ },
+ "integration": {
+  "revision": "bf6e11aa894f12a6a8520464c5e5bcb492f0bea3",
+  "parents": [
+   "825b71442349e1f1f710149fb723ea26d47fc4d0",
+   "3389a585ef9eb59f8226e177455820c4d8390f46"
+  ],
+  "archived_start": "archive/validated-v016-825b714",
+  "conflicts": [
+   "tests/cli/component_text_cache_test.cpp include list (both sides kept)"
+  ],
+  "remaining_diff_vs_target": "src/tests/tools: 27 files +1940/-40, line-for-line the previous diff against baf5a1b; docs identical to the previous docs diff",
+  "release_binary": {
+   "store_path": "/nix/store/13j30dylfapd0vbq023cv88yvj829jmp-gufo-0-unstable-bf6e11a",
+   "bin_gufo_sha256": "ae530008c32b704d246c3b4309a51ad8ebe531c4988b9c6793fad7302756ec63",
+   "gc_root": "/nix/var/nix/gcroots/sp77-tested-bf6e11a-ae530008 (halo gufo-nix-store volume)"
+  },
+  "gpu_test_binaries": {
+   "qwen38_flash_next_session_test": "1d082589c57169cfbd58997b93344b3fbf292f93762f20a8c4b13567c3b13a9e",
+   "qwen38_flash_next_continuation_adapter_test": "43dd3c8d3adb55dd4445f0aea2c8338c61b7f9133ff76d3df223cbb1b88c5aa1"
+  },
+  "flake_lock_sha256_prefix": "faabad820ec09caa"
+ },
+ "reconciliation": {
+  "retained": [
+   "prompt lookup (no upstream equivalent; #613 open)",
+   "lookup-aware length and batch-cost controllers",
+   "--prepare-structured-output",
+   "--cache-ram-commit eager and CommittedBackingPool::CommitAll",
+   "resolve.py and corrected compare.py screen with runner tests",
+   "independent regression tests"
+  ],
+  "merged_semantics": [
+   "lookup_.Clear() lands in #626 Session::ResetImpl: explicit Reset and healthy slot reassignment both clear lookup state; lookup_.Sync(tokens_) still runs each cycle",
+   "lookup copies widen verification up to max_speculative; rollback rows grow lazily to max_speculative-1 and are counted in SessionBytes, so #626's retained scratch stays inside the admission bound (one execution slot at --sessions 1)",
+   "#626 attention dispatch: <=2 rows and wider; stock MTP chains of 3+ rows already use the wider kernel, so lookup reaches no new variant",
+   "#626 vision weights in coarse managed memory: eager commit keeps upstream's host and device-heap admission, after vision_prepared",
+   "#623 required tool choice no longer edits the system prompt; the existing grammar enforces the call"
+  ],
+  "replaced_by_upstream": [],
+  "not_restored": [
+   "--prepare-vision (automatic upstream since #616)"
+  ]
+ },
+ "cpu_checks": {
+  "formatting": "pass (584 C++ files)",
+  "checks.pr": "pass",
+  "check_docs": "pass",
+  "cpu_tests": "qwen38_flash_next.prompt_lookup, draft_vocab, mtp_sampling pass"
+ },
+ "gpu_checks": {
+  "gpu_server_seconds": 1014.4,
+  "ceiling_seconds": 1800,
+  "host": "halo-llm1 gfx1151 (card0), kernel 7.2.11, GPU level auto, TuneD accelerator-performance, Intel 670p nvme1 PCIe 3.0 x4 (UUID 9722e5df), container bind read-only",
+  "G1_reuse": {
+   "rc": 0,
+   "result": [
+    "AR,slot_reuse,sampled/greedy/cancellation/reset,PASS",
+    "MTP,slot_reuse,sampled/greedy/cancellation/reset,PASS"
+   ]
+  },
+  "G2_batch": {
+   "rc": 0,
+   "greedy_batches_exact": [
+    "C2",
+    "C4",
+    "C6",
+    "C8"
+   ],
+   "sampled_accepted": 19,
+   "sampled_lookup": 5,
+   "rejected_cycles": 7
+  },
+  "G3_cache": {
+   "rc": 0,
+   "quoted_value": {
+    "greedy_lookup": 17,
+    "sampled_lookup": 174,
+    "sampled_anchor": 83,
+    "sampled_accepted": 152
+   },
+   "lookup_greedy_ar_exact": true,
+   "lookup_sampled_replay_exact": true,
+   "mtp_cache_replay_exact": true,
+   "draft_policy_snapshots_exact": true
+  },
+  "G4_harness": {
+   "status": "passed",
+   "suites": [
+    "discovery",
+    "state-edges",
+    "tool-agent",
+    "tool-choice-cache",
+    "image-inputs",
+    "cache (disk restart)"
+   ],
+   "vs_510f37e_sp76": {
+    "matched": 117,
+    "differences": 13,
+    "explained": "10 state-edges prompts with required or named tool choice are 17 tokens shorter (#623 prompt change; one free-form argument differs); agent_limit now 505 cached / 0 prefilled instead of 0 / 522 (#623 reuse); agent_sampled_peers 372/374 peer swap (known)",
+    "accepted_drafts": [
+     930,
+     930
+    ]
+   }
+  },
+  "G5_deploy": {
+   "check77": "pass",
+   "to_explain": [],
+   "ready_s": [
+    33.4,
+    32.6
+   ],
+   "preparation_order_each_process": "vision_prepared < backing_prepared (eager 15/15) < structured_output_prepared < load_completed < listening",
+   "vision_prepared": {
+    "resident_bytes": 903984064,
+    "upload_ms": [
+     149.0,
+     147.4
+    ],
+    "upload_ms_510f37e": [
+     58.4,
+     58.2
+    ],
+    "device_heap_free_bytes": 41292808192,
+    "device_heap_free_bytes_510f37e": 40302370816
+   },
+   "backing_prepared": {
+    "committed_bytes": 15220277248,
+    "segments": "15/15",
+    "device_heap_free_bytes": 18092867584,
+    "device_heap_free_bytes_510f37e": 17102430208,
+    "min_host_available_mib": 17611,
+    "min_host_available_mib_510f37e": 16418
+   },
+   "server_memory_at_ready_mib": {
+    "gtt": [
+     90669.5,
+     91615.4
+    ],
+    "rss_anon": [
+     15730.2,
+     14866.6
+    ],
+    "order": [
+     "bf6e11a",
+     "510f37e"
+    ],
+    "reading": "the 862.1 MiB vision weights moved from DRM GTT to managed (RssAnon) memory"
+   },
+   "answers_equal_510f37e": {
+    "R1": true,
+    "R4": true,
+    "R5": true,
+    "R3_arguments": true
+   },
+   "R3_prompt_tokens": {
+    "bf6e11a": 320,
+    "510f37e": 337
+   },
+   "gtt_growth_mib": {
+    "R1": 438.1,
+    "R2": 1.7,
+    "R3": 108.9,
+    "R4": 2.2,
+    "R5": 0.1,
+    "R1'": 438.1,
+    "R4'": 108.9
+   },
+   "min_mem_available_mib": 16893,
+   "min_gtt_free_mib": 35740,
+   "pressure": "zero direct reclaim, compaction stalls, container and system PSI, major faults, kswapd scans",
+   "image_queue_ms": [
+    51.9,
+    53.1,
+    51.1,
+    52.4
+   ]
+  },
+  "G6_perf": {
+   "schedule": "A B B A, fresh processes, identical deployment command",
+   "A": "510f37e a4d404ed (deployed/validated)",
+   "B": "bf6e11a ae530008",
+   "outputs": "identical across all four units for every request; both rewrites correct on every unit",
+   "work": "identical prompt/prefill/completion tokens, drafts and rounds in every pair",
+   "warmup_decode_ms": {
+    "A": [
+     759.9,
+     759.7
+    ],
+    "B": [
+     759.6,
+     761.0
+    ]
+   },
+   "prose_decode_ms": {
+    "A": [
+     9985.2,
+     9985.4
+    ],
+    "B": [
+     10006.9,
+     10011.9
+    ]
+   },
+   "rewrite_decode_ms": {
+    "A": [
+     19230.1,
+     19234.5
+    ],
+    "B": [
+     19155.6,
+     19137.2
+    ]
+   },
+   "deep_rewrite": {
+    "prompt_tokens": 46739,
+    "drafts_accepted_proposed_rounds": [
+     1704,
+     1708,
+     245
+    ],
+    "prefill_ms": {
+     "A": [
+      27894.9,
+      27946.3
+     ],
+     "B": [
+      27578.7,
+      27968.5
+     ]
+    },
+    "decode_ms": {
+     "A": [
+      18859.5,
+      18857.3
+     ],
+     "B": [
+      18725.2,
+      18720.1
+     ]
+    }
+   },
+   "concerns": [],
+   "vision_relevance_shown": false,
+   "reading": "no request slower by >5% and >3 ms in both pairs; #626's reported vision-preparation text slowdown does not appear in these requests (warm-up and prose decode within 0.3% of A)"
+  }
+ },
+ "deployment_command": "gufo serve --host ... --port ... --max-request-bytes 67108864 llm --model UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf --served-model-name Qwen3.8-Flash-Next-UD-Q4_K_XL --mmproj mmproj-BF16.gguf --speculative mtp --mtp-model MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf --sessions 1 --context 262144 --cache-ram-bytes 17179869184 --cache-ram-commit eager --prepare-structured-output",
+ "deployment_command_change": "none",
+ "not_covered": [
+  "35-pair timing qualification of the new binary",
+  "timing at 262K",
+  "full-context capacity",
+  "long-context functional suite at 262K (the 46,739-token deep rewrite is the one long-context fixture)",
+  "concurrent or multi-session vision",
+  "images above 1920x1088",
+  "32K 2-session gate configuration"
+ ],
+ "evidence_local": "validation/sp77 (PLAN.md frozen before GPU work, results/)"
+}
