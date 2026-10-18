@@ -418,6 +418,33 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream #643 integration (October 18, 2026): a checked tool-call correctness
+update, not a new timing qualification.** Source `558632b` is an ordinary merge
+of upstream's #643 merge `a802cc7` (main `f948ddd` plus #643 only) into testing
+`9804348`. Its production change is exactly #643: wide native tool schemas keep
+every unused optional argument reachable regardless of declaration order, and
+Responses keeps the supplied tool schema when `strict` is omitted or `null`.
+`--prepare-structured-output` and `--cache-ram-commit eager` are unchanged.
+
+- **Build:** pinned flake; release `bin/gufo` sha256 `60b19e3d…3cc99c`
+  (`/nix/store/1q24d151…-gufo-0-unstable-558632b`). Formatting (587 files),
+  the hosted PR checks (59 CPU tests, including `json_constraint_test`'s
+  ordering, required/type/duplicate and sampler-copy/rollback cases and
+  `openai_chat_test`'s Responses strictness cases) and 141 harness tests pass.
+- **Live deployment command** (two sessions, 262K, vision, MTP, 16 GiB eager
+  RAM cache, structured-output preparation): the `tool-parameter-order`,
+  `tool-native-schemas`, `structured` and `tool-schema-edges` suites pass.
+  Preparation stays before readiness; the lowest MemAvailable is 9,252 MiB.
+- **Pi 1.3.0** (isolated configuration): the 12-field `todo` workflow makes
+  exactly the two requested updates through Chat (thinking medium) and
+  Responses (`strict` omitted, `required` not promoted), with correct results;
+  an ordinary write/cat/read workflow passes. On the previous `55b9bfb` build
+  the same Chat workflow failed with `{action, id, includeDeleted}` calls (#641).
+- **Not covered:** a timing qualification, other model profiles and concurrent
+  tool calls.
+
+[Evidence](artifacts/upstream-sync-643.json).
+
 **Upstream sync onto main `f948ddd` (October 18, 2026): a checked
 integration, not a new timing qualification.** Source `55b9bfb` is an ordinary
 merge of upstream main `f948ddd` into testing `e771baf`: v0.17.1 (#636, #639,

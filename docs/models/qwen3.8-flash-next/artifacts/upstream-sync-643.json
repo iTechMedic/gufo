@@ -1,0 +1,340 @@
+{
+ "schema": 1,
+ "title": "Checked integration of upstream #643 and deployment (sp83)",
+ "date": "2026-10-18",
+ "scope": "Focused tool-call correctness update; not a timing qualification.",
+ "identities": {
+  "start": {
+   "testing": "9804348892ea29d1ca5c7050ca69addf13bb1f3c",
+   "validated": "9804348892ea29d1ca5c7050ca69addf13bb1f3c"
+  },
+  "upstream_pr": 643,
+  "upstream_merge": "a802cc77c795e26388e45cacec94aafcd69d12b4",
+  "upstream_merge_parent": "f948ddd371bf2a3f7360b7069fc703badbbc07ed",
+  "integration": "558632bcb02b5b1e7af09a7080833a890b6f7387",
+  "review_fix": "d297e95 (tests/functional/pi_agent.py only)",
+  "tested_binary": {
+   "path": "/nix/store/1q24d151d3zjszabnh6gyn0prhsl7mqd-gufo-0-unstable-558632b/bin/gufo",
+   "sha256": "60b19e3dcaf781ebeb7d6f1ea62ee0eb346a059c97a9a476b53b26c4513cc99c",
+   "gc_root": "sp83-tested-558632b-60b19e3d"
+  },
+  "previous_binary": {
+   "path": "/nix/store/i7i1d40zr8qyb35k563gd7g75xpgzg7a-gufo-0-unstable-55b9bfb/bin/gufo",
+   "sha256": "8319c47eb107287eb6f708c7424b0528edd013e7168a127bf6a20375db796a76",
+   "gc_root": "sp79-tested-55b9bfb-8319c47e"
+  }
+ },
+ "diff_review": {
+  "production_patch_id_vs_testing": "805f825413f18e7408fe3ad6d3780f43954f3167 (= #643's own src diff)",
+  "fork_src_patch_id_vs_upstream": "8e539b9436983580d2b6bea165f42b18e15447f7 (unchanged)",
+  "production_files": [
+   "src/cli/serve/openai_chat.cpp",
+   "src/core/json_constraint.cpp",
+   "src/core/json_constraint.hpp"
+  ],
+  "build_inputs_changed": false,
+  "shared_files_keep_both_sides": [
+   "docs/SERVER.md",
+   "tests/functional/README.md",
+   "tests/functional/test_runner.py"
+  ],
+  "coderabbit": "one review, base 9804348: 1 minor harness finding (todo-calls.jsonl reused with --conversation), fixed in d297e95"
+ },
+ "cpu": {
+  "format": "clang-format 21.1.8, 587 files",
+  "checks_pr": "59/59 hosted CPU tests incl. json_constraint_test, openai_chat_test, serve_cli_test, logit_sampler_test, component_text_cache_test, text_model_runner_test, text_generation_scheduler_test; docs, dependency inventory and mkGufoServe checks",
+  "harness_unit_tests": "141 passed on the final tree",
+  "release_build_s": 103
+ },
+ "gpu_command": "live command (two sessions, 262144 context, mmproj, MTP, 16 GiB RAM cache, --cache-ram-commit eager, --prepare-structured-output, no disk cache)",
+ "functional_suites": {
+  "tool-parameter-order": {
+   "status": "passed",
+   "seconds": 13.327
+  },
+  "tool-native-schemas": {
+   "status": "passed",
+   "seconds": 111.939
+  },
+  "structured": {
+   "status": "passed",
+   "seconds": 24.942
+  },
+  "tool-schema-edges": {
+   "status": "passed",
+   "seconds": 14.029
+  }
+ },
+ "functional_suite_selection": "structured-output impact rule behaviors (structured, tool-schemas) and the Responses tool-strictness hunk; the coarse shared-runtime full matrix was not run",
+ "pi": {
+  "version": "1.3.0 (owner's live version; private copy, isolated config/sessions/fixtures)",
+  "harness": "tests/functional/pi_agent.py scratch copy: version pin 1.3.0, provider compat option, 2 s server-log mirror settle; not committed",
+  "baseline_live_55b9bfb_wide_tool_chat": {
+   "status": "fail",
+   "tool_call_arguments": [
+    {
+     "action": "update",
+     "id": 1,
+     "includeDeleted": true
+    },
+    {
+     "action": "update",
+     "status": "in_progress",
+     "id": 2
+    },
+    {
+     "action": "update",
+     "id": 1,
+     "includeDeleted": true
+    },
+    {
+     "action": "update",
+     "status": "completed"
+    },
+    {
+     "action": "update",
+     "id": 1,
+     "includeDeleted": true
+    },
+    {
+     "action": "update",
+     "id": 1,
+     "includeDeleted": false
+    },
+    {
+     "action": "update",
+     "id": 1
+    },
+    {
+     "action": "update",
+     "status": "completed",
+     "id": 1
+    }
+   ]
+  },
+  "candidate": {
+   "wide-chat": {
+    "status": "pass",
+    "wall_s": 15.3,
+    "requests": 2,
+    "tool_calls": [
+     {
+      "name": "todo",
+      "arguments": {
+       "action": "update",
+       "id": 1,
+       "status": "completed"
+      }
+     },
+     {
+      "name": "todo",
+      "arguments": {
+       "action": "update",
+       "id": 2,
+       "status": "in_progress"
+      }
+     }
+    ],
+    "tool_results": [
+     {
+      "is_error": false,
+      "text": [
+       "Task 1: completed"
+      ]
+     },
+     {
+      "is_error": false,
+      "text": [
+       "Task 2: in_progress"
+      ]
+     }
+    ]
+   },
+   "wide-responses": {
+    "status": "pass",
+    "wall_s": 6.1,
+    "requests": 3,
+    "tool_calls": [
+     {
+      "name": "todo",
+      "arguments": {
+       "action": "update",
+       "id": 1,
+       "status": "completed"
+      }
+     },
+     {
+      "name": "todo",
+      "arguments": {
+       "action": "update",
+       "id": 2,
+       "status": "in_progress"
+      }
+     }
+    ],
+    "tool_results": [
+     {
+      "is_error": false,
+      "text": [
+       "Task 1: completed"
+      ]
+     },
+     {
+      "is_error": false,
+      "text": [
+       "Task 2: in_progress"
+      ]
+     }
+    ]
+   },
+   "readwrite-chat": {
+    "status": "pass",
+    "wall_s": 7.1,
+    "requests": 4,
+    "tool_calls": [
+     {
+      "name": "write",
+      "arguments": {
+       "path": "hello.txt",
+       "content": "bonjour"
+      }
+     },
+     {
+      "name": "bash",
+      "arguments": {
+       "command": "cat hello.txt"
+      }
+     },
+     {
+      "name": "read",
+      "arguments": {
+       "path": "hello.txt"
+      }
+     }
+    ],
+    "tool_results": [
+     {
+      "is_error": false,
+      "text": [
+       "Successfully wrote to hello.txt"
+      ]
+     },
+     {
+      "is_error": false,
+      "text": [
+       "bonjour"
+      ]
+     },
+     {
+      "is_error": false,
+      "text": [
+       "bonjour"
+      ]
+     }
+    ]
+   }
+  },
+  "observation": "wide-tool Chat's final prose invented a task list in the model's reasoning; it appears in no request body, and both calls and results were exact"
+ },
+ "deployment": {
+  "container": "gufo-558632b-s2",
+  "create_command": [
+   "podman",
+   "run",
+   "-d",
+   "--name",
+   "gufo-558632b-s2",
+   "--device",
+   "/dev/kfd",
+   "--device",
+   "/dev/dri",
+   "--security-opt",
+   "label=disable",
+   "--group-add",
+   "keep-groups",
+   "--network",
+   "host",
+   "--ipc",
+   "host",
+   "-e",
+   "HOME=/home/dhauf",
+   "-v",
+   "/mnt/ai-storage:/mnt/ai-storage:ro",
+   "-v",
+   "gufo-nix-store:/nix:ro",
+   "localhost/gufo-opt-builder:rocm10",
+   "/nix/store/1q24d151d3zjszabnh6gyn0prhsl7mqd-gufo-0-unstable-558632b/bin/gufo",
+   "serve",
+   "--host",
+   "0.0.0.0",
+   "--port",
+   "8080",
+   "--max-request-bytes",
+   "67108864",
+   "llm",
+   "--model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "--served-model-name",
+   "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "--mmproj",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf",
+   "--speculative",
+   "mtp",
+   "--mtp-model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "--sessions",
+   "2",
+   "--context",
+   "262144",
+   "--cache-ram-bytes",
+   "17179869184",
+   "--cache-ram-commit",
+   "eager",
+   "--prepare-structured-output"
+  ],
+  "checks": {
+   "ready": true,
+   "binary": true,
+   "command": true,
+   "preparation_before_ready": true,
+   "no_error_lines": true,
+   "models": true,
+   "tool_smoke": true
+  },
+  "startup": {
+   "positions": {
+    "vision_prepared": 2,
+    "backing_prepared": 3,
+    "structured_output_prepared": 5,
+    "listening": 8
+   },
+   "eager_segments": "15/15",
+   "ordered": true,
+   "error_lines": []
+  },
+  "tool_smoke": {
+   "status": 200,
+   "arguments": [
+    {
+     "action": "update",
+     "id": 1,
+     "status": "completed"
+    }
+   ],
+   "pass": true
+  },
+  "differs_from_previous_container_only_in": [
+   "name",
+   "binary path"
+  ],
+  "rollback_container": "gufo-f948ddd-s2 (stopped, unchanged)"
+ },
+ "memory_min_mib": 9252,
+ "gpu_server_seconds_approx": 449,
+ "not_covered": [
+  "timing qualification",
+  "other model profiles",
+  "Pi 0.87.0 (harness pin)",
+  "concurrent tool calls"
+ ]
+}
