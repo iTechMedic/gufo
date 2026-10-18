@@ -418,6 +418,46 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream sync onto main `f948ddd` (October 18, 2026): a checked
+integration, not a new timing qualification.** Source `55b9bfb` is an ordinary
+merge of upstream main `f948ddd` into testing `e771baf`: v0.17.1 (#636, #639,
+#635) plus #646, #647, #649, #651, #477 (disk-cache snapshots out of the page
+cache) and #645 (reuse of historical image preprocessing). #646 through #645
+are newer than the v0.17.1 tag. Upstream's merged #639 replaces the fork's copy
+of the draft-vocabulary test fix, so `session_test.cpp` is upstream's file; the
+fork-only `CheckPromptLookupGreedyMatchesAr` went with it. The production
+difference from upstream is only `--prepare-structured-output` (#638) and
+`--cache-ram-commit eager` (#640), both still open upstream and unchanged.
+
+- **Build:** pinned flake; release `bin/gufo` sha256 `8319c47e…796a76`
+  (`/nix/store/i7i1d40z…-gufo-0-unstable-55b9bfb`). Formatting (587 files),
+  the hosted PR checks and the CPU `serve_cli`, `component_text_cache`,
+  `text_model_runner`, `text_generation_scheduler`, `continuation_disk_store`,
+  `cache_disk` and `qwen_vision_cache` tests pass. `committed_backing` is
+  unchanged since `9546bae`, so its GPU tests above stand.
+- **Live deployment command** (two sessions, 262K, vision, MTP, 16 GiB eager
+  RAM cache, structured-output preparation, 64 MiB request limit), three
+  processes, 167 s of GPU time:
+  - Preparation stays before readiness in every process: vision, the eager
+    backing (15/15 segments, `long_term_pinned_bytes` 0), then structured
+    output (248,320 tokens). After the commit, 9,828–10,154 MiB host memory
+    and 10.65 GB device heap are free; the lowest MemAvailable is 9,305 MiB.
+  - The screenshot answer is identical on the first request, the full-cache
+    repeat (2,077 cached), after restart, under debug logging, and to
+    `9546bae`'s; so are the tool call, the JSON-schema output and the
+    continuation, which after restart reuses 2,185 of 2,211 tokens.
+  - #645: one cached image, one preprocessing miss, then hits on the repeat
+    and on the continuation that carries the same screenshot.
+  - No error or warning lines, no backing growth or limits, clean exits. The
+    first process after the host's reboot was slower (first prefill 7.0 s
+    against 5.2–5.4 s, one 505 ms token gap, one 200 ms queue wait) while the
+    kernel compacted memory (102 compaction stalls); the same command in the
+    next two processes matched `9546bae`.
+- **Not covered:** a timing qualification, concurrent two-session requests,
+  the long-term pin path itself, and `--cache-disk` (#477).
+
+[Evidence](artifacts/upstream-sync-f948ddd.json).
+
 **Upstream sync onto main `1f97092` (October 18, 2026): a checked
 integration, not a new timing qualification.** Source `9546bae` is an ordinary
 merge of upstream main `1f97092` into the previous sync `5df6da3`: `3389a58`

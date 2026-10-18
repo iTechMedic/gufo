@@ -1,0 +1,494 @@
+{
+ "schema": "gufo-fork-upstream-sync-v1",
+ "date": "2026-10-18",
+ "upstream_target": {
+  "main": "f948ddd371bf2a3f7360b7069fc703badbbc07ed",
+  "pinned_utc": "2026-10-18T17:46Z",
+  "latest_tag": {
+   "v0.17.1": "a8ed7af"
+  },
+  "adopted_in_v0.17.1": [
+   "#636 778061d",
+   "#639 3fa94a9",
+   "#635 ffba9ee"
+  ],
+  "adopted_newer_than_v0.17.1": [
+   "#646 3477fb6",
+   "#647 15bb0e8",
+   "#649 fdea63a",
+   "#651 a38917a",
+   "#477 bff0eec",
+   "#645 f948ddd"
+  ]
+ },
+ "start": {
+  "testing": "e771baf773132a01e08f2074ea5f61e048ee7ab5",
+  "validated": "65abfbcb3fb1df1b710b15f0751defbbcc42056d",
+  "archive": "archive/testing-e771baf"
+ },
+ "integration": {
+  "merge": "55b9bfb7cb0c24604236745c700ea6135f5b8312",
+  "parents": [
+   "e771baf",
+   "f948ddd"
+  ],
+  "review_fix": "978c4af (tests/functional/resolve.py, test_runner.py, one BENCHMARKS.md sentence; no production change)",
+  "replaced_by_upstream": [
+   "fork copy of the #639 draft-vocabulary test fix -> upstream session_test.cpp",
+   "CheckPromptLookupGreedyMatchesAr (fork-only test of upstream prompt lookup) removed with it"
+  ],
+  "retained": [
+   "--prepare-structured-output (#638 open)",
+   "--cache-ram-commit eager (#640 open)"
+  ],
+  "production_diff_vs_upstream": "src/cli/serve/{component_text_cache,inference_backend,serve,text_generation_scheduler,text_model_runner}.*, src/core/hip/committed_backing.*: the two options only"
+ },
+ "review": {
+  "tool": "CodeRabbit CLI 0.9.0",
+  "base": "f948ddd",
+  "findings": 2,
+  "fixed": [
+   "resolve.py superseded every queue row of a ranked body, not only the group's own occurrences (regression test added)",
+   "BENCHMARKS.md stale 'Nix cells pending' sentence"
+  ]
+ },
+ "cpu": {
+  "format": "clang-format 21.1.8, 587 files, pass",
+  "checks.pr": "pass",
+  "ctest": [
+   "serve_cli_test",
+   "component_text_cache_test",
+   "text_model_runner_test",
+   "continuation_disk_store_test",
+   "text_generation_scheduler_test",
+   "cache_disk_test",
+   "qwen_vision_cache_test"
+  ],
+  "functional_harness_unit_tests": "88 pass (after review fix)",
+  "reused": "cache_backing_test G1/G1r from sp78 (9546bae); committed_backing unchanged"
+ },
+ "tested_binary": {
+  "path": "/nix/store/i7i1d40zr8qyb35k563gd7g75xpgzg7a-gufo-0-unstable-55b9bfb/bin/gufo",
+  "sha256": "8319c47eb107287eb6f708c7424b0528edd013e7168a127bf6a20375db796a76",
+  "rev": "55b9bfb7cb0c24604236745c700ea6135f5b8312",
+  "gc_root": "/nix/var/nix/gcroots/sp79-tested-55b9bfb-8319c47e"
+ },
+ "deployment_check": {
+  "command": [
+   "serve",
+   "--max-request-bytes",
+   "67108864",
+   "llm",
+   "--model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "--served-model-name",
+   "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "--mmproj",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf",
+   "--speculative",
+   "mtp",
+   "--mtp-model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "--sessions",
+   "2",
+   "--context",
+   "262144",
+   "--cache-ram-bytes",
+   "17179869184",
+   "--cache-ram-commit",
+   "eager",
+   "--prepare-structured-output"
+  ],
+  "bind": "127.0.0.1 free port (live: 0.0.0.0:8080)",
+  "gpu_seconds": 167.0,
+  "pass": true,
+  "problems": [],
+  "to_explain": [],
+  "processes": {
+   "p1": {
+    "preparation": {
+     "order_lines": {
+      "vision": 2,
+      "backing": 3,
+      "structured_output": 5,
+      "first_ready": 7
+     },
+     "vision": {
+      "resident_bytes": "903984064",
+      "identity_ms": "1225.102131",
+      "upload_ms": "1483.964338",
+      "device_heap_free_bytes": "41286098944",
+      "host_available_mib": "39227"
+     },
+     "backing": {
+      "segments": "15/15",
+      "committed_bytes": "15220277248",
+      "long_term_pinned_bytes": "0",
+      "prepare_ms": "916.072807",
+      "device_heap_free_bytes": "10651754496",
+      "host_available_mib": "9828"
+     },
+     "structured_output": {
+      "vocabulary_tokens": "248320",
+      "prepare_ms": "33.3",
+      "rss_delta_kib": "29776"
+     }
+    },
+    "ready_s": 38.44393637199937,
+    "server_rc": 0
+   },
+   "p2": {
+    "preparation": {
+     "order_lines": {
+      "vision": 2,
+      "backing": 3,
+      "structured_output": 5,
+      "first_ready": 7
+     },
+     "vision": {
+      "resident_bytes": "903984064",
+      "identity_ms": "385.211954",
+      "upload_ms": "151.286239",
+      "device_heap_free_bytes": "41286098944",
+      "host_available_mib": "39485"
+     },
+     "backing": {
+      "segments": "15/15",
+      "committed_bytes": "15220277248",
+      "long_term_pinned_bytes": "0",
+      "prepare_ms": "921.376131",
+      "device_heap_free_bytes": "10651754496",
+      "host_available_mib": "10154"
+     },
+     "structured_output": {
+      "vocabulary_tokens": "248320",
+      "prepare_ms": "33.4",
+      "rss_delta_kib": "29800"
+     }
+    },
+    "ready_s": 34.43991617300162,
+    "server_rc": 0
+   },
+   "p3": {
+    "preparation": {
+     "order_lines": {
+      "vision": 3,
+      "backing": 4,
+      "structured_output": 6,
+      "first_ready": 8
+     },
+     "vision": {
+      "resident_bytes": "903984064",
+      "identity_ms": "361.589873",
+      "upload_ms": "152.123007",
+      "device_heap_free_bytes": "41286098944",
+      "host_available_mib": "39451"
+     },
+     "backing": {
+      "segments": "15/15",
+      "committed_bytes": "15220277248",
+      "long_term_pinned_bytes": "0",
+      "prepare_ms": "608.292002",
+      "device_heap_free_bytes": "10651754496",
+      "host_available_mib": "10121"
+     },
+     "structured_output": {
+      "vocabulary_tokens": "248320",
+      "prepare_ms": "33.1",
+      "rss_delta_kib": "29800"
+     }
+    },
+    "ready_s": 32.223513261000335,
+    "server_rc": 0
+   }
+  },
+  "image_cache": [
+   {
+    "event": "image_cache",
+    "enabled": "1",
+    "entries": "1",
+    "pixel_bytes": "6266880",
+    "encoded_bytes": "98565",
+    "hits": "0",
+    "misses": "1",
+    "evictions": "0"
+   },
+   {
+    "event": "image_cache",
+    "enabled": "1",
+    "entries": "1",
+    "pixel_bytes": "6266880",
+    "encoded_bytes": "98565",
+    "hits": "1",
+    "misses": "1",
+    "evictions": "0"
+   },
+   {
+    "event": "image_cache",
+    "enabled": "1",
+    "entries": "1",
+    "pixel_bytes": "6266880",
+    "encoded_bytes": "98565",
+    "hits": "2",
+    "misses": "1",
+    "evictions": "0"
+   }
+  ],
+  "cross_revision_9546bae": {
+   "R1": true,
+   "R4": true,
+   "R5": true,
+   "R3_arguments": true,
+   "usage": {
+    "R1": {
+     "prompt_tokens": [
+      2077,
+      2077
+     ],
+     "completion_tokens": [
+      108,
+      108
+     ]
+    },
+    "R3": {
+     "prompt_tokens": [
+      320,
+      320
+     ],
+     "completion_tokens": [
+      38,
+      38
+     ]
+    },
+    "R4": {
+     "prompt_tokens": [
+      112,
+      112
+     ],
+     "completion_tokens": [
+      36,
+      36
+     ]
+    },
+    "R5": {
+     "prompt_tokens": [
+      2211,
+      2211
+     ],
+     "completion_tokens": [
+      3,
+      3
+     ]
+    }
+   }
+  },
+  "server_requests": {
+   "R1": {
+    "queue_ms": 66.060178,
+    "prefill_ms": 6995.774377,
+    "decode_ms": 3443.2147219999997,
+    "ttft_ms": 7071.77652,
+    "max_inter_token_ms": 505.493383,
+    "prefill_tokens": 2077,
+    "draft_rounds": 40,
+    "cache_hit": false,
+    "cache_restore_ms": 0,
+    "cache_snapshot_ms": 7.464292,
+    "execution_plan": "serial-fallback",
+    "client_ms": 10584.728138001083,
+    "draft_tokens": 95,
+    "draft_tokens_accepted": 68
+   },
+   "R2": {
+    "queue_ms": 8.393483,
+    "prefill_ms": 0,
+    "decode_ms": 2987.388077,
+    "ttft_ms": 8.429601,
+    "max_inter_token_ms": 326.625325,
+    "prefill_tokens": 0,
+    "draft_rounds": 40,
+    "cache_hit": true,
+    "cache_restore_ms": 3.113192,
+    "cache_snapshot_ms": 0,
+    "execution_plan": "serial-fallback",
+    "client_ms": 2999.6295910004847,
+    "draft_tokens": 95,
+    "draft_tokens_accepted": 68
+   },
+   "R3": {
+    "queue_ms": 3.588322,
+    "prefill_ms": 481.00479,
+    "decode_ms": 901.790263,
+    "ttft_ms": 484.824164,
+    "max_inter_token_ms": 282.736551,
+    "prefill_tokens": 320,
+    "draft_rounds": 6,
+    "cache_hit": false,
+    "cache_restore_ms": 0,
+    "cache_snapshot_ms": 5.276475,
+    "execution_plan": "serial-fallback",
+    "client_ms": 1397.9803570000513,
+    "draft_tokens": 33,
+    "draft_tokens_accepted": 32
+   },
+   "R4": {
+    "queue_ms": 200.431991,
+    "prefill_ms": 257.793766,
+    "decode_ms": 803.123061,
+    "ttft_ms": 458.489391,
+    "max_inter_token_ms": 310.897543,
+    "prefill_tokens": 112,
+    "draft_rounds": 6,
+    "cache_hit": false,
+    "cache_restore_ms": 0,
+    "cache_snapshot_ms": 5.299046000000001,
+    "execution_plan": "serial-fallback",
+    "client_ms": 1265.7985349997034,
+    "draft_tokens": 33,
+    "draft_tokens_accepted": 30
+   },
+   "R5": {
+    "queue_ms": 8.617683,
+    "prefill_ms": 341.335421,
+    "decode_ms": 53.450697,
+    "ttft_ms": 353.151736,
+    "max_inter_token_ms": 56.588205,
+    "prefill_tokens": 134,
+    "draft_rounds": 1,
+    "cache_hit": true,
+    "cache_restore_ms": 2.978911,
+    "cache_snapshot_ms": 6.379912,
+    "execution_plan": "serial-fallback",
+    "client_ms": 412.835791001271,
+    "draft_tokens": 2,
+    "draft_tokens_accepted": 2
+   },
+   "R1'": {
+    "queue_ms": 49.995574,
+    "prefill_ms": 5376.3570580000005,
+    "decode_ms": 2338.473173,
+    "ttft_ms": 5432.748072,
+    "max_inter_token_ms": 95.901429,
+    "prefill_tokens": 2077,
+    "draft_rounds": 40,
+    "cache_hit": false,
+    "cache_restore_ms": 0,
+    "cache_snapshot_ms": 9.593763000000001,
+    "execution_plan": "serial-fallback",
+    "client_ms": 7778.1160269987595,
+    "draft_tokens": 95,
+    "draft_tokens_accepted": 68
+   },
+   "R4'": {
+    "queue_ms": 11.198988,
+    "prefill_ms": 260.24643,
+    "decode_ms": 680.7256699999999,
+    "ttft_ms": 271.700006,
+    "max_inter_token_ms": 167.859285,
+    "prefill_tokens": 112,
+    "draft_rounds": 6,
+    "cache_hit": false,
+    "cache_restore_ms": 0,
+    "cache_snapshot_ms": 5.3389310000000005,
+    "execution_plan": "serial-fallback",
+    "client_ms": 957.1544130012626,
+    "draft_tokens": 33,
+    "draft_tokens_accepted": 30
+   },
+   "R5'": {
+    "queue_ms": 2.973269,
+    "prefill_ms": 226.238274,
+    "decode_ms": 53.33578,
+    "ttft_ms": 232.415435,
+    "max_inter_token_ms": 56.474161,
+    "prefill_tokens": 26,
+    "draft_rounds": 1,
+    "cache_hit": true,
+    "cache_restore_ms": 0,
+    "cache_snapshot_ms": 6.386664,
+    "execution_plan": "serial-fallback",
+    "client_ms": 291.8390510003519,
+    "draft_tokens": 2,
+    "draft_tokens_accepted": 2
+   },
+   "D1": {
+    "queue_ms": 50.772219,
+    "prefill_ms": 5243.41287,
+    "decode_ms": 2337.044216,
+    "ttft_ms": 5314.158424,
+    "max_inter_token_ms": 96.261844,
+    "prefill_tokens": 2077,
+    "draft_rounds": 40,
+    "cache_hit": false,
+    "cache_restore_ms": 0,
+    "cache_snapshot_ms": 24.255798000000002,
+    "execution_plan": "serial-fallback",
+    "client_ms": 7660.727048998524,
+    "draft_tokens": 95,
+    "draft_tokens_accepted": 68
+   },
+   "D2": {
+    "queue_ms": 8.216752,
+    "prefill_ms": 0,
+    "decode_ms": 2315.7035400000004,
+    "ttft_ms": 8.250425,
+    "max_inter_token_ms": 95.633137,
+    "prefill_tokens": 0,
+    "draft_rounds": 40,
+    "cache_hit": true,
+    "cache_restore_ms": 2.974642,
+    "cache_snapshot_ms": 0,
+    "execution_plan": "serial-fallback",
+    "client_ms": 2327.4942329990154,
+    "draft_tokens": 95,
+    "draft_tokens_accepted": 68
+   },
+   "D5": {
+    "queue_ms": 3.430927,
+    "prefill_ms": 214.37735500000002,
+    "decode_ms": 53.273455999999996,
+    "ttft_ms": 222.068112,
+    "max_inter_token_ms": 56.396375,
+    "prefill_tokens": 26,
+    "draft_rounds": 1,
+    "cache_hit": true,
+    "cache_restore_ms": 0,
+    "cache_snapshot_ms": 7.432593000000001,
+    "execution_plan": "serial-fallback",
+    "client_ms": 281.7814910013112,
+    "draft_tokens": 2,
+    "draft_tokens_accepted": 2
+   }
+  },
+  "pressure": {
+   "p1": {
+    "pgscan_direct": 0,
+    "compact_stall": 108,
+    "container_psi_some_us": 8388,
+    "system_psi_some_us": 107675,
+    "container_majfault": 45,
+    "kswapd_scanned": 283342
+   },
+   "p2": {
+    "pgscan_direct": 0,
+    "compact_stall": 18,
+    "container_psi_some_us": 1963,
+    "system_psi_some_us": 7062,
+    "container_majfault": 2,
+    "kswapd_scanned": 6485
+   },
+   "p3": {
+    "pgscan_direct": 0,
+    "compact_stall": 0,
+    "container_psi_some_us": 0,
+    "system_psi_some_us": 20497,
+    "container_majfault": 15,
+    "kswapd_scanned": 168676
+   }
+  },
+  "min_mem_available_mib": 9305.1875,
+  "min_gtt_free_mib": 28484.0078125,
+  "observation": "p1 (first server start after host reboot) R1/R3/R4 slower with 102 compaction stalls and kswapd reclaim; p2/p3 same command matched 9546bae; below stall thresholds"
+ },
+ "live_deployment": "nothing serving before or after; no container stopped or started; container states unchanged"
+}
