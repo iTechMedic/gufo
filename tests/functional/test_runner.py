@@ -2161,6 +2161,45 @@ class ScreenResolutionTest(unittest.TestCase):
                         for row in resolve(slow, [], runs, flagged)["measurements"]}
             self.assertEqual(statuses["peersx"], "failed")
 
+    def test_admission_rank_supersedes_only_its_own_group_rows(self):
+        from metrics import timing_measurement
+        from resolve import resolve
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def run(name, ranks, queues):
+                path = root / name
+                path.mkdir()
+                rows = [{"index": i, "case": "peers", "request_sha256": body,
+                         "metrics": {"prompt_tokens": 9, "prefill_tokens": 9, "cached_tokens": 0,
+                                     "queue_ms": queues[rank - 1],
+                                     "resident_requests_at_admission": rank}}
+                        for i, (body, rank) in enumerate(ranks)]
+                # The same body again, later and alone: its own row, never a peer.
+                rows.append({"index": 2, "case": "repeat", "request_sha256": "x",
+                             "metrics": {"prompt_tokens": 9, "prefill_tokens": 0, "cached_tokens": 9,
+                                         "queue_ms": 2, "resident_requests_at_admission": 0}})
+                (path / "tools.requests.json").write_text(json.dumps({"requests": rows}))
+                return path
+            runs, comparisons = [], []
+            for i in range(6):
+                runs.append((run(f"a{i}", [("x", 1), ("y", 2)], (7, 13)),
+                             run(f"b{i}", [("x", 1), ("y", 2)], (7, 13))))
+                rows = []
+                for body, occurrence, old, new in (("x", 0, 7, 7), ("y", 0, 13, 13),
+                                                   ("x", 1, 2, 2 + 6 * (i % 2))):
+                    row = timing_measurement("peers" if occurrence == 0 else "repeat", "queue_ms",
+                                             old, new, 1, ["tools.requests.json", body, occurrence])
+                    row["history_sha256"] = "h"
+                    rows.append(row)
+                comparisons.append({"measurements": rows, "quality_or_coverage_changes": [],
+                                    "slowdown_tolerance": .05, "noise_ms": 3})
+            result = resolve(comparisons, [], runs, {("tools.requests.json", "x", 1, "queue_ms")})
+            statuses = {tuple(row["request_key"]): row["status"] for row in result["measurements"]}
+            self.assertEqual(statuses[("tools.requests.json", "x", 0)], "superseded")
+            self.assertEqual(statuses[("tools.requests.json", "y", 0)], "superseded")
+            self.assertNotEqual(statuses[("tools.requests.json", "x", 1)], "superseded")
+            self.assertNotEqual(result["status"], "passed")
+
     def test_resolution_keeps_matching_coverage_and_margins(self):
         from resolve import resolve
         pairs = [self.comparison(("request", "decode_ms", 100, 100)) for _ in range(6)]

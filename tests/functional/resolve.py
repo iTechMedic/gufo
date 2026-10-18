@@ -78,10 +78,17 @@ def admission_ranks(directory):
             if not groups or groups[-1][0] != label:
                 groups.append((label, []))
             groups[-1][1].append(row)
-        seen = {}
+        seen, body_seen = {}, {}
         for label, group in groups:
             occurrence = seen.get(label, 0)
             seen[label] = occurrence + 1
+            # Request keys count each body's occurrences in case order, as
+            # metrics.compare_runs does; only these rows belong to the group.
+            keys = []
+            for row in group:
+                body = row.get("request_sha256", "")
+                keys.append((body, body_seen.get(body, 0)))
+                body_seen[body] = keys[-1][1] + 1
             work = {tuple(row.get("metrics", {}).get(f) for f in
                           ("prompt_tokens", "prefill_tokens", "cached_tokens")) for row in group}
             order = [row.get("metrics", {}).get("resident_requests_at_admission") for row in group]
@@ -90,6 +97,7 @@ def admission_ranks(directory):
             ordered = sorted(group, key=lambda row: row["metrics"]["resident_requests_at_admission"])
             ranks[(path.name, str(label), occurrence)] = {
                 "work": next(iter(work)), "bodies": sorted(row["request_sha256"] for row in group),
+                "keys": sorted(keys),
                 "order": [(row["request_sha256"], row["metrics"]["queue_ms"]) for row in ordered]}
     return ranks
 
@@ -135,7 +143,8 @@ def resolve(comparisons, controls, runs, flagged, min_pairs=MIN_PAIRS):
                                            "baseline": main[group]["order"][rank][1],
                                            "candidate": pr[group]["order"][rank][1]})
             rows[key] = row
-        bodies_rows = [key for key in rows if key[0] == group[0] and key[1] in bodies
+        members = set(ranked[0][0][group]["keys"])
+        bodies_rows = [key for key in rows if key[0] == group[0] and (key[1], key[2]) in members
                        and key[3] == "queue_ms"]
         superseded.update(bodies_rows)
         if any(key in flagged for key in bodies_rows):

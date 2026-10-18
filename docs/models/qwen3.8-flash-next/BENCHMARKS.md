@@ -153,7 +153,7 @@ ROCm 10 container builds, GCC host compiler, October 12, 2026.
 Same workloads, `tools/bench/model-bench.py`. Each cell is two passes in
 alternating order (pass 1 / pass 2). Greedy outputs are byte-identical
 between builds, and every multi-user completion matches the same-toolchain
-AR reference. Nix cells for the candidate are pending.
+AR reference. Pinned Nix results for the candidate follow below.
 
 Single user, MTP, pp2048/tg128. The gain is from pass 2.
 
