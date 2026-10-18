@@ -345,6 +345,8 @@ def run_case(args, recorder, env, index, name):
     if args.context_file:
         command += ["--append-system-prompt", str(args.context_file)]
     if name == "wide-tool":
+        # --conversation reuses one work directory; validate only this case's calls.
+        (cwd / "todo-calls.jsonl").unlink(missing_ok=True)
         command += ["--extension", str(Path(__file__).resolve().parent / "fixtures/pi_wide_tool.ts"),
                     "--tools", "todo"]
     save(case / "command.json", command)
