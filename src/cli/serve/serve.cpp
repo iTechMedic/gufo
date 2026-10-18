@@ -715,14 +715,14 @@ void PrintServeHelp(std::string_view program_name,
         "", "--cache-ram-bytes", "N",
         "Retained RAM-cache byte budget (default: 0 = auto: half of free "
         "RAM, at most 32 GiB; explicit values may use free RAM minus 4 GiB). "
-        "Flash-Next pins it about 1 GiB at a time as captures need it, or all "
-        "of it before serving with --cache-ram-commit eager",
+        "Flash-Next pins its backing about 1 GiB at a time as captures need "
+        "it, or all before serving with --cache-ram-commit eager",
         "Cache", &cache_ram_bytes);
     parser.AddOption(
         "", "--cache-ram-commit", "MODE",
-        "Flash-Next: when to pin the RAM cache: lazy (default) as captures "
-        "need it, or eager: all of it before serving, so no request shares "
-        "the host with a commit; startup fails if it cannot",
+        "Flash-Next: when to pin the RAM cache backing: lazy (default) as "
+        "captures need it, or eager: all of it before serving, so no request "
+        "shares the host with a commit; startup fails if it cannot",
         "Cache", &cache_ram_commit);
     parser.AddOption("", "--cache-disk", "DIR",
                      "Opt-in restart-safe continuation cache directory "
@@ -1273,14 +1273,14 @@ int RunServe(std::span<const char* const> args) {
         "", "--cache-ram-bytes", "N",
         "Retained RAM-cache byte budget (default: 0 = auto: half of free "
         "RAM, at most 32 GiB; explicit values may use free RAM minus 4 GiB). "
-        "Flash-Next pins it about 1 GiB at a time as captures need it, or all "
-        "of it before serving with --cache-ram-commit eager",
+        "Flash-Next pins its backing about 1 GiB at a time as captures need "
+        "it, or all before serving with --cache-ram-commit eager",
         "Cache", &cache_ram_bytes);
     llm_parser.AddOption(
         "", "--cache-ram-commit", "MODE",
-        "Flash-Next: when to pin the RAM cache: lazy (default) as captures "
-        "need it, or eager: all of it before serving, so no request shares "
-        "the host with a commit; startup fails if it cannot",
+        "Flash-Next: when to pin the RAM cache backing: lazy (default) as "
+        "captures need it, or eager: all of it before serving, so no request "
+        "shares the host with a commit; startup fails if it cannot",
         "Cache", &cache_ram_commit);
     llm_parser.AddOption("", "--cache-disk", "DIR",
                          "Opt-in restart-safe continuation cache directory "

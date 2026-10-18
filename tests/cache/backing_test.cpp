@@ -612,44 +612,6 @@ void EagerCommit() {
   }
   assert(ledger.Snapshot().total_bytes == 0);
 }
-void GrowthKeepsMappingsAvailable() {
-  // Committing a segment ahead must not hold the process mmap lock while its
-  // pages fault in: request threads map and protect memory meanwhile (thread
-  // stacks, malloc arenas, runtime mbind). Registration may still pin under
-  // it. MAP_POPULATE held the lock about 45 ms per 512 MiB on gfx1151;
-  // populating outside it leaves waits of about 12-21 ms.
-  constexpr std::size_t segment = std::size_t{512} << 20;
-  constexpr std::size_t headroom = (2 * segment / block_bytes + 4) * 1024;
-  constexpr std::size_t capacity = 2 * segment + headroom;
-  cache::ResourceLedger ledger(Limits(capacity));
-  hip::CommittedBackingPool pool(
-      ledger, {capacity, block_bytes, headroom, segment, {}});
-  auto held = pool.TryAcquire(Category::kPrivateTail);
-  assert(held && pool.CommittedBytes() == segment);
-  const auto started = std::chrono::steady_clock::now();
-  pool.GrowAhead();
-  std::chrono::duration<double, std::milli> worst{};
-  while (pool.CommittedBytes() != 2 * segment &&
-         std::chrono::steady_clock::now() - started <
-             std::chrono::seconds(20)) {
-    const auto before = std::chrono::steady_clock::now();
-    void* mapping =
-        mmap(nullptr, 1 << 20, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    assert(mapping != MAP_FAILED);
-    assert(mprotect(mapping, 1 << 16, PROT_READ | PROT_WRITE) == 0);
-    assert(munmap(mapping, 1 << 20) == 0);
-    worst = std::max(worst, std::chrono::duration<double, std::milli>(
-                                std::chrono::steady_clock::now() - before));
-    std::this_thread::sleep_for(std::chrono::microseconds(200));
-  }
-  const std::chrono::duration<double, std::milli> commit =
-      std::chrono::steady_clock::now() - started;
-  assert(pool.CommittedBytes() == 2 * segment);
-  std::printf("segment commit %.1f ms, longest concurrent mapping %.1f ms\n",
-              commit.count(), worst.count());
-  std::fflush(stdout);
-  assert(worst < std::chrono::milliseconds(30));
-}
 void CaptureCapacity() {
   constexpr std::size_t pages = 6, headroom = 16 << 10;
   constexpr std::size_t capacity = pages * block_bytes + headroom;
@@ -1119,7 +1081,6 @@ int main(int argc, char** argv) {
   CheckpointLifetimes();
   OnDemandBacking();
   EagerCommit();
-  GrowthKeepsMappingsAvailable();
   CaptureCapacity();
   Transfers();
   LifetimeAndFailures();

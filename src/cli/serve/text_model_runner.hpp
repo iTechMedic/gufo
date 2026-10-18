@@ -47,12 +47,12 @@ struct TextPreparedPrompt {
   std::size_t cache_prefix_tokens{0};
 };
 
-/// When a cache with pinned backing (Flash-Next) commits its RAM budget.
+/// When a cache with pinned backing (Flash-Next) commits that backing.
 enum class TextRunnerRamCommit : std::uint8_t {
   /// About 1 GiB at a time on a background thread; two steps before
   /// serving. The default.
   kLazy,
-  /// All of it before serving, so no request shares the host with a commit.
+  /// All backing before serving, so no request shares the host with a commit.
   /// Startup fails if any step is declined or fails.
   kEager,
 };
