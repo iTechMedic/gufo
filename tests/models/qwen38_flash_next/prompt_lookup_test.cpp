@@ -1,14 +1,9 @@
 #include "src/models/qwen38_flash_next/prompt_lookup.hpp"
 
-#include <cmath>
 #include <cstdint>
 #include <iostream>
-#include <span>
 #include <stdexcept>
-#include <utility>
 #include <vector>
-
-#include "src/models/qwen38_flash_next/mtp_policy.hpp"
 
 namespace qfn = gufo::models::qwen38_flash_next;
 using Lookup = qfn::PromptLookup;
@@ -25,10 +20,6 @@ std::vector<std::int32_t> Range(std::int32_t first, std::size_t count) {
   return out;
 }
 
-bool Same(Lookup::Match a, Lookup::Match b) {
-  return a.start == b.start && a.length == b.length;
-}
-
 // A copied passage is proposed once the context repeats kMinMatch tokens of
 // it; the proposal continues where the earlier copy continued.
 void CheckCopy() {
@@ -39,16 +30,23 @@ void CheckCopy() {
   committed.insert(committed.end(), committed.begin() + 5,
                    committed.begin() + 15);
   Lookup lookup;
-  lookup.Sync(committed);
+  lookup.Extend(committed);
   const std::vector<std::int32_t> tail = {1015, 1016};
-  const auto match = lookup.Find(tail);
+  const auto match = lookup.Find(committed, tail);
   Require(match.length == 12, "a 12-token copy was not matched in full");
   Require(match.start == 17 && committed[match.start] == 1017,
           "the proposal does not continue the copied passage");
   // One token shorter is below the gate.
   const std::vector<std::int32_t> short_tail = {1015};
-  Require(lookup.Find(short_tail).length == 0,
+  Require(lookup.Find(committed, short_tail).length == 0,
           "an 11-token match passed the 12-token gate");
+  Require(lookup.Find(committed, tail, Lookup::kSampledMinMatch).length == 0,
+          "a short syntax match passed the sampled gate");
+  const auto long_tail = Range(1015, 14);
+  const auto sampled =
+      lookup.Find(committed, long_tail, Lookup::kSampledMinMatch);
+  Require(sampled.length == 24 && sampled.start == 29,
+          "a 24-token match did not pass the sampled gate");
 }
 
 // Several earlier occurrences of the key: the one matching furthest back
@@ -64,128 +62,278 @@ void CheckLongestWins() {
   // Context: the long history again.
   committed.insert(committed.end(), a.begin(), a.begin() + 17);
   Lookup lookup;
-  lookup.Sync(committed);
+  lookup.Extend(committed);
   const std::vector<std::int32_t> tail = {117, 118, 119};
-  const auto match = lookup.Find(tail);
+  const auto match = lookup.Find(committed, tail);
   Require(match.length >= 12 && committed[match.start] == 7,
           "the longest-matching occurrence was not chosen");
 }
 
-// The index is a function of the committed tokens alone: growing step by
-// step, rewinding to a shorter or divergent history (cache restoration,
-// continuation transfer) and rebuilding from scratch all agree, including
-// keys whose only occurrences were removed.
-void CheckSync() {
+// Incremental indexing equals indexing everything at once; a shorter
+// history (a reset session) restarts the index.
+void CheckIncremental() {
   auto committed = Range(1, 30);
   committed.insert(committed.end(), committed.begin(), committed.begin() + 20);
   Lookup whole;
-  whole.Sync(committed);
+  whole.Extend(committed);
   Lookup steps;
-  for (std::size_t n = 1; n <= committed.size(); n += 3)
-    steps.Sync(std::span<const std::int32_t>(committed).first(n));
-  steps.Sync(committed);
-  const std::vector<std::int32_t> tail = {21};
-  const auto a = whole.Find(tail);
-  Require(a.length >= 12, "repeated history was not matched");
-  Require(Same(a, steps.Find(tail)),
-          "incremental indexing differs from a full build");
-
-  const std::vector<std::int32_t> repeat_tail = {11, 12};
-  for (const std::size_t prefix : {0UL, 2UL, 3UL, 4UL, 29UL, 31UL, 45UL}) {
-    auto branch = std::vector<std::int32_t>(committed.begin(),
-                                            committed.begin() + prefix);
-    const auto suffix = Range(700, 25);
-    branch.insert(branch.end(), suffix.begin(), suffix.end());
-    branch.insert(branch.end(), branch.begin(), branch.begin() + 12);
-    Lookup rewound = whole;
-    rewound.Sync(branch);
-    Lookup fresh;
-    fresh.Sync(branch);
-    Require(Same(rewound.Find(tail), fresh.Find(tail)) &&
-                Same(rewound.Find(repeat_tail), fresh.Find(repeat_tail)) &&
-                Same(rewound.Find({}), fresh.Find({})),
-            "a rewound index differs from a fresh build");
-    // Return to the original history: the removed occurrences come back.
-    rewound.Sync(committed);
-    Require(Same(rewound.Find(tail), a),
-            "re-extending a rewound index lost occurrences");
+  for (std::size_t n = 1; n <= committed.size(); n += 3) {
+    steps.Extend(std::span<const std::int32_t>(committed).first(n));
   }
-  Lookup cleared = whole;
-  cleared.Sync({});
-  Require(cleared.Find(tail).length == 0, "an empty history kept old keys");
+  steps.Extend(committed);
+  const std::vector<std::int32_t> tail = {21};
+  const auto a = whole.Find(committed, tail);
+  const auto b = steps.Find(committed, tail);
+  Require(a.length == b.length && a.start == b.start && a.length >= 12,
+          "incremental indexing differs from a full build");
+  const auto fresh = Range(500, 10);
+  steps.Extend(fresh);
+  Require(steps.Find(fresh, tail).length == 0,
+          "a shorter history kept old keys");
+}
+
+// A history rewritten in place (a cache restore) at the same or a greater
+// length restarts the index instead of proposing the old tokens.
+void CheckRewrite() {
+  auto committed = Range(1, 30);
+  committed.insert(committed.end(), committed.begin(), committed.begin() + 20);
+  Lookup lookup;
+  lookup.Extend(committed);
+  const std::vector<std::int32_t> tail = {21};
+  Require(lookup.Find(committed, tail).length >= 12, "setup: no copy found");
+  // Same length, different tokens: nothing of the old history may match.
+  auto rewritten = Range(700, committed.size());
+  lookup.Extend(rewritten);
+  const std::vector<std::int32_t> old_tail = {1, 2, 3};
+  Require(lookup.Find(rewritten, old_tail).length == 0,
+          "a same-length rewrite kept old keys");
+  // Longer and different from the start: rebuilt from the new history.
+  auto longer = Range(300, 25);
+  longer.insert(longer.end(), longer.begin(), longer.begin() + 15);
+  lookup.Extend(longer);
+  const std::vector<std::int32_t> new_tail = {315};
+  const auto match = lookup.Find(longer, new_tail);
+  Require(match.length >= 12 && longer[match.start] == 316,
+          "a longer rewrite was not re-indexed");
+}
+
+// Proposals always start inside the committed tokens, never in the tail.
+void CheckProposalInsideCommitted() {
+  auto committed = Range(1, 20);
+  committed.insert(committed.end(), committed.begin(), committed.end());
+  Lookup lookup;
+  for (std::size_t n = 1; n <= committed.size(); ++n) {
+    const auto view = std::span<const std::int32_t>(committed).first(n);
+    lookup.Extend(view);
+    for (std::size_t t = 0; t <= 3; ++t) {
+      const std::vector<std::int32_t> tail(committed.begin(),
+                                           committed.begin() + t);
+      const auto match = lookup.Find(view, tail);
+      Require(match.length == 0 || match.start < view.size(),
+              "a proposal started past the committed tokens");
+    }
+  }
+}
+
+// After a verified copy, a match of kResumeMinMatch tokens is enough where
+// that copy's source continues: the output edited a few tokens and rejoined
+// the text it was copying. Elsewhere the kMinMatch gate still applies.
+void CheckResume() {
+  auto committed = Range(1000, 40);  // the "file"
+  const auto noise = Range(5000, 7);
+  committed.insert(committed.end(), noise.begin(), noise.end());
+  // The answer copied file[5, 20), then replaced file[20, 22) with an edit
+  // and rejoined at file[22].
+  committed.insert(committed.end(), committed.begin() + 5,
+                   committed.begin() + 20);
+  committed.insert(committed.end(), {7001, 7002, 1022, 1023, 1024});
+  const std::vector<std::int32_t> tail = {1025, 1026};
+  Lookup lookup;
+  lookup.Extend(committed);
+  Require(lookup.Find(committed, tail).length == 0,
+          "a 5-token match passed without a copy to resume");
+  // A long matching prefix did not predict the continuation: a fully
+  // rejected copy must not open the shorter gate.
+  lookup.Observe(20, 8, 0);
+  Require(lookup.Find(committed, tail).length == 0,
+          "a rejected full match enabled short copies");
+  lookup.Observe(20, 8, 3);
+  Require(lookup.Find(committed, tail).length == 0,
+          "a mostly rejected full match enabled short copies");
+  lookup.Observe(20, 8, 4);
+  const auto match = lookup.Find(committed, tail);
+  Require(match.length == 5 && match.start == 27,
+          "a resumed copy was not matched");
+  // A resumed copy that keeps half its tokens still resumes; one that keeps
+  // fewer has left the text, until a full match copies again.
+  lookup.Observe(match.start, 8, 4);
+  Require(lookup.Find(committed, tail).length == 5,
+          "a resumed copy that kept half stopped resuming");
+  lookup.Observe(match.start, 8, 3);
+  Require(lookup.Find(committed, tail).length == 0,
+          "a mostly rejected resumed copy kept resuming");
+  lookup.Observe(20, 8, 4);
+  Require(lookup.Find(committed, tail).length == 5,
+          "a full copy did not restart resuming");
+  const std::vector<std::int32_t> short_tail = {1025};
+  Require(lookup.Find(committed, short_tail).length == 0,
+          "a 4-token match resumed a copy");
+  // A copy whose source continues far from this match does not lower the
+  // gate, and Clear() forgets the copy.
+  lookup.Observe(600, 8, 4);
+  Require(lookup.Find(committed, tail).length == 0,
+          "a distant copy lowered the gate");
+  // A saved state resumes the same copy after a restore; a new request
+  // starts with nothing to resume.
+  lookup.Observe(20, 8, 4);
+  const auto state = lookup.Save();
+  Require(Lookup::Valid(state, committed.size()) && !Lookup::Valid(state, 19) &&
+              !Lookup::Valid({.request_start = 1000}, committed.size()),
+          "prompt-lookup state validation");
+  Lookup restored;
+  restored.Restore(state);
+  restored.Extend(committed);
+  Require(restored.Find(committed, tail).start == 27,
+          "a restored state did not resume the copy");
+  restored.BeginRequest();
+  Require(restored.Find(committed, tail).length == 0 &&
+              restored.Save().resume == Lookup::kNoState,
+          "a new request resumed the last copy");
+  lookup.Clear();
+  lookup.Extend(committed);
+  Require(lookup.Find(committed, tail).length == 0,
+          "Clear() kept the last copy");
+}
+
+// A request's first decode step copies nothing; the flag survives a
+// snapshot taken before that step and not one taken after it.
+void CheckFirstStep() {
+  Lookup lookup;
+  lookup.BeginRequest();
+  const auto before = lookup.Save();
+  Require(!lookup.Step(10) && lookup.Step(11) && lookup.Step(12),
+          "only a request's first step skips copying");
+  Require(lookup.Save().request_start == 10, "request boundary drifted");
+  Lookup restored;
+  restored.Restore(before);
+  Require(!restored.Step(10), "a restored first step copied");
+  restored.Restore(lookup.Save());
+  Require(restored.Step(12), "a restored later step skipped copying");
+  restored.BeginRequest();
+  Require(!restored.Step(20), "a new request copied on its first step");
+}
+
+void CheckRequestBoundary() {
+  auto committed = Range(1000, 64);
+  const auto noise = Range(5000, 7);
+  committed.insert(committed.end(), noise.begin(), noise.end());
+  // Twenty tokens of shared framing precede the actual generated answer.
+  const auto wrapper = Range(1005, 20);
+  committed.insert(committed.end(), wrapper.begin(), wrapper.end());
+  Lookup lookup;
+  // Force reindexing a shorter history after Step has set the boundary.
+  const auto old_history = Range(7000, 160);
+  lookup.Extend(old_history);
+  lookup.BeginRequest();
+  const auto start = committed.size();
+  Require(!lookup.Step(start), "first step copied");
+  const auto prefix = Range(1025, 3);
+  committed.insert(committed.end(), prefix.begin(), prefix.end());
+  lookup.Extend(committed);
+  Require(lookup.Step(committed.size()), "second step skipped");
+  const std::vector<std::int32_t> tail{1028};
+  Require(lookup.Find(committed, tail, Lookup::kSampledMinMatch).length == 0,
+          "the shared wrapper inflated a four-token answer into a full match");
+  const auto rest = Range(1028, 20);
+  committed.insert(committed.end(), rest.begin(), rest.end());
+  lookup.Extend(committed);
+  const std::vector<std::int32_t> next{1048};
+  const auto match = lookup.Find(committed, next, Lookup::kSampledMinMatch);
+  Require(match.length == 24 && match.start == 49,
+          "a real matching answer did not copy");
+  Lookup restored;
+  restored.Restore(lookup.Save());
+  restored.Extend(committed);
+  Require(restored.Find(committed, next, Lookup::kSampledMinMatch).length == 24,
+          "restoring a snapshot lost the request boundary");
+  restored.Clear();
+  Require(Lookup::Valid(restored.Save(), 0),
+          "cleared request boundary is stale");
 }
 
 void CheckNoMatch() {
   const auto committed = Range(1, 100);
   Lookup lookup;
-  lookup.Sync(committed);
+  lookup.Extend(committed);
   const std::vector<std::int32_t> tail = {7, 8, 9};
-  Require(lookup.Find(tail).length == 0,
+  Require(lookup.Find(committed, tail).length == 0,
           "a context without history of its own tokens matched");
-  Require(Lookup{}.Find(tail).length == 0, "an empty index matched");
+  Require(Lookup{}.Find(committed, tail).length == 0, "an empty index matched");
 }
 
-// A copy replaces the MTP drafts a cycle has not proposed yet only when more
-// copies than drafts are expected to be accepted.
-void CheckCopyEvidence() {
-  Require(Lookup::ExpectedCopies(13, 0) == 0.0F &&
-              std::abs(Lookup::ExpectedCopies(13, 1) - 14.0F / 15.0F) < 1e-6F,
-          "one copy is not the rule-of-succession probability");
-  for (std::size_t count = 1; count <= 7; ++count) {
-    Require(
-        Lookup::ExpectedCopies(64, count) > Lookup::ExpectedCopies(12, count) &&
-            Lookup::ExpectedCopies(12, count) < static_cast<float>(count) &&
-            Lookup::ExpectedCopies(12, count + 1) >
-                Lookup::ExpectedCopies(12, count),
-        "copy evidence is not monotone in match and copy length");
-  }
+void CheckSampledSources() {
+  auto committed = Range(1000, 40);
+  const auto boundary = committed.size();
+  Lookup sampled;
+  Lookup greedy;
+  Require(!sampled.Step(boundary) && !greedy.Step(boundary),
+          "first step copied");
+  // A new answer generates a passage twice. Only greedy lookup may copy it.
+  const auto passage = Range(5000, 40);
+  committed.insert(committed.end(), passage.begin(), passage.end());
+  committed.push_back(9000);
+  committed.insert(committed.end(), passage.begin(), passage.begin() + 23);
+  const std::vector<std::int32_t> tail{5023};
+  sampled.Extend(committed, true);
+  greedy.Extend(committed);
+  Require(
+      sampled.IndexedTokens() == boundary &&
+          sampled.Find(committed, tail, Lookup::kSampledMinMatch).length == 0,
+      "sampled lookup copied from its own new answer");
+  Require(greedy.Find(committed, tail).length == 24,
+          "greedy lookup lost repetition within an answer");
+  Lookup restored;
+  restored.Restore(sampled.Save());
+  restored.Extend(committed, true);
+  Require(
+      restored.IndexedTokens() == boundary &&
+          restored.Find(committed, tail, Lookup::kSampledMinMatch).length == 0,
+      "restoring a sampled request expanded its copy sources");
 
-  // An MTP chain accepted in full (two, four, then seven drafts, as in a
-  // repeated tool call) keeps its tail against a 13-token template match.
-  qfn::MtpLengthController perfect(7);
-  for (const unsigned drafts : {2U, 4U, 7U})
-    perfect.Observe(drafts, drafts);
-  Require(perfect.ExpectedDrafts(1, 7) == 6.0F &&
-              Lookup::ExpectedCopies(13, 6) < perfect.ExpectedDrafts(1, 7),
-          "a short match displaced a fully accepted MTP chain");
-  Require(perfect.ExpectedDrafts(7, 7) == 0.0F &&
-              perfect.ExpectedDrafts(0, 7) + 1.0F == perfect.ExpectedTokens(7),
-          "remaining-draft estimate disagrees with the length controller");
-
-  // Rejections in a rewrite leave the tail uncertain; a long match replaces it.
-  qfn::MtpLengthController rejected(7);
-  for (const unsigned accepted : {7U, 3U, 7U, 5U, 2U, 7U})
-    rejected.Observe(accepted, 7);
-  Require(Lookup::ExpectedCopies(64, 6) > rejected.ExpectedDrafts(1, 7),
-          "a long match did not replace an uncertain MTP tail");
-
-  // At the anchor a copy also replaces the first MTP draft. A first draft
-  // that has never been rejected keeps the chain even against the longest
-  // match, also after a single short cycle (an early tool-call template);
-  // recent first-draft rejections let a 16-token match replace the chain.
-  qfn::MtpLengthController early(7);
-  early.Observe(2, 2);
-  for (const auto* controller : {&perfect, &early})
-    Require(controller->ExpectedDrafts(0, 1) == 1.0F &&
-                Lookup::ExpectedCopies(Lookup::kMaxMatch, 1) <
-                    controller->ExpectedDrafts(0, 1),
-            "an anchor match displaced a never-rejected first draft");
-  qfn::MtpLengthController weak(7);
-  for (const auto [accepted, drafted] :
-       {std::pair{2U, 2U}, {4U, 4U}, {5U, 7U}, {0U, 5U}, {5U, 5U}, {4U, 4U}})
-    weak.Observe(accepted, drafted);
-  Require(Lookup::ExpectedCopies(16, 1) > weak.ExpectedDrafts(0, 1) &&
-              Lookup::ExpectedCopies(16, 7) > weak.ExpectedDrafts(0, 7),
-          "an anchor match did not replace a recently rejected MTP chain");
+  // Original context still supplies copies, bounded by its last token.
+  const auto original = Range(1015, 23);
+  committed.insert(committed.end(), original.begin(), original.end());
+  const std::vector<std::int32_t> original_tail{1038};
+  sampled.Extend(committed, true);
+  const auto match =
+      sampled.Find(committed, original_tail, Lookup::kSampledMinMatch);
+  Require(match.length == 24 && match.start == 39 &&
+              sampled.IndexedTokens() - match.start == 1,
+          "a sampled copy crossed its source boundary");
+  // In the next request, the previous answer becomes eligible context.
+  sampled.BeginRequest();
+  const auto next_boundary = committed.size();
+  Require(!sampled.Step(next_boundary), "new request first step copied");
+  committed.insert(committed.end(), passage.begin(), passage.begin() + 23);
+  sampled.Extend(committed, true);
+  Require(
+      sampled.IndexedTokens() == next_boundary &&
+          sampled.Find(committed, tail, Lookup::kSampledMinMatch).length == 24,
+      "a new request could not copy the preceding answer");
 }
 
 int main() {
   try {
     CheckCopy();
     CheckLongestWins();
-    CheckSync();
+    CheckIncremental();
+    CheckRewrite();
+    CheckProposalInsideCommitted();
+    CheckResume();
+    CheckFirstStep();
+    CheckRequestBoundary();
+    CheckSampledSources();
     CheckNoMatch();
-    CheckCopyEvidence();
   } catch (const std::exception& e) {
     std::cerr << "prompt_lookup_test: " << e.what() << "\n";
     return 1;

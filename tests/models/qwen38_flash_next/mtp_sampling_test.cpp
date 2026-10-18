@@ -250,53 +250,39 @@ void CheckBatchProfitability() {
   policy.Observe(2, 0, 3, 2000.0F);
   Require(policy.Choose(rows, 0) == 3,
           "a width transition charged the preceding chain to the new width");
+  policy.SkipCycle();  // A copy replaced the neural draft work.
+  policy.Observe(2, 0, 3, 100000.0F);
+  Require(policy.Choose(rows, 0) == 3,
+          "lookup catch-up contaminated the neural width estimate");
+  // Copies can leave the physical batch with an AR cost but no measured
+  // neural widths. Repeatedly widening probes never measures a steady cost:
+  // Observe correctly discards every transition's preceding catch-up work.
+  qfn::MtpBatchController after_copy;
+  for (unsigned i = 0; i < 3; ++i)
+    after_copy.Observe(2, 0, 0, 50.0F);
+  for (unsigned i = 0; i < 3; ++i) {
+    Require(after_copy.Choose(rows, 0) == 1,
+            "unmeasured batch widened before qualifying its cheapest draft");
+    after_copy.Observe(2, 0, 1, 1000.0F);
+  }
+  Require(after_copy.Choose(rows, 0) > 1,
+          "qualifying one draft permanently capped speculative width");
+  qfn::MtpLengthController rising_a(7), rising_b(7);
+  rising_a.Observe(4, 4);
+  rising_b.Observe(4, 4);
+  const std::array<qfn::MtpBatchController::Row, 2> rising{
+      {{&rising_a, 7}, {&rising_b, 7}}};
+  qfn::MtpBatchController measured;
+  for (unsigned i = 0; i < 3; ++i)
+    measured.Observe(2, 0, 0, 50.0F);
+  for (unsigned i = 0; i < 3; ++i)
+    measured.Observe(2, 0, 1, 10.0F);
+  Require(measured.Choose(rising, 0) == 1,
+          "acceptance probe ignored a cheaper measured batch width");
   rows[1].budget = 1;
   Require(policy.Choose(rows, 0) <= 1, "batch exceeded one member's budget");
   policy.Observe(2, 0, 0, std::numeric_limits<float>::quiet_NaN());
   Require(policy.Choose(rows, 0) <= 1, "invalid timing corrupted policy");
-}
-
-void CheckBatchLookupAccounting() {
-  qfn::MtpLengthController a(7), b(7);
-  for (unsigned i = 0; i < 12; ++i) {
-    a.Observe(7, 7);
-    b.Observe(7, 7);
-  }
-  std::array<qfn::MtpBatchController::Row, 2> rows{{{&a, 7}, {&b, 7}}};
-  const auto warm = [] {
-    qfn::MtpBatchController policy;
-    for (unsigned w = 0; w <= 7; ++w)
-      for (unsigned repeat = 0; repeat < 3; ++repeat)
-        policy.Observe(2, 0, w, w == 0 ? 50.0F : 1000.0F);
-    for (unsigned i = 0; i < 32; ++i)
-      policy.Observe(2, 0, 3, 60.0F);
-    return policy;
-  };
-  auto clean = warm();
-  auto copied = warm();
-  clean.Observe(2, 0, 3, 60.0F);
-  clean.Observe(2, 0, 3, 60.0F);
-  // A cycle whose chains include copies, then the catch-up replaying them.
-  copied.Observe(2, 0, 3, 600.0F, true);
-  copied.Observe(2, 0, 3, 600.0F);
-  // Identical choices also cover cycle counting, exploration and controls.
-  for (unsigned i = 0; i < 40; ++i) {
-    const auto width = clean.Choose(rows, 0);
-    Require(copied.Choose(rows, 0) == width,
-            "prompt-lookup copies contaminated the measured batch cost");
-    const float ms = width == 0 ? 50.0F : width == 3 ? 60.0F : 1000.0F;
-    clean.Observe(2, 0, width, ms);
-    copied.Observe(2, 0, width, ms);
-  }
-  // Steady cycles after copies are measured again.
-  copied.Observe(2, 0, 3, 60.0F, true);
-  for (unsigned i = 0; i < 4; ++i)
-    copied.Observe(2, 0, 3, 2000.0F);
-  for (unsigned i = 0; i < 16; ++i) {
-    const auto width = copied.Choose(rows, 0);
-    Require(width != 3, "batch costs were not measured after copies ended");
-    copied.Observe(2, 0, width, width == 0 ? 50.0F : 1000.0F);
-  }
 }
 
 void CheckSampledOutputFrequencies() {
@@ -320,6 +306,33 @@ void CheckSampledOutputFrequencies() {
       Require(std::abs(double(counts[token]) / trials - p.probability(token)) <
                   0.008,
               "proposal and correction draws distort target frequencies");
+    }
+  }
+}
+
+// Prompt lookup proposes copied tokens as point masses. Whatever token is
+// copied, verification must reproduce the target frequencies: accept with
+// p(token), else resample from p without it.
+void CheckPointMassFrequencies() {
+  const std::array<float, 5> logits{0.3F, -0.2F, 1.1F, 0.7F, -1.0F};
+  constexpr unsigned trials = 100000;
+  for (const float temperature : {0.7F, 1.0F}) {
+    sampling::SamplerState sampler({.temperature = temperature, .seed = 29});
+    const auto p = sampler.Distribution(logits);
+    for (const sampling::TokenId copied : {2U, 4U}) {
+      qfn::MtpProposal proposal;
+      proposal.size = 1;
+      proposal.ids[0] = proposal.token = copied;
+      proposal.probabilities[0] = proposal.probability = 1;
+      std::array<unsigned, 5> counts{};
+      for (unsigned trial = 0; trial < trials; ++trial) {
+        ++counts[qfn::VerifyMtpProposal(logits, proposal, sampler).token];
+      }
+      for (unsigned token = 0; token < counts.size(); ++token) {
+        Require(std::abs(double(counts[token]) / trials -
+                         p.probability(token)) < 0.008,
+                "point-mass proposals distort target frequencies");
+      }
     }
   }
 }
@@ -379,9 +392,9 @@ int main() {
     CheckLengthController();
     CheckCalibratedCosts();
     CheckBatchProfitability();
-    CheckBatchLookupAccounting();
     CheckCompactProposals();
     CheckSampledOutputFrequencies();
+    CheckPointMassFrequencies();
     const std::array<float, 5> logits{0.3F, -0.2F, 1.1F, 0.7F, -1.0F};
     const std::array<sampling::TokenId, 4> history{2, 3, 2, 0};
     for (const auto& test : gufo::test::QwenSamplingCases()) {

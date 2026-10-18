@@ -56,18 +56,6 @@ public:
     return expected;
   }
 
-  /// Expected accepted drafts at depths [first, last), given that the drafts
-  /// before `first` are accepted: what replacing that tail would forgo.
-  [[nodiscard]] float ExpectedDrafts(std::uint32_t first,
-                                     std::uint32_t last) const noexcept {
-    float expected = 0.0F, survival = 1.0F;
-    for (auto depth = first; depth < std::min(last, limit_); ++depth) {
-      survival *= Probability(depth);
-      expected += survival;
-    }
-    return expected;
-  }
-
   void Observe(std::size_t accepted, std::size_t drafted,
                std::uint32_t context = 0) noexcept {
     if (drafted == 0)
@@ -200,6 +188,11 @@ public:
                         stable_cycles_ >= 2;
     if (stable && (cell.samples[0] == 0 || cell.cycles % 32 < 2))
       return 0;
+    // Copies may leave all neural costs unmeasured. Qualify the cheapest
+    // width before widening: transitions include the previous catch-up,
+    // and the first usable sample can still contain lazy allocation work.
+    if (stable && cell.samples[0] != 0 && cell.samples[1] < 2)
+      return 1;
     auto costs = MtpCycleCosts(context, rows.size());
     const float scale = cell.samples[0] ? cell.ms[0] / costs[0] : 1.0F;
     for (unsigned width = 0; width <= cap; ++width)
@@ -217,24 +210,28 @@ public:
         best = width;
       }
     }
-    // Fully accepted cohorts can qualify deeper shapes promptly. Stop
-    // forcing exploration once that physical width has warmed measurements.
-    unsigned probe = cap;
-    for (const auto& row : rows)
-      probe = std::min(probe, row.acceptance->State().probe_depth);
-    if (probe > best && cell.samples[probe] < 2)
-      return probe;
     // Bounded exploration learns wider costs and conditional acceptance;
     // it also lets an AR-only batch detect a change in the workload.
     if (cell.cycles % 16 == 2)
       return std::min(cap, std::max(1U, best + 1));
+    // The transition's catch-up is excluded by Observe. Hold a new probe
+    // for two usable samples so its measured cost can inform the next choice.
+    const auto probe_phase = cell.cycles % 16;
+    if (stable && (probe_phase == 3 || probe_phase == 4) &&
+        cell.last_drafts != 0 && cell.samples[cell.last_drafts] < 2)
+      return std::min(cap, cell.last_drafts);
     return best;
   }
 
-  /// `copied` marks a cycle in which a row extended its chain with
-  /// prompt-lookup copies.
+  /// Lookup can widen verification and shorten neural drafting. Neither
+  /// that cycle nor its following catch-up measures a neural width's cost.
+  void SkipCycle() noexcept {
+    last_concurrency_ = 0;
+    stable_cycles_ = 0;
+  }
+
   void Observe(std::size_t concurrency, std::uint32_t context,
-               std::uint32_t drafts, float ms, bool copied = false) noexcept {
+               std::uint32_t drafts, float ms) noexcept {
     if (concurrency == 0 || concurrency > 8 || drafts > kMaxMtpDraftTokens ||
         !std::isfinite(ms) || ms <= 0)
       return;
@@ -244,16 +241,11 @@ public:
     stable_cycles_ = same_cohort ? std::min(stable_cycles_ + 1, 1000000U) : 1;
     last_concurrency_ = concurrency;
     last_context_bin_ = bin;
-    // Copies widen this cycle's verification beyond `drafts` proposals per
-    // row, and the next cycle replays the accepted copies in catch-up, so
-    // neither measures the cost of `drafts` proposals.
-    const bool after_copies = last_copied_;
-    last_copied_ = copied;
     auto& cell = CellFor(concurrency, context);
     // Catch-up belongs to the preceding chain. A transition from seven
     // proposals to three still replays the longer chain, so it cannot
     // measure the steady cost of three proposals (or of plain decoding).
-    if (!same_cohort || drafts != cell.last_drafts || copied || after_copies) {
+    if (!same_cohort || drafts != cell.last_drafts) {
       cell.last_drafts = drafts;
       ++cell.cycles;
       return;
@@ -294,7 +286,6 @@ private:
   std::size_t last_concurrency_{0};
   unsigned last_context_bin_{0};
   unsigned stable_cycles_{0};
-  bool last_copied_{false};
 };
 
 }  // namespace gufo::models::qwen38_flash_next

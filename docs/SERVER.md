@@ -189,7 +189,8 @@ captures need it; `--cache-ram-commit eager` pins all of it before serving, so
 no request shares the host with that work. Startup then takes about 0.16 s per
 GiB longer, the budget is resident immediately, and startup fails rather than
 growing later if the host or device heap cannot hold it. The
-`event=backing_prepared` line reports the committed bytes and the time taken.
+`event=backing_prepared` line reports the committed and long-term pinned bytes
+and the time taken.
 Pair it with an explicit `--cache-ram-bytes`
 ([details](KV-CACHE.md#limits)). Other models' disk staging and temporary disk-save
 buffers are separate from this RAM budget.
@@ -1109,7 +1110,9 @@ reads the result, it adds the request's cached prompt tokens
 speculative verification rounds (`llamacpp:spec_decode_num_drafts_total`),
 proposed and accepted draft tokens
 (`llamacpp:spec_decode_num_draft_tokens_total`,
-`llamacpp:spec_decode_num_accepted_tokens_total`), and raises
+`llamacpp:spec_decode_num_accepted_tokens_total`), proposed and accepted
+prompt-lookup copies (`gufo_spec_lookup_tokens_total`,
+`gufo_spec_lookup_accepted_tokens_total`), and raises
 `llamacpp:n_tokens_max` to its prompt plus generated tokens. A request counts
 even if the client disconnects before reading it; requests that fail in the
 scheduler, such as on a deadline or a runner error, add none of these.

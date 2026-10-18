@@ -2623,7 +2623,10 @@ public:
                                                                 : "lazy") +
               " budget_bytes=" + std::to_string(budget) + " backing_bytes=" +
               std::to_string(allocation.blocks * block) + " committed_bytes=" +
-              std::to_string(backing->pool->CommittedBytes()) + " segments=" +
+              std::to_string(backing->pool->CommittedBytes()) +
+              " long_term_pinned_bytes=" +
+              std::to_string(backing->pool->LongTermPinnedBytes()) +
+              " segments=" +
               std::to_string(backing->pool->PageCommitAllocations()) + "/" +
               std::to_string(parts) +
               " segment_bytes=" + std::to_string(segment) + " prepare_ms=" +
@@ -2660,6 +2663,8 @@ public:
             "schema=component-cache-v1 event=backing_grown committed_bytes=" +
                 std::to_string(backing->pool->CommittedBytes()) + " segments=" +
                 std::to_string(backing->pool->PageCommitAllocations()) +
+                " long_term_pinned_bytes=" +
+                std::to_string(backing->pool->LongTermPinnedBytes()) +
                 " acquire_ms=" +
                 std::to_string(std::chrono::duration<double, std::milli>(
                                    std::chrono::steady_clock::now() - started)
@@ -3036,6 +3041,9 @@ public:
     step.draft_rounds = stats_after.cycles - stats_before.cycles;
     step.draft_tokens = stats_after.drafted - stats_before.drafted;
     step.draft_accepted_tokens = stats_after.accepted - stats_before.accepted;
+    step.lookup_tokens = stats_after.lookup - stats_before.lookup;
+    step.lookup_accepted_tokens =
+        stats_after.lookup_accepted - stats_before.lookup_accepted;
     return step;
   }
 
@@ -3123,6 +3131,11 @@ public:
       step.draft_rounds = stats.cycles - before[i].cycles;
       step.draft_tokens = stats.drafted - before[i].drafted;
       step.draft_accepted_tokens = stats.accepted - before[i].accepted;
+      // A request whose peers dropped out runs a single-session step,
+      // which can use prompt lookup.
+      step.lookup_tokens = stats.lookup - before[i].lookup;
+      step.lookup_accepted_tokens =
+          stats.lookup_accepted - before[i].lookup_accepted;
     }
     return steps;
   }
