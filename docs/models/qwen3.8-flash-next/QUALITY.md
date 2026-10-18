@@ -418,6 +418,65 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream sync onto main `1f97092` (October 18, 2026): a checked
+integration, not a new timing qualification.** Source `9546bae` is an ordinary
+merge of upstream main `1f97092` into the previous sync `5df6da3`: `3389a58`
+plus #613 `8497711` (upstream prompt lookup) and #633 `1f97092` (long-term
+page pins for cache backing, cold-prompt hipBLASLt preparation). Upstream's
+prompt lookup replaces the fork's, and the Flash-Next model sources are
+identical to upstream. The fork keeps only `--prepare-structured-output` and
+`--cache-ram-commit eager`. Eager commitment grows through #633's pinning
+path, and `backing_prepared` also reports `long_term_pinned_bytes`.
+
+- **Build:** pinned flake; release `bin/gufo` sha256 `14beb7ed…5ea24e`.
+  Formatting (584 files), the hosted PR suite (59 tests) and the CPU
+  `prompt_lookup`/`ngram`/`draft_vocab`/`mtp_sampling` tests pass.
+- **GPU checks, each run once (1,061 s in total, including diagnosis):**
+  - `cache_backing_test` passes normally and with `--deny-long-term-pins`.
+    The container refuses the long-term pin itself (8 MiB memlock, seccomp),
+    so the pinned-lifetime case is skipped and the registered fallback runs.
+  - `session_test --cache-only` and `continuation_adapter_test --reuse-only`
+    pass, and so do the 27 checks of upstream's `prompt_lookup.py`.
+  - `session_test --batch-only`: serial and batched greedy C2–C8 and seeded
+    runs are exact. Upstream's lookup batch check is exact at C2–C8, with 43
+    sampled and 118 greedy accepted copies, batched snapshots, request reset,
+    and restore into a used session with rewind. Greedy lookup matches AR.
+    The run then fails in `CheckDraftVocabLifecycle` ("tabled text did not
+    return to the small head"), an upstream test inconsistency: #613 loads
+    the test model with `decode_concurrency = 8`, under which unplanned
+    requests keep the full draft head by design, and greedy copy cycles skip
+    the draft head. The function and the engine are identical to upstream.
+    Diagnostic copies, not committed, pass every exactness check in the
+    function; with `decode_concurrency = 1` the small head is used again.
+- **262K deployment configuration** (one session, vision, 16 GiB eager RAM
+  cache, structured-output preparation; the command below):
+  - The harness passes over discovery, state-edges, tool-agent,
+    tool-choice-cache, image-inputs, and cache with its disk restart. Against
+    `bf6e11a`, all 136 requests have identical bodies and outputs apart from
+    the known `agent_sampled_peers` 372/374 peer swap.
+  - Preparation order is unchanged: vision, then the eager backing (15/15
+    segments), then structured output, all before readiness.
+    `long_term_pinned_bytes` is 0, the documented fallback. After the commit,
+    17,491 MiB host memory and 18.09 GB device heap are free; the lowest
+    MemAvailable is 16,765 MiB. No backing growth, limits, reclaim,
+    compaction, PSI or major faults.
+  - The screenshot answer is identical on the first request, the cache-hit
+    repeat (2,077 cached), after restart, and to `bf6e11a`'s; so are the tool
+    call, structured output and continuation.
+  - A B B A against `ae530008`, with identical outputs: warm-up prefill
+    247 → 164 ms (#633's cold-prompt preparation), rewrite decode
+    19.15 → 17.22 s with identical drafts, prose unchanged. The coding-agent
+    history drafts differently (94 against 84 drafts), so its timing is not
+    comparable.
+- **Compatibility:** the snapshot payload version changes from 17 to 18.
+  Checkpoints from earlier builds are not reused, and a Flash-Next server
+  removes earlier-release checkpoint files from its `--cache-disk` directory.
+  The deployment command is unchanged and has no disk cache.
+- **Not covered:** a timing qualification, timing at 262K, the long-term pin
+  path itself, two-session serving with this binary, and concurrent vision.
+
+[Evidence](artifacts/upstream-sync-1f97092.json).
+
 **Fork history.** The records from here to the end of this section describe the
 fork's own prompt lookup, `--prepare-structured-output` and
 `--cache-ram-commit eager` through `5df6da3`. In the sync onto upstream main

@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-18",
+  "title": "Fork synced onto upstream main 1f97092: upstream prompt lookup and cache fixes, with --prepare-structured-output and --cache-ram-commit eager retained",
+  "kind": "checked upstream integration; not a new timing qualification",
+  "upstream": {
+    "target": "1f97092333af10f29887b098d9cb8a041610004a",
+    "base_of_previous_sync": "3389a585ef9eb59f8226e177455820c4d8390f46",
+    "new_commits": [
+      "8497711eb154ecff55ef4119a01ace214149e276 perf(qwen-flash): copy repeated context into MTP drafts (#613)",
+      "1f97092333af10f29887b098d9cb8a041610004a fix(inference): reduce Flash-Next cache and cold-prompt stalls (#633)"
+    ],
+    "published_release_note": "v0.17.0 predates both commits"
+  },
+  "integration": {
+    "revision": "9546bae607d2e00c63b31cc92dbe68837cbe73a8",
+    "parents": ["5df6da3c96f2bb7f6ebce656418fc40eb66cc3f4", "1f97092333af10f29887b098d9cb8a041610004a"],
+    "archived_start": "archive/validated-v017-5df6da3",
+    "conflicts_resolved": [
+      "engine.cpp, engine.hpp, mtp_policy.hpp, prompt_lookup.hpp, prompt_lookup_test.cpp: upstream versions (every downstream hunk was the fork's lookup)",
+      "inference_backend.cpp: eager/lazy branch kept; one backing_prepared line with upstream's long_term_pinned_bytes added"
+    ],
+    "remaining_diff_vs_target": "src: 10 files in src/cli/serve and src/core/hip/committed_backing.* (the two retained options); src/models identical to upstream; tests/tooling and docs",
+    "release_binary": {
+      "path": "/nix/store/xpjmaznig277hacjmqsl71f4ij525wyq-gufo-0-unstable-9546bae/bin/gufo",
+      "sha256": "14beb7ed984c39a6aa7f788a8d0a52891a4fce6c6b0a612ceef1ce85c85ea24e",
+      "gc_root": "/nix/var/nix/gcroots/sp78-tested-9546bae-14beb7ed"
+    },
+    "gpu_test_binaries_sha256": {
+      "qwen38_flash_next_session_test": "cba1e4d2d5275005eb081824e5d5475dae8fb408c492c171f8df9896c83a027a",
+      "qwen38_flash_next_continuation_adapter_test": "30c0238cfdc9fda3afe13fd5099bb72a81f9b4755031e1edc4a56c0166011eac",
+      "cache_backing_test": "f221f96aca8e909d5a784be1084bf58eb50b563a57268a97f6f2d6a953246e57"
+    },
+    "flake_lock_sha256_prefix": "faabad820ec09caa"
+  },
+  "reconciliation": {
+    "replaced_by_upstream": ["fork prompt lookup (policy, index, counters incl. lookup_anchor, proposal logic)", "fork lookup unit tests", "CheckBatchLookupAccounting (upstream SkipCycle test)"],
+    "retained": ["--prepare-structured-output", "--cache-ram-commit eager (CommitAll, capacity accounting, failure text, backing_prepared)", "eager/structured-output tests", "resident-publication cache tests", "functional harness tooling (resolve.py, compare.py screen, test_runner.py)"],
+    "adapted_tests": ["CheckPromptLookupReplay -> CheckPromptLookupGreedyMatchesAr (greedy = AR cases only; sampled-anchor checks encoded the retired policy)", "CheckBatchedSessions -> upstream version"],
+    "historical_documentation_only": ["QUALITY/BENCHMARKS/EXPERIMENTS fork lookup records and artifacts, relabelled as replaced by #613"],
+    "not_restored": ["--prepare-vision (automatic upstream since #616)"]
+  },
+  "cpu_checks": {
+    "formatting": "pass (584 C++ files, pinned clang-format 21.1.8)",
+    "checks.pr": "pass (59/59 hosted tests, dependency inventory, docs, CLI strings)",
+    "cpu_tests": "qwen38_flash_next.prompt_lookup, ngram, draft_vocab, mtp_sampling pass",
+    "release_strings": "vision_prepared, --prepare-structured-output, --cache-ram-commit, long_term_pinned_bytes present; --prepare-vision absent"
+  },
+  "gpu_checks": {
+    "gpu_server_seconds": 1061.0,
+    "plan_seconds": 909.5,
+    "diagnosis_seconds": 151.5,
+    "ceiling_seconds": 1800,
+    "host": "halo-llm1 gfx1151 (card0), kernel 7.2.11, GPU level auto, TuneD accelerator-performance",
+    "G1_backing": "cache_backing_test pass; the long-term pin lifetime case is skipped in the container (io_uring/memlock restricted); --deny-long-term-pins pass (registered fallback retains capacity)",
+    "G2_batch": {
+      "rc": 1,
+      "passed_before_failure": "serial/batched greedy C2-C8 exact; seeded sampled history exact; lookup C2-C8 tokens/logits/RNG exact; 43 sampled and 118 greedy accepted copies; batched snapshots exact; restore into a used session and rewind exact; greedy lookup = AR (quoted value 19 copies, 14 accepted)",
+      "failure": "CheckDraftVocabLifecycle: tabled text did not return to the small head",
+      "diagnosis": "Upstream test inconsistency, not an integration or production defect. #613 loads the shared test model with decode_concurrency = 8, under which unplanned requests keep the full draft head by design (gate unchanged since 5df6da3), and greedy copy cycles skip the draft head. The test function and the engine are identical to upstream 1f97092. Diagnostic copies (not committed, --vocab-only, fresh process): every exactness check passes (restores into populated vs fresh tables, penalized replay, mixed-head batch members vs isolated twins, logits); with decode_concurrency = 1 the small head is used (tabled 4/8 cycles, the other 4 lookup copies; sampled penalty 8/8; English batch member every cycle)."
+    },
+    "G3_cache": "pass (MTP cache replay x11, learned draft policy exact)",
+    "G4_reuse": "pass (AR and MTP slot reuse: sampled, greedy, cancellation, reset)",
+    "G5_prompt_lookup_http": "pass (27 checks: isolated copies 100-108 of 113-116 drafts accepted, C2-C8 peers, mixed, greedy C8, stop/resume)",
+    "G6_harness": {
+      "suites": ["discovery", "state-edges", "tool-agent", "tool-choice-cache", "image-inputs", "cache"],
+      "result": "pass",
+      "versus_bf6e11a": "136 matched requests, identical bodies and outputs; only the known agent_sampled_peers 372/374 peer swap; accepted drafts 1183 vs 1189"
+    },
+    "G7_deploy": {
+      "check": "PASS, nothing to explain",
+      "preparation_order": "vision < eager backing (15/15) < structured output < readiness, both processes; ready 31.8/32.4 s",
+      "long_term_pinned_bytes": 0,
+      "container_pin_limits": "seccomp filter, RLIMIT_MEMLOCK 8 MiB, no CAP_IPC_LOCK; unchanged",
+      "backing": "15,220,277,248 B committed, prepare 558 ms (bf6e11a 512-518 ms), no backing_grown or backing_limited",
+      "headroom_at_backing": "host 17,491 MiB, device heap 18,086,174,720 B",
+      "min_mem_available_mib": 16765,
+      "versus_bf6e11a": "screenshot answer, tool call, structured output and continuation identical, same token counts; server GTT at ready 90,673 vs 90,670 MiB; RssAnon 15,761 vs 15,730 MiB",
+      "pressure": "zero reclaim, compaction, PSI and major faults"
+    },
+    "G8_perf_ABBA": {
+      "builds": {"A": "ae530008 (bf6e11a, deployed)", "B": "14beb7ed (9546bae)"},
+      "outputs": "identical across builds and within each build for all four requests; rewrite correct in all units",
+      "warmup_prefill_ms": [[246.9, 163.7], [251.4, 164.2]],
+      "rewrite_decode_ms": [[19147.6, 17218.5], [19159.5, 17225.0]],
+      "prose_decode_ms": [[10009.4, 10004.1], [10008.4, 10007.9]],
+      "agent_decode_ms": [[2031.1, 1894.6], [2030.5, 1897.3]],
+      "agent_work_differs": "drafts 84 vs 94, accepted 65 vs 70, rounds 34 vs 29: not comparable work",
+      "concerns": "none"
+    }
+  },
+  "compatibility": "kSnapshotPayloadVersion 17 -> 18: checkpoints from earlier builds are not reused, and a Flash-Next server removes earlier-release checkpoint files from its --cache-disk directory. The deployment command has no disk cache.",
+  "deployment_command_change": "none",
+  "not_covered": [
+    "timing qualification or statistical comparison",
+    "timing at 262K context",
+    "the long-term pin path itself (refused in the container; fallback verified)",
+    "two-session serving with this binary",
+    "concurrent or multi-session vision",
+    "upstream's own session_test binary (attribution of the draft-vocab failure rests on identical engine and test code plus the diagnostic runs)"
+  ],
+  "evidence_local": "validation/sp78 (PLAN.md frozen before GPU work; results on halo ~/gufo-opt/results/sp78)"
+}
