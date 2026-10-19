@@ -47,16 +47,6 @@ struct TextPreparedPrompt {
   std::size_t cache_prefix_tokens{0};
 };
 
-/// When a cache with pinned backing (Flash-Next) commits that backing.
-enum class TextRunnerRamCommit : std::uint8_t {
-  /// A 2 GiB reserve before serving, then more on a background thread ahead
-  /// of each prefill chunk, or by a capture that needs it. The default.
-  kLazy,
-  /// All backing before serving, so no request shares the host with a commit.
-  /// Startup fails if any step is declined or fails.
-  kEager,
-};
-
 struct TextRunnerRamCacheOptions {
   static constexpr std::size_t kAutomaticMaxBytes = std::size_t{32} << 30;
   static constexpr std::size_t kMaxEntries = 128;
@@ -64,8 +54,6 @@ struct TextRunnerRamCacheOptions {
   /// Explicit limits may exceed that budget up to the model's ceiling, which
   /// keeps kHostSnapshotHeadroomBytes of host RAM free.
   std::size_t capacity_bytes{0};
-  /// kEager needs a cache with pinned backing; other models reject it.
-  TextRunnerRamCommit commit{TextRunnerRamCommit::kLazy};
 };
 
 struct TextRunnerDiskCacheOptions {
