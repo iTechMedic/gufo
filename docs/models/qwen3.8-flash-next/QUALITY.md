@@ -465,6 +465,56 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream `e773094` integration (October 19, 2026): a checked integration
+and deployment, not a new timing qualification.** Source `92a56e0` is an
+ordinary merge of pinned upstream main `e773094` (#653, #654, #624, #524 and
+#638) into testing `a74b165`. Upstream #638's automatic structured-output
+preparation replaces the fork's opt-in `--prepare-structured-output`, which is
+removed with its scheduler policy and duplicate tests. The only remaining
+production difference from upstream is `--cache-ram-commit eager`. It now commits
+#653's ~128 MiB segments (114 for a 16 GiB budget) with the same admission.
+Lazy commitment keeps upstream's 2 GiB startup reserve and per-chunk prefill
+growth. Review fix `8d56bc8` changes only documentation and harness metadata.
+
+- **Build:** pinned flake; `/nix/store/9klrkh2b…-gufo-0-unstable-92a56e0`,
+  launcher `bin/gufo` sha256 `d1855a88…`, ELF `bin/.gufo-wrapped` sha256
+  `ce465ae3…`. The launcher selects #653's patched ROCr 7.2.3. Formatting
+  (590 files), the hosted PR checks, `sampling_test` and 141 harness tests pass.
+- **Runtime:** earlier fork deployments ran the Nix binary in the ROCm 10.0
+  builder image. That image's `LD_LIBRARY_PATH` loaded its own HIP, ROCr,
+  rocBLAS and hipBLASLt instead of the package's. The deployment now unsets the
+  variable, so the process maps the patched ROCr and the package's HIP 7.2.3
+  libraries, with no `/opt/rocm` library. The fork measurements above used the
+  image runtime and do not qualify this one.
+- **GPU tests** (patched runtime): `cache_backing_test` (also with restricted
+  pins) passes, as do the three `hip_memory_visibility` variants,
+  `qwen38_flash_next.snapshot_copy`, `.moe_epilogue_ops` (#624),
+  `.projection_ops`, `.mtp_ops` and `speculative_verification_test`.
+- **Deployment configuration** (two sessions, 262K, vision, MTP, 16 GiB eager
+  RAM cache):
+  - Vision, eager backing (114/114) and structured output (248,320 tokens) each
+    prepare once before readiness.
+  - There are no error or warning lines, and the lowest MemAvailable is 8,943 MiB.
+  - Image and history: the screenshot answer equals `55b9bfb`'s. Its repeat
+    reuses the 2,077-token prefix, and the history continuation reuses 2,185 of
+    2,211 tokens.
+  - Tools: the tool call, the JSON-schema output and a 12-field `todo` call pass.
+  - Overlap: two batched requests equal their solo runs, and two overlapped
+    history continuations each recall only their own code word.
+  - Reasoning budget: a Chat and Responses request with
+    `reasoning_budget_tokens: 16` reasons for exactly 16 tokens, then answers.
+    The server's reasoning defaults are unchanged.
+- **Sanity comparison** against the previous deployment (`558632b`, image
+  runtime), one fresh process each and one pass. Three ~7.2K-token ordinary
+  prompts and three rewrite fixtures give identical outputs, token and draft
+  counts. Per-request prefill and decode rates differ by at most 0.5%.
+- **Not covered:** a timing qualification, other model profiles, depth sweeps,
+  a Pi replay and concurrent image requests. Two review notes on upstream #653
+  code are left unchanged: the vision encoder allocates its pinned upload per
+  image, and prefill preparation follows the reusable-state reset.
+
+[Evidence](artifacts/upstream-sync-e773094.json).
+
 **Upstream #643 integration (October 18, 2026): a checked tool-call correctness
 update, not a new timing qualification.** Source `558632b` is an ordinary merge
 of upstream's #643 merge `a802cc7` (main `f948ddd` plus #643 only) into testing

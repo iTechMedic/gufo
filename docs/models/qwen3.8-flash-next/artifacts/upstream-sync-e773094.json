@@ -1,0 +1,605 @@
+{
+ "schema": 1,
+ "title": "Checked integration of upstream e773094 (#653, #654, #624, #524, #638) and deployment (sp84)",
+ "date": "2026-10-19",
+ "scope": "Checked integration and deployment; one-pass sanity comparison; not a timing qualification.",
+ "identities": {
+  "start": {
+   "testing": "a74b165f071039455b4c08c5b36c8cf4fd264bf2",
+   "validated": "a74b165f071039455b4c08c5b36c8cf4fd264bf2"
+  },
+  "upstream_main": "e77309421b0013d44d62ec0824be63c057a970e5",
+  "upstream_changes": [
+   653,
+   654,
+   624,
+   524,
+   638
+  ],
+  "integration": "92a56e07ace501a4da3c796c6c1b9f5b4b87dde2",
+  "review_fix": "8d56bc8 (docs/KV-CACHE.md and tests/functional/impact.json only)",
+  "tested_binary": {
+   "package": "/nix/store/9klrkh2byahdyq8q3hyddfrw3im6n492-gufo-0-unstable-92a56e0",
+   "launcher_sha256": "d1855a887ff9a8627aa804add92595cbcae243b0b21cdcef69eec655aee89dbd",
+   "elf": "/nix/store/9klrkh2byahdyq8q3hyddfrw3im6n492-gufo-0-unstable-92a56e0/bin/.gufo-wrapped",
+   "elf_sha256": "ce465ae381ae426a9e5b98117c7469903f46937960d99adbb2646d322dbd2df9",
+   "gc_root": "sp84-tested-92a56e0-ce465ae3",
+   "patched_rocr": "/nix/store/b0kpbrnll50cacvd4k9scd8bwzmqiwkc-rocm-runtime-7.2.3",
+   "unpatched_rocr": "/nix/store/5ccvsl0x90vnzkrvk80zhzsf730yw48g-rocm-runtime-7.2.3"
+  },
+  "previous_binary": {
+   "path": "/nix/store/1q24d151d3zjszabnh6gyn0prhsl7mqd-gufo-0-unstable-558632b/bin/gufo",
+   "sha256": "60b19e3dcaf781ebeb7d6f1ea62ee0eb346a059c97a9a476b53b26c4513cc99c",
+   "gc_root": "sp83-tested-558632b-60b19e3d",
+   "container": "gufo-558632b-s2 (kept, exited)"
+  },
+  "archive": "archive/validated-v017-a74b165"
+ },
+ "diff_review": {
+  "structured_output": "Upstream #638 adopted completely: automatic preparation before readiness; the fork flag, scheduler policy and duplicate tests removed; upstream rejects --prepare-structured-output as an unknown option.",
+  "remaining_production_difference": "--cache-ram-commit eager only (serve.cpp option, TextRunnerRamCommit, ComponentTextCache/TextRunnerPool plumbing and eager rejection for other models, Flash-Next commit_backing eager branch and backing_prepared fields, CommittedBackingPool::CommitAll).",
+  "eager_adaptation": "Eager commits #653's ~128 MiB segments with the unchanged admission (114/114 for the 16 GiB budget); lazy keeps upstream's 2 GiB startup reserve and per-chunk prefill growth; nothing superseded restored.",
+  "unchanged_upstream": "lookup, automatic vision preparation, image preprocessing reuse, pinning, runtime package and kernel fixes; no diagnostic switches or retired patches."
+ },
+ "cpu": {
+  "format": "clang-format 21.1.8, 590 files",
+  "checks_pr": "pass",
+  "sampling_test": "pass",
+  "harness_unit_tests": 141
+ },
+ "runtime": {
+  "finding": "Earlier deployments ran the Nix binary in the rocm10 builder image, whose LD_LIBRARY_PATH loaded the image's ROCm 10.0 HIP, ROCr, rocBLAS, hipBLASLt and comgr instead of the package's.",
+  "change": "The container drops the image LD_LIBRARY_PATH (--unsetenv LD_LIBRARY_PATH); the launcher prefixes the patched ROCr.",
+  "previous_process": {
+   "hsa_runtime": [
+    "/opt/rocm/core-10.0/lib/libhsa-runtime64.so.1.21.0"
+   ],
+   "amdhip": [
+    "/opt/rocm/core-10.0/lib/libamdhip64.so.7.15.26333-0000000"
+   ],
+   "opt_rocm_libraries": 24
+  },
+  "deployed_process": {
+   "hsa_runtime": [
+    "/nix/store/b0kpbrnll50cacvd4k9scd8bwzmqiwkc-rocm-runtime-7.2.3/lib/libhsa-runtime64.so.1.18.0"
+   ],
+   "amdhip": [
+    "/nix/store/yb81zhv981n0kxvcsr7ia4fjjd78bsjz-clr-7.2.3/lib/libamdhip64.so.7.2.53211"
+   ],
+   "rocblas": [
+    "/nix/store/l965jma3x9c31i7l0fx9br6i2z31q9ax-rocblas-7.2.3/lib/librocblas.so.5.2.70203"
+   ],
+   "hipblaslt": [
+    "/nix/store/99zkj4awm6wgnjykhgdd3sldsf0lvcj1-hipblaslt-7.2.3/lib/libhipblaslt.so.1.2.70203"
+   ],
+   "comgr": [
+    "/nix/store/58ahzqzprzw6gh809mc1nxzrwra19hcc-rocm-comgr-22.0.0-rocm/lib/libamd_comgr.so.3.0.0"
+   ],
+   "opt_rocm": [],
+   "LD_LIBRARY_PATH": "/nix/store/b0kpbrnll50cacvd4k9scd8bwzmqiwkc-rocm-runtime-7.2.3/lib"
+  }
+ },
+ "gpu_tests": {
+  "runtime": "patched ROCr via LD_LIBRARY_PATH, package HIP via RUNPATH",
+  "passed": 10,
+  "tests": [
+   "cache_backing_test",
+   "cache_backing_restricted_test",
+   "hip_memory_visibility_test",
+   "hip_memory_visibility_restricted_test",
+   "hip_memory_visibility_driver_test",
+   "speculative_verification_test",
+   "qwen38_flash_next.mtp_ops",
+   "qwen38_flash_next.moe_epilogue_ops",
+   "qwen38_flash_next.projection_ops",
+   "qwen38_flash_next.snapshot_copy"
+  ]
+ },
+ "startup": {
+  "old": {
+   "commit": "eager",
+   "segments": "15/15",
+   "segment_bytes": "1014693888",
+   "committed_bytes": "15220277248",
+   "long_term_pinned_bytes": "0",
+   "prepare_ms": "590.344969",
+   "device_heap_free_bytes": "10651779072",
+   "host_available_mib": "10205",
+   "structured_output": {
+    "vocabulary_tokens": "248320",
+    "prepare_ms": "33.2",
+    "rss_delta_kib": "29808"
+   }
+  },
+  "new": {
+   "commit": "eager",
+   "segments": "114/114",
+   "segment_bytes": "133562368",
+   "committed_bytes": "15220277248",
+   "long_term_pinned_bytes": "0",
+   "prepare_ms": "1456.129100",
+   "device_heap_free_bytes": "10518712320",
+   "host_available_mib": "10159",
+   "structured_output": {
+    "vocabulary_tokens": "248320",
+    "prepare_ms": "31.4",
+    "rss_delta_kib": "29920"
+   }
+  },
+  "checks_new": {
+   "each_once": true,
+   "before_listening": true,
+   "vision_before_backing": true,
+   "eager_all_segments": true,
+   "vocabulary": true
+  },
+  "error_lines_new": []
+ },
+ "functional": {
+  "checks": {
+   "R1_answer": true,
+   "R2_equals_R1": true,
+   "R2_reuses_image_prefix": true,
+   "R5_history_cached": true,
+   "R5_answer": true,
+   "R3_tool_call": true,
+   "R4_json_schema": true,
+   "RB_budget": false,
+   "C1_expected": true,
+   "C1solo_expected": true,
+   "C1_equals_solo": true,
+   "C2_expected": true,
+   "C2solo_expected": true,
+   "C2_equals_solo": true,
+   "K1_isolated": true,
+   "K2_isolated": true,
+   "K_histories_cached": true,
+   "tool_smoke": true,
+   "models": true
+  },
+  "note": "RB_budget asserted Chat completion_tokens_details.reasoning_tokens, which Chat does not report (null); the exact count was proven in the rb amendment phase.",
+  "C_overlap_ms": 2632.0,
+  "K_overlap_ms": 369.9,
+  "R1_equals_sp79_55b9bfb_R1": true
+ },
+ "reasoning_budget": {
+  "checks": {
+   "responses_exact_budget": true,
+   "answer_follows": true,
+   "chat_matches_responses": true
+  },
+  "responses_reasoning_tokens": 16,
+  "reasoning": "We need answer user: \"Is 1001 a prime number\n",
+  "answer": "No."
+ },
+ "perf_sanity": {
+  "arms": [
+   "558632b + image ROCm 10.0 (previous deployment)",
+   "92a56e0 + package runtime (deployment)"
+  ],
+  "note": "One fresh process per arm, one pass; values are [previous, candidate].",
+  "rows": [
+   {
+    "request": "warm",
+    "same_output": true,
+    "rewrite_expected": null,
+    "work": {
+     "prompt_tokens": [
+      "15",
+      "15"
+     ],
+     "prefill_tokens": [
+      "15",
+      "15"
+     ],
+     "generated_tokens": [
+      "1",
+      "1"
+     ],
+     "draft_accepted": [
+      "0",
+      "0"
+     ],
+     "draft_proposed": [
+      "1",
+      "1"
+     ],
+     "lookup_accepted": [
+      null,
+      null
+     ]
+    },
+    "prefill_tps": [
+     99.5,
+     127.4
+    ],
+    "decode_tps": [
+     18.0,
+     19.5
+    ],
+    "ttft_ms": [
+     152.8,
+     119.7
+    ]
+   },
+   {
+    "request": "O1",
+    "same_output": true,
+    "rewrite_expected": null,
+    "work": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "prefill_tokens": [
+      "7221",
+      "7221"
+     ],
+     "generated_tokens": [
+      "300",
+      "300"
+     ],
+     "draft_accepted": [
+      "235",
+      "235"
+     ],
+     "draft_proposed": [
+      "264",
+      "264"
+     ],
+     "lookup_accepted": [
+      null,
+      null
+     ]
+    },
+    "prefill_tps": [
+     1705.3,
+     1711.2
+    ],
+    "decode_tps": [
+     64.3,
+     64.4
+    ],
+    "ttft_ms": [
+     4246.6,
+     4231.9
+    ]
+   },
+   {
+    "request": "W1",
+    "same_output": true,
+    "rewrite_expected": [
+     true,
+     true
+    ],
+    "work": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "prefill_tokens": [
+      "1413",
+      "1413"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "draft_accepted": [
+      "1155",
+      "1155"
+     ],
+     "draft_proposed": [
+      "1339",
+      "1339"
+     ],
+     "lookup_accepted": [
+      "932",
+      "932"
+     ]
+    },
+    "prefill_tps": [
+     1518.6,
+     1511.7
+    ],
+    "decode_tps": [
+     90.3,
+     90.5
+    ],
+    "ttft_ms": [
+     932.5,
+     936.9
+    ]
+   },
+   {
+    "request": "O2",
+    "same_output": true,
+    "rewrite_expected": null,
+    "work": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "prefill_tokens": [
+      "7221",
+      "7221"
+     ],
+     "generated_tokens": [
+      "183",
+      "183"
+     ],
+     "draft_accepted": [
+      "122",
+      "122"
+     ],
+     "draft_proposed": [
+      "162",
+      "162"
+     ],
+     "lookup_accepted": [
+      "14",
+      "14"
+     ]
+    },
+    "prefill_tps": [
+     1725.7,
+     1724.6
+    ],
+    "decode_tps": [
+     51.2,
+     51.3
+    ],
+    "ttft_ms": [
+     4196.4,
+     4198.8
+    ]
+   },
+   {
+    "request": "W2",
+    "same_output": true,
+    "rewrite_expected": [
+     true,
+     true
+    ],
+    "work": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "prefill_tokens": [
+      "1413",
+      "1413"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "draft_accepted": [
+      "1154",
+      "1154"
+     ],
+     "draft_proposed": [
+      "1346",
+      "1346"
+     ],
+     "lookup_accepted": [
+      "925",
+      "925"
+     ]
+    },
+    "prefill_tps": [
+     1632.3,
+     1626.3
+    ],
+    "decode_tps": [
+     89.7,
+     89.8
+    ],
+    "ttft_ms": [
+     875.5,
+     876.5
+    ]
+   },
+   {
+    "request": "O3",
+    "same_output": true,
+    "rewrite_expected": null,
+    "work": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "prefill_tokens": [
+      "7221",
+      "7221"
+     ],
+     "generated_tokens": [
+      "300",
+      "300"
+     ],
+     "draft_accepted": [
+      "215",
+      "215"
+     ],
+     "draft_proposed": [
+      "233",
+      "233"
+     ],
+     "lookup_accepted": [
+      null,
+      null
+     ]
+    },
+    "prefill_tps": [
+     1720.3,
+     1721.4
+    ],
+    "decode_tps": [
+     58.0,
+     58.1
+    ],
+    "ttft_ms": [
+     4210.3,
+     4206.5
+    ]
+   },
+   {
+    "request": "W3",
+    "same_output": true,
+    "rewrite_expected": [
+     true,
+     true
+    ],
+    "work": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "prefill_tokens": [
+      "1413",
+      "1413"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "draft_accepted": [
+      "1152",
+      "1152"
+     ],
+     "draft_proposed": [
+      "1356",
+      "1356"
+     ],
+     "lookup_accepted": [
+      "930",
+      "930"
+     ]
+    },
+    "prefill_tps": [
+     1629.9,
+     1624.0
+    ],
+    "decode_tps": [
+     88.9,
+     89.0
+    ],
+    "ttft_ms": [
+     876.3,
+     877.6
+    ]
+   }
+  ]
+ },
+ "deployment": {
+  "container": "gufo-92a56e0-s2",
+  "create_command": [
+   "podman",
+   "run",
+   "-d",
+   "--name",
+   "gufo-92a56e0-s2",
+   "--device",
+   "/dev/kfd",
+   "--device",
+   "/dev/dri",
+   "--security-opt",
+   "label=disable",
+   "--group-add",
+   "keep-groups",
+   "--network",
+   "host",
+   "--ipc",
+   "host",
+   "-e",
+   "HOME=/home/dhauf",
+   "-v",
+   "/mnt/ai-storage:/mnt/ai-storage:ro",
+   "-v",
+   "gufo-nix-store:/nix:ro",
+   "--unsetenv",
+   "LD_LIBRARY_PATH",
+   "localhost/gufo-opt-builder:rocm10",
+   "/nix/store/9klrkh2byahdyq8q3hyddfrw3im6n492-gufo-0-unstable-92a56e0/bin/gufo",
+   "serve",
+   "--host",
+   "0.0.0.0",
+   "--port",
+   "8080",
+   "--max-request-bytes",
+   "67108864",
+   "llm",
+   "--model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "--served-model-name",
+   "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "--mmproj",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf",
+   "--speculative",
+   "mtp",
+   "--mtp-model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "--sessions",
+   "2",
+   "--context",
+   "262144",
+   "--cache-ram-bytes",
+   "17179869184",
+   "--cache-ram-commit",
+   "eager"
+  ],
+  "checks": {
+   "ready": true,
+   "binary": true,
+   "command": true,
+   "preparation_before_ready": true,
+   "no_error_lines": true,
+   "patched_rocr_loaded": true,
+   "hip_from_nix": true,
+   "no_opt_rocm": true,
+   "launcher_env": true,
+   "models": true,
+   "tool_smoke": true
+  },
+  "ready_s": 35.6,
+  "smoke": {
+   "status": 200,
+   "arguments": [
+    {
+     "action": "update",
+     "id": 1,
+     "status": "completed"
+    }
+   ],
+   "pass": true
+  }
+ },
+ "review": {
+  "coderabbit_findings": 5,
+  "fixed": [
+   "docs/KV-CACHE.md backing step size and reserve",
+   "impact.json reasoning-budget uses structured"
+  ],
+  "not_changed": [
+   "keep --prepare-structured-output as a no-op (owner asked to remove it; upstream rejects it)",
+   "vision encoder pinned upload per image (upstream #653 production code)",
+   "PreparePrefill after state_reusable=false (upstream #653 production code; GrowAhead does not throw)"
+  ]
+ },
+ "memory_min_mib": {
+  "gtests": 122207,
+  "old": 9370,
+  "new": 8943,
+  "rb": 10111,
+  "deploy": 10604
+ },
+ "gpu_server_seconds": 314.8,
+ "not_covered": [
+  "timing qualification",
+  "other model profiles",
+  "depth sweeps",
+  "Pi workflow replay",
+  "concurrent image requests",
+  "full 262K-depth sessions"
+ ]
+}
