@@ -199,7 +199,7 @@ positive value sets a byte cap that may exceed the automatic budget, up to the
 available host RAM minus 4 GiB; the startup line reports both as
 `automatic_bytes` and `max_bytes`.
 On Flash-Next, the pinned disk staging buffer comes out of that ceiling, and
-`max_bytes` excludes it. Flash-Next pins the budget about 1 GiB at a time as
+`max_bytes` excludes it. Flash-Next pins the budget ahead of prefill as
 captures need it; `--cache-ram-commit eager` pins all of its backing pages
 before serving, so no request shares the host with that work. Startup then
 takes longer by the time to commit them, they are resident immediately, and
@@ -359,6 +359,27 @@ official Jinja: thinking enabled, `xhigh` effort, prior reasoning preserved.
 Use `--think off` or `chat_template_kwargs.enable_thinking=false` for direct
 answers. DeepSeek defaults to thinking with `high` effort. Quality comparisons
 must use the same reasoning mode and effort.
+
+`--reasoning-budget N` caps reasoning at N tokens on Chat, Responses and
+Messages requests, as in llama.cpp: `-1` (the default) is unlimited and `0`
+ends reasoning at once. Chat and Responses override it per request with
+`reasoning_budget_tokens` (`-1` keeps the server default), and Messages with
+`thinking.budget_tokens` when `thinking.type` is `enabled`. Tokens are counted
+from the reasoning start, including the newline after Qwen's `<think>`. Once
+the budget is spent and the last token completes its UTF-8 character, the
+model's reasoning end is forced: `\n</think>` for Qwen, `</think>` for DeepSeek.
+For an ASCII Qwen response that reaches the cap, N generated reasoning tokens
+precede `</think>`. A natural end can use fewer tokens, and completing a UTF-8
+character can require more. A Qwen `<tool_call>` also ends reasoning. The budget
+covers the initial reasoning phase. Later `<think>` spellings remain literal
+answer or tool-argument data, consistent with Gufo's response framing.
+
+Chat and Responses also accept llama.cpp's older `thinking_budget_tokens`
+spelling for existing clients; a non-null `reasoning_budget_tokens` takes
+precedence. Request budgets must fit a signed 32-bit integer; Messages budgets
+must also be positive. The server does not automatically reserve part of
+`max_tokens` for the answer: clients must set a smaller reasoning budget when
+they need that room.
 
 Keep `reasoning_effort` (Chat) or `output_config.effort` (Messages) consistent
 across turns while thinking is enabled: Qwen and DeepSeek render the effort
@@ -680,9 +701,10 @@ complete usage, and `message_stop`. `message_start` reports zero usage because
 prompt accounting is final only at the end. A failure after the headers sends
 an `error` event. Responses and Messages honor the server's thinking defaults.
 Messages accepts `thinking.type` (`enabled`, `adaptive` or `disabled`);
-`adaptive` keeps the server's thinking default, and `budget_tokens` has no
-native equivalent, so the effort stays the server's unless
-`output_config.effort` sets it. Reasoning is returned as a `thinking` block
+`adaptive` keeps the server's thinking default. With `enabled`,
+`budget_tokens` caps the reasoning (see Reasoning controls), and the answer
+follows. The effort stays the server's unless `output_config.effort`
+sets it. Reasoning is returned as a `thinking` block
 before the `text` block, with an empty `signature`, for every accepted
 `thinking.display` (`summarized`, `omitted` or `updates`). Replay assistant
 `thinking` blocks unchanged so later turns reuse the cached prompt.
@@ -868,15 +890,15 @@ Constraints apply before target sampling in AR, DFlash2, MTP and DSpark, includi
 streaming, images and concurrent requests. Reasoning stays separate from JSON
 and counts toward the output budget. Changing the schema changes the cache prefix.
 
-Every schema and tool grammar uses one token vocabulary per loaded model. By
-default the first constrained request builds it inside its queue time
-(Flash-Next: 248,320 tokens, about 30 ms of CPU). `gufo serve llm
---prepare-structured-output` builds the same vocabulary while the model loads,
-before readiness, and every constrained request reuses it. Startup takes that
-much longer, and the process keeps it resident even if no request is
-constrained. The startup line `event=structured_output_prepared` reports
-`vocabulary_tokens`, `prepare_ms` and `rss_delta_kib`. Startup fails if the
-model has no structured output. Grammars and their masks are unchanged.
+Every schema and tool grammar uses one token vocabulary per loaded model.
+Gufo prepares it automatically while the model loads, before readiness, and
+every constrained request reuses it. This moves a one-time CPU cost from the
+first constrained request to startup (Flash-Next: 248,320 tokens, about 30 ms).
+The vocabulary stays resident even if no request is constrained. The startup
+line `event=structured_output_prepared` reports `vocabulary_tokens`, `prepare_ms`
+and `rss_delta_kib`. Runners without structured output skip preparation and
+retain ordinary text serving; vocabulary build errors still fail startup.
+Grammars and their masks are unchanged.
 
 `</think>` ends reasoning before constrained JSON. Native tools also accept an
 unquoted function header as the boundary when the model omits `</think>`.
