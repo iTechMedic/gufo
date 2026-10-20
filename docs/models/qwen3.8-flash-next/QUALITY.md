@@ -519,6 +519,42 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream `f020bd3` integration (October 20, 2026): a checked integration
+and deployment, not a new timing qualification.** Source `c917dcd` is an
+ordinary merge of pinned upstream main `f020bd3` (#680: component-cache
+admission without repeated resets or full checkpoint lookups; #686: answer
+`Expect: 100-continue` before reading the body) into testing `1ccf44a`.
+Production source and build inputs equal upstream; both evaluate to the same
+Nix source `wmvcwq9n…-source`. Model and GPU code are unchanged since
+`66c2881`, so its GPU evidence stands.
+
+- **Build:** pinned flake; `/nix/store/4c9cafzw…-gufo-0-unstable-c917dcd`,
+  launcher `bin/gufo` sha256 `5fa41cf3…`, ELF `bin/.gufo-wrapped` sha256
+  `3a9c9266…`. The launcher selects the patched ROCr 7.2.3, and the binary
+  contains none of the retired options. Formatting (592 files) and the hosted
+  PR checks pass, including `cache_prefix_index_test`, `cache_tiered_test`,
+  `cache_slot_test`, `component_text_cache_test` and `http_server_test`.
+- **Deployment configuration** (two sessions, 262K, vision, MTP, 16 GiB lazy
+  RAM cache): preparation once before readiness, no error or warning lines,
+  lowest MemAvailable 14,546 MiB. `/props` reports `development (c917dcd)`.
+  All 29 functional checks pass. Every one of the 15 functional requests
+  (cold, cached repeat, history continuation, overlapped and isolated
+  histories, tools, JSON and the prefetch pair) has the same prompt and cache
+  work, text and tool calls as `66c2881`'s. An `Expect: 100-continue` request
+  receives the interim response in 0.2 ms before its body, and a 1.1 MB curl
+  upload completes in 50 ms.
+- **Sanity comparison** against sp94's run of `66c2881`, one fresh process and
+  one pass: all seven greedy outputs and draft counts are identical, decode
+  rates are unchanged and prefill rates are within 0.3%.
+- **Deployment:** `gufo-c917dcd-s2` uses the previous container's create
+  command with only the name and launcher changed, ready in 34.8 s; the
+  deployed server also answers `Expect: 100-continue`.
+- **Not covered:** a timing qualification, GPU tests (no model or GPU code
+  changed), other model profiles and a Pi replay. The RAM cache starts empty
+  after a restart.
+
+[Evidence](artifacts/upstream-sync-f020bd3.json).
+
 **Upstream `ae9ec69` integration (October 20, 2026): a checked integration
 and deployment, not a new timing qualification.** Source `66c2881` is an
 ordinary merge of pinned upstream main `ae9ec69` (#681: vector loads for the

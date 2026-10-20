@@ -1,0 +1,552 @@
+{
+ "schema": 1,
+ "title": "Checked integration of upstream f020bd3 (#680, #686) and deployment (sp95)",
+ "date": "2026-10-20",
+ "scope": "Checked integration and deployment; one-pass sanity comparison; not a timing qualification.",
+ "identities": {
+  "start": {
+   "testing": "1ccf44a0ab740504f50a2e76224269b4c69bd7c7",
+   "validated": "1ccf44a0ab740504f50a2e76224269b4c69bd7c7",
+   "fork_main": "f020bd3a037d58aa42138ca11fa895524e43cdd6"
+  },
+  "archives": [
+   "archive/testing-1ccf44a",
+   "archive/validated-1ccf44a"
+  ],
+  "upstream_main": "f020bd3a037d58aa42138ca11fa895524e43cdd6",
+  "upstream_changes_since_ae9ec69": [
+   680,
+   686
+  ],
+  "integration": "c917dcd727eb2fe815e784556c94bf70f36bcf32",
+  "tested_binary": {
+   "package": "/nix/store/4c9cafzwxv3f8ly3p7rdlychsqmf5sz4-gufo-0-unstable-c917dcd",
+   "launcher_sha256": "5fa41cf375beff0b8657c812e0cda4c74317869dad4bf815f1f23a7c69c2cb8b",
+   "elf_sha256": "3a9c9266fffa62beb7e9d9e2eb54ff31d69e516e9f1465557901b76dbabfc59a",
+   "gc_root": "sp95-sync-c917dcd-3a9c9266",
+   "patched_rocr": "/nix/store/b0kpbrnll50cacvd4k9scd8bwzmqiwkc-rocm-runtime-7.2.3",
+   "hip": "/nix/store/yb81zhv981n0kxvcsr7ia4fjjd78bsjz-clr-7.2.3"
+  },
+  "production_source": {
+   "candidate": "/nix/store/wmvcwq9naikja09jm4vny67hp352gnnm-source",
+   "pinned_upstream": "/nix/store/wmvcwq9naikja09jm4vny67hp352gnnm-source",
+   "equal": true
+  },
+  "previous_binary": {
+   "package": "/nix/store/18103znhnnzdafn6cmn8rwl60vr8rzgs-gufo-0-unstable-66c2881",
+   "elf_sha256": "0c88f7caad5939831c1ea7ca8f70879484badc1c9f1fb7f201b4cd427f68f3e7",
+   "container": "gufo-66c2881-s2 (stopped cleanly by the owner 19:58:42 UTC before the window)"
+  }
+ },
+ "diff_review": {
+  "remaining_production_difference": "none",
+  "fork_only": "unchanged (historical docs, harness tooling, component_text_cache_test.cpp resident-publication test)"
+ },
+ "cpu": {
+  "format": "pinned clang-format 21.1.8, 592 files",
+  "checks_pr": "pass (82 s; 59/59 hosted tests incl. cache_prefix_index, cache_tiered, cache_slot, cache_checkpoint, component_text_cache, http_server, text_model_runner, openai_chat)"
+ },
+ "runtime": {
+  "patched_rocr_loaded": true,
+  "hip_from_nix": true,
+  "no_opt_rocm": true,
+  "launcher_env": true
+ },
+ "gpu_tests": "not run: no model or GPU code changed since 66c2881 (sp93/sp94 evidence reused)",
+ "startup": {
+  "checks": {
+   "each_once": true,
+   "before_listening": true,
+   "vision_before_backing": true,
+   "lazy_backing": true,
+   "vocabulary": true
+  },
+  "backing": {
+   "commit": null,
+   "segments": null,
+   "segment_bytes": null,
+   "committed_bytes": "2270560256",
+   "long_term_pinned_bytes": "0",
+   "prepare_ms": null,
+   "device_heap_free_bytes": null,
+   "host_available_mib": null
+  },
+  "error_lines": []
+ },
+ "props": {
+  "checks": {
+   "status": true,
+   "build_info": true,
+   "model_alias": true,
+   "model_path": true,
+   "total_slots": true,
+   "n_ctx": true,
+   "vision": true
+  },
+  "pass": true,
+  "body": {
+   "model": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "model_alias": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "template": "",
+   "model_info": {},
+   "model_path": "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "build_info": "development (c917dcd)",
+   "total_slots": 2,
+   "default_generation_settings": {
+    "n_ctx": 262144,
+    "params": {
+     "temperature": 1,
+     "top_k": 20,
+     "top_p": 0.949999988079071,
+     "min_p": 0,
+     "seed": -1,
+     "repeat_penalty": 1,
+     "repeat_last_n": 64,
+     "frequency_penalty": 0,
+     "presence_penalty": 0,
+     "max_tokens": -1,
+     "n_predict": -1
+    }
+   },
+   "modalities": {
+    "vision": true,
+    "video": false,
+    "audio": false
+   }
+  }
+ },
+ "functional": {
+  "checks": {
+   "R1_answer": true,
+   "R2_equals_R1": true,
+   "R2_reuses_image_prefix": true,
+   "R5_history_cached": true,
+   "R5_answer": true,
+   "R1_equals_sp94": true,
+   "R3_tool_call": true,
+   "R4_json_schema": true,
+   "C1_expected": true,
+   "C1solo_expected": true,
+   "C1_equals_solo": true,
+   "C2_expected": true,
+   "C2solo_expected": true,
+   "C2_equals_solo": true,
+   "K1_isolated": true,
+   "K2_isolated": true,
+   "K_histories_cached": true,
+   "P676_parallel_calls": true,
+   "P676_no_whitespace_content": true,
+   "P676think_parallel_calls": true,
+   "P676think_no_whitespace_content": true,
+   "PF1_uncached": true,
+   "PF2_continuation_cached": true,
+   "PF2_answer": true,
+   "tool_smoke": true,
+   "expect_continue": true,
+   "reasoning_budget": true,
+   "models": true,
+   "cache_work_and_outputs_equal_sp94": true
+  },
+  "same_work_as_sp94": {
+   "R1": true,
+   "R2": true,
+   "R5": true,
+   "R3": true,
+   "R4": true,
+   "C1": true,
+   "C2": true,
+   "C1solo": true,
+   "C2solo": true,
+   "K1": true,
+   "K2": true,
+   "P676": true,
+   "P676think": true,
+   "PF1": true,
+   "PF2": true
+  },
+  "R1_equals_sp94_R1": true,
+  "C_overlap_ms": 2601.6,
+  "K_overlap_ms": 373.4
+ },
+ "expect_continue_686": {
+  "candidate": {
+   "interim": "HTTP/1.1 100 Continue\r\n\r\n",
+   "interim_ms": 0.2,
+   "final_status": "HTTP/1.1 200 OK",
+   "answer": "OK",
+   "curl": {
+    "http_code": "200",
+    "time_starttransfer_s": "0.000213",
+    "time_total_s": "0.049967",
+    "sent_expect": true,
+    "got_100": true
+   },
+   "checks": {
+    "interim_100": true,
+    "final_200": true,
+    "curl_large_body": true
+   },
+   "pass": true
+  },
+  "deployed": {
+   "interim": "HTTP/1.1 100 Continue\r\n\r\n",
+   "interim_ms": 0.1,
+   "final_status": "HTTP/1.1 200 OK",
+   "answer": "OK",
+   "curl": {
+    "http_code": "200",
+    "time_starttransfer_s": "0.000298",
+    "time_total_s": "0.050705",
+    "sent_expect": true,
+    "got_100": true
+   },
+   "checks": {
+    "interim_100": true,
+    "final_200": true,
+    "curl_large_body": true
+   },
+   "pass": true
+  }
+ },
+ "ngram_accounting_683": {
+  "requests_reporting": 27,
+  "all_balanced": true,
+  "PF1_reported": true,
+  "PF2_reported": true
+ },
+ "reasoning_budget": {
+  "responses_exact_budget": true,
+  "answer_follows": true,
+  "chat_matches_responses": true
+ },
+ "perf_sanity": {
+  "reference": "sp94 candidate run of 66c2881 (same host, runtime and command)",
+  "result": {
+   "rows": {
+    "warm": {
+     "prompt_tokens": [
+      "15",
+      "15"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1",
+      "1"
+     ],
+     "prefill_tps": [
+      "127.3",
+      "127.6"
+     ],
+     "decode_tps": [
+      "19.7",
+      "19.6"
+     ],
+     "draft_accepted": [
+      "0",
+      "0"
+     ],
+     "draft_proposed": [
+      "1",
+      "1"
+     ],
+     "text_equal_reference": true
+    },
+    "O1": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "300",
+      "300"
+     ],
+     "prefill_tps": [
+      "1701.9",
+      "1703.9"
+     ],
+     "decode_tps": [
+      "60.2",
+      "60.2"
+     ],
+     "draft_accepted": [
+      "225",
+      "225"
+     ],
+     "draft_proposed": [
+      "265",
+      "265"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0012,
+     "decode_change": 0.0
+    },
+    "W1": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1513.7",
+      "1509.5"
+     ],
+     "decode_tps": [
+      "91.5",
+      "91.5"
+     ],
+     "draft_accepted": [
+      "1155",
+      "1155"
+     ],
+     "draft_proposed": [
+      "1342",
+      "1342"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": -0.0028,
+     "decode_change": 0.0
+    },
+    "O2": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "183",
+      "183"
+     ],
+     "prefill_tps": [
+      "1725.1",
+      "1726.0"
+     ],
+     "decode_tps": [
+      "58.3",
+      "58.3"
+     ],
+     "draft_accepted": [
+      "138",
+      "138"
+     ],
+     "draft_proposed": [
+      "187",
+      "187"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0005,
+     "decode_change": 0.0
+    },
+    "W2": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1626.7",
+      "1627.5"
+     ],
+     "decode_tps": [
+      "92.2",
+      "92.2"
+     ],
+     "draft_accepted": [
+      "1156",
+      "1156"
+     ],
+     "draft_proposed": [
+      "1335",
+      "1335"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0005,
+     "decode_change": 0.0
+    },
+    "O3": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "300",
+      "300"
+     ],
+     "prefill_tps": [
+      "1719.4",
+      "1720.4"
+     ],
+     "decode_tps": [
+      "69.8",
+      "69.8"
+     ],
+     "draft_accepted": [
+      "244",
+      "244"
+     ],
+     "draft_proposed": [
+      "278",
+      "278"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0006,
+     "decode_change": 0.0
+    },
+    "W3": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1625.2",
+      "1627.1"
+     ],
+     "decode_tps": [
+      "91.4",
+      "91.4"
+     ],
+     "draft_accepted": [
+      "1155",
+      "1155"
+     ],
+     "draft_proposed": [
+      "1342",
+      "1342"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0012,
+     "decode_change": 0.0
+    }
+   },
+   "checks": {
+    "O1_same_prompt_work": true,
+    "O1_prefill_within_5pct": true,
+    "O1_decode_within_15pct": true,
+    "O1_text_equal_sp94": true,
+    "W1_same_prompt_work": true,
+    "W1_prefill_within_5pct": true,
+    "W1_decode_within_15pct": true,
+    "W1_expected_edit": true,
+    "W1_text_equal_sp94": true,
+    "O2_same_prompt_work": true,
+    "O2_prefill_within_5pct": true,
+    "O2_decode_within_15pct": true,
+    "O2_text_equal_sp94": true,
+    "W2_same_prompt_work": true,
+    "W2_prefill_within_5pct": true,
+    "W2_decode_within_15pct": true,
+    "W2_expected_edit": true,
+    "W2_text_equal_sp94": true,
+    "O3_same_prompt_work": true,
+    "O3_prefill_within_5pct": true,
+    "O3_decode_within_15pct": true,
+    "O3_text_equal_sp94": true,
+    "W3_same_prompt_work": true,
+    "W3_prefill_within_5pct": true,
+    "W3_decode_within_15pct": true,
+    "W3_expected_edit": true,
+    "W3_text_equal_sp94": true
+   },
+   "pass": true
+  }
+ },
+ "deployment": {
+  "name": "gufo-c917dcd-s2",
+  "checks": {
+   "ready": true,
+   "binary": true,
+   "command": true,
+   "preparation_before_ready": true,
+   "no_error_lines": true,
+   "patched_rocr_loaded": true,
+   "hip_from_nix": true,
+   "no_opt_rocm": true,
+   "launcher_env": true,
+   "models": true,
+   "tool_smoke": true,
+   "props": true,
+   "expect_continue": true
+  },
+  "ready_s": 34.8,
+  "cmdline": [
+   "/nix/store/4c9cafzwxv3f8ly3p7rdlychsqmf5sz4-gufo-0-unstable-c917dcd/bin/gufo",
+   "serve",
+   "--host",
+   "0.0.0.0",
+   "--port",
+   "8080",
+   "--max-request-bytes",
+   "67108864",
+   "llm",
+   "--model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "--served-model-name",
+   "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "--mmproj",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf",
+   "--speculative",
+   "mtp",
+   "--mtp-model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "--sessions",
+   "2",
+   "--context",
+   "262144",
+   "--cache-ram-bytes",
+   "17179869184"
+  ]
+ },
+ "memory_min_mib": {
+  "new": 14546,
+  "deploy": 22241
+ },
+ "gpu_server_window": {
+  "start": "2026-10-20T20:03:58Z",
+  "end": "2026-10-20T20:07:14Z",
+  "phase_seconds": {
+   "new": 135.8,
+   "deploy": 34.9
+  }
+ },
+ "not_covered": [
+  "timing qualification",
+  "GPU tests (unchanged model/GPU code)",
+  "other model profiles",
+  "Pi replay"
+ ]
+}
