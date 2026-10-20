@@ -465,6 +465,73 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream `62c840e` integration (October 20, 2026): a checked integration
+and deployment, not a new timing qualification.** Source `72bb51c` is an
+ordinary merge of pinned upstream main `62c840e` (v0.19.0 with #664, #674 and
+#675, then #676, #609 and #683) into testing `89f3f30`. The fork carries no
+production changes: production source and build inputs equal upstream, and
+both evaluate to the same Nix source `ny5wd2xr…-source`. #655 remains
+upstream's implementation, eager commitment stays removed, and none of
+`--cache-ram-commit`, `--prepare-vision` and `--prepare-structured-output`
+returns. Only the fork's historical documentation, functional test tooling
+and the resident-publication test in `component_text_cache_test.cpp` differ;
+#683's additions to that file merged cleanly beside it.
+
+- **Build:** pinned flake; `/nix/store/w0k3w71p…-gufo-0-unstable-72bb51c`,
+  launcher `bin/gufo` sha256 `b8e25721…`, ELF `bin/.gufo-wrapped` sha256
+  `4c48d14f…`. The launcher selects the patched ROCr 7.2.3, and the binary
+  contains none of the retired options. Formatting (592 files), the hosted PR
+  checks (including #676's `openai_chat_test`, #683's
+  `component_text_cache_test` and #664's `mtp_sampling` cases) and 146 harness
+  tests pass.
+- **GPU tests** (patched runtime): `session_test --batch-only` passes: C2–C8
+  batches and lookup batches are exact with #664's cohort-width greedy pricing
+  and #683's corrected references, and #655's sampled small head is unchanged
+  (`small_head_cycles=8,8,1,8`). `--prefill-only` passes: sampled MTP replay is
+  exact at every prefill-chunk boundary, and #683's four prefetch-hint cases
+  (exact, shorter, longer, diverging) are exact with balanced n-gram rows.
+  `--cache-only` (MTP cache replay and draft-policy snapshots) passes, as do
+  `.ngram`, `.mtp_sampling`, `.draft_vocab`, `.continuation_layout` and
+  `.prompt_lookup`.
+- **Deployment configuration** (two sessions, 262K, vision, MTP, 16 GiB lazy
+  RAM cache):
+  - Vision, backing (the 2.27 GB lazy reserve) and structured output each
+    prepare once before readiness. There are no error or warning lines, and
+    the lowest MemAvailable is 14,913 MiB.
+  - `/props` reports build `development (72bb51c)`, the served model and path,
+    2 slots, 262,144 context and vision.
+  - Image and history: the screenshot answer equals `38fe3fd`'s. Its repeat is
+    identical and reuses the 2,077-token prefix, and the history continuation
+    reuses 2,184 of 2,210 tokens.
+  - Tools: the tool call, the JSON-schema output and a 12-field `todo` call
+    pass. Two parallel calls (#676) return no content, with and without
+    thinking.
+  - Overlap: two batched requests equal their solo runs, and two overlapped
+    history continuations each recall only their own code word.
+  - Reasoning budget: with `reasoning_budget_tokens: 16`, Responses reasons for
+    exactly 16 tokens, and Chat returns the same reasoning and answer.
+  - Prefetch and n-gram accounting (#683): an uncached 7,221-token prompt and
+    its continuation (7,285 of 7,317 tokens cached) answer correctly. All 25
+    completed requests report `ngram_rows` equal to the sum of deduplicated
+    rows, row-cache hits and disk reads.
+- **Sanity comparison** against sp92's run of `38fe3fd` (same host, runtime and
+  command), one fresh process and one pass. All seven greedy outputs are
+  identical, with equal prompt work. Prefill rates are within −1.6% to −0.2%;
+  the first long prompts warm the n-gram row cache (10,612 disk reads, then
+  about 350). Decode rates are within −5.0% to +17.8%; the larger changes
+  follow draft counts, consistent with #664 pricing lone greedy requests at
+  their occupancy.
+- **Deployment:** `gufo-72bb51c-s2` uses the previous container's create
+  command with only the name and launcher changed (`/dev/kfd` and
+  `/dev/dri/renderD128`, `LD_LIBRARY_PATH` unset), ready in 34.4 s. Rollback:
+  stop it and start `gufo-38fe3fd-s2`.
+- **Not covered:** a timing qualification, other model profiles (#609 changes
+  only DeepSeek V4 Flash loading), depth sweeps, a Pi replay and concurrent
+  image requests. The RAM cache starts empty after a restart, so the next long
+  continuation is a full prefill.
+
+[Evidence](artifacts/upstream-sync-62c840e.json).
+
 **Upstream `b6a671c` integration (October 20, 2026): a checked integration
 and deployment, not a new timing qualification.** The fork no longer carries
 production changes. `15f5e55` removes the withdrawn `--cache-ram-commit eager`
