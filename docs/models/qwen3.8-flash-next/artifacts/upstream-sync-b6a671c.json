@@ -1,0 +1,638 @@
+{
+ "schema": 1,
+ "title": "Checked integration of upstream b6a671c (#660, #668, #669, #667, #672, #655) and deployment without fork production changes (sp92)",
+ "date": "2026-10-20",
+ "scope": "Checked integration and deployment; one-pass sanity comparison; not a timing qualification.",
+ "identities": {
+  "start": {
+   "testing": "04a3036df386a2ed9f6c2059c7b7ef8d95f27b5f",
+   "validated": "675942e5e2420bf713a02173c810eb0b195f2f7b",
+   "fork_main": "b6a671c813f6ff35d9a2a0d2a57f59dad870c1a4"
+  },
+  "archives": [
+   "archive/testing-04a3036",
+   "archive/validated-675942e"
+  ],
+  "upstream_main": "b6a671c813f6ff35d9a2a0d2a57f59dad870c1a4",
+  "latest_release": "v0.18.0 (predates #655 and #667)",
+  "upstream_changes_since_270b533": [
+   660,
+   668,
+   669,
+   667,
+   672,
+   655
+  ],
+  "commits": {
+   "eager_removal": "15f5e55e (revert #640)",
+   "merge_270b533": "39aa0108",
+   "integration": "38fe3fd20fb160c1e3cc08bc66229d13e47397ef"
+  },
+  "tested_binary": {
+   "package": "/nix/store/jxr3y59cafkmfhc2jp58iz590982282w-gufo-0-unstable-38fe3fd",
+   "launcher_sha256": "0cfb5de8018e2608c559f1b753325b37be639dfad3bdace38063022f7af8d980",
+   "elf_sha256": "0d4e544771b73d93f6506bb5af4f2601b1c305c6dc1b18501c6f0c0ce0426886",
+   "gc_root": "sp92-sync-38fe3fd-0d4e5447",
+   "built_from": "38fe3fd20fb160c1e3cc08bc66229d13e47397ef",
+   "patched_rocr": "/nix/store/b0kpbrnll50cacvd4k9scd8bwzmqiwkc-rocm-runtime-7.2.3"
+  },
+  "production_source": {
+   "candidate": "/nix/store/lnn3kcjp12lzgi6cdnapjp982xd8lnmw-source",
+   "pinned_upstream": "/nix/store/lnn3kcjp12lzgi6cdnapjp982xd8lnmw-source",
+   "equal": true
+  },
+  "previous_binary": {
+   "package": "/nix/store/pndr2nkjc20yvcb0hgr631xjxjab3xbq-gufo-0-unstable-39aa010",
+   "elf_sha256": "d42cf0e4b8271fb1d392109563a2777a67f41be5ebff4ebd2cebb2d594c93029",
+   "gc_root": "sp90-sync-39aa010-d42cf0e4",
+   "container": "gufo-39aa010-s2 (kept, exited)"
+  }
+ },
+ "diff_review": {
+  "pr655": "Merged upstream as b6a671c byte-identical to the fork's 04a3036 copy (source and tests); the merge takes upstream's version and nothing is reapplied.",
+  "pr640": "Closed upstream without merging; --cache-ram-commit removed entirely (15f5e55); deployments use upstream's default lazy commitment.",
+  "pr667": "q8_1 block sum stored as d*sum(q) in QuantizeQ8_1Lane and the MMQ quantizers; intentionally changes numerical results.",
+  "remaining_production_difference": "none: src, cmake, CMake files, licenses, .devops, flake.nix, flake.lock, version.txt, tests/models, CI and tools equal b6a671c",
+  "fork_only": [
+   "docs/models/qwen3.8-flash-next/{BENCHMARKS,EXPERIMENTS,QUALITY}.md sections and artifacts (historical)",
+   "tests/cli/component_text_cache_test.cpp (fork-only resident-publication test)",
+   "tests/functional: resolve.py, test_runner.py, README, compare.py, impact.json, pi_agent.py (harness tooling)"
+  ]
+ },
+ "cpu": {
+  "format": "pinned clang-format 21.1.8, 592 files",
+  "checks_pr": "pass (82 s): formatting, dependencies, documentation, hosted CPU contract suite, mkGufoServe",
+  "harness_tests": 146,
+  "binary_strings": {
+   "--cache-ram-commit": 0,
+   "--prepare-vision": 0,
+   "--prepare-structured-output": 0
+  }
+ },
+ "runtime": {
+  "patched_rocr_loaded": true,
+  "hip_from_nix": true,
+  "no_opt_rocm": true,
+  "launcher_env": true
+ },
+ "gpu_tests": {
+  "ok": true,
+  "modes": {
+   "--batch-only": "0",
+   "--cache-only": "0"
+  },
+  "seconds": 322.8,
+  "summary": [
+   "== loaded runtime",
+   "\tlibamdhip64.so.7 => /nix/store/yb81zhv981n0kxvcsr7ia4fjjd78bsjz-clr-7.2.3/lib/libamdhip64.so.7 (0x00007f2dc2000000)",
+   "\tlibhsa-runtime64.so.1 => /nix/store/b0kpbrnll50cacvd4k9scd8bwzmqiwkc-rocm-runtime-7.2.3/lib/libhsa-runtime64.so.1 (0x00007f2db1600000)",
+   "== session_test --batch-only",
+   "batch sampled_accepted=8 rejected_cycles=6 sampled_small_head_cycles=5 history_and_residual_exact=1",
+   "draft table: small head returns after the window (4/4 drafting cycles, 34 lookup copies), tabled rare drafts map back, restores into used tables and mixed batches are exact",
+   "sampled draft head: two sessions small_head_cycles=8,8,1,8 thai_full_head_drafts=7 overlap all_small=5 mixed=7 reordered all_small=9 mixed=7 schedules_and_restores_exact=1 greedy_policy_unchanged=1",
+   "== rc=0 seconds=146 mode=--batch-only",
+   "== session_test --cache-only",
+   "== rc=0 seconds=150 mode=--cache-only",
+   "100% tests passed, 0 tests failed out of 7",
+   "== ctest rc=0"
+  ],
+  "ctest": [
+   "continuation_layout",
+   "mtp_sampling",
+   "draft_vocab",
+   "mtp_ops",
+   "hc_mix_ops",
+   "projection_ops",
+   "routed_wmma_ops"
+  ]
+ },
+ "startup": {
+  "checks": {
+   "each_once": true,
+   "before_listening": true,
+   "vision_before_backing": true,
+   "lazy_backing": true,
+   "vocabulary": true
+  },
+  "backing": {
+   "commit": null,
+   "segments": null,
+   "segment_bytes": null,
+   "committed_bytes": "2270560256",
+   "long_term_pinned_bytes": "0",
+   "prepare_ms": null,
+   "device_heap_free_bytes": null,
+   "host_available_mib": null
+  },
+  "structured_output": {
+   "vocabulary_tokens": "248320",
+   "prepare_ms": "29.7",
+   "rss_delta_kib": "20156"
+  },
+  "vision": {
+   "resident_bytes": "903984064",
+   "upload_ms": "69.516866"
+  },
+  "error_lines": []
+ },
+ "props": {
+  "checks": {
+   "status": true,
+   "build_info": true,
+   "model_alias": true,
+   "model_path": true,
+   "total_slots": true,
+   "n_ctx": true,
+   "vision": true
+  },
+  "pass": true,
+  "body": {
+   "model": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "model_alias": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "template": "",
+   "model_info": {},
+   "model_path": "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "build_info": "development (38fe3fd)",
+   "total_slots": 2,
+   "default_generation_settings": {
+    "n_ctx": 262144,
+    "params": {
+     "temperature": 1,
+     "top_k": 20,
+     "top_p": 0.949999988079071,
+     "min_p": 0,
+     "seed": -1,
+     "repeat_penalty": 1,
+     "repeat_last_n": 64,
+     "frequency_penalty": 0,
+     "presence_penalty": 0,
+     "max_tokens": -1,
+     "n_predict": -1
+    }
+   },
+   "modalities": {
+    "vision": true,
+    "video": false,
+    "audio": false
+   }
+  }
+ },
+ "functional": {
+  "checks": {
+   "R1_answer": true,
+   "R2_equals_R1": true,
+   "R2_reuses_image_prefix": true,
+   "R5_history_cached": true,
+   "R5_answer": true,
+   "R3_tool_call": true,
+   "R4_json_schema": true,
+   "C1_expected": true,
+   "C1solo_expected": true,
+   "C1_equals_solo": true,
+   "C2_expected": true,
+   "C2solo_expected": true,
+   "C2_equals_solo": true,
+   "K1_isolated": true,
+   "K2_isolated": true,
+   "K_histories_cached": true,
+   "tool_smoke": true,
+   "reasoning_budget": true,
+   "models": true
+  },
+  "R1_equals_sp91_R1": false,
+  "C_overlap_ms": 2635.9,
+  "K_overlap_ms": 375.5,
+  "requests": {
+   "R1": {
+    "status": 200,
+    "text": "Based on the screenshot provided, here is a description of the application and its elements:\n\n- **Application:** The application shown is **Orbit Notes**. This name appears in the top-left corner of the menu bar and also in the window's title bar.\n- **Window Title:** The title displayed at the top center of the application window is **\"Quarterly Planning — Orbit Notes\"**.\n- **Blue Button Text:** The prominent blue button in the upper-right area of the main content pane says **\"Export to PDF\"**.",
+    "tool_calls": null,
+    "prompt_tokens": 2077,
+    "cached_tokens": 0
+   },
+   "R2": {
+    "status": 200,
+    "text": "Based on the screenshot provided, here is a description of the application and its elements:\n\n- **Application:** The application shown is **Orbit Notes**. This name appears in the top-left corner of the menu bar and also in the window's title bar.\n- **Window Title:** The title displayed at the top center of the application window is **\"Quarterly Planning — Orbit Notes\"**.\n- **Blue Button Text:** The prominent blue button in the upper-right area of the main content pane says **\"Export to PDF\"**.",
+    "tool_calls": null,
+    "prompt_tokens": 2077,
+    "cached_tokens": 2077
+   },
+   "R5": {
+    "status": 200,
+    "text": "Export to PDF",
+    "tool_calls": null,
+    "prompt_tokens": 2210,
+    "cached_tokens": 2184
+   },
+   "R3": {
+    "status": 200,
+    "text": "",
+    "tool_calls": [
+     {
+      "id": "call_rei35zvwbvjy13akwjor",
+      "type": "function",
+      "function": {
+       "name": "get_weather",
+       "arguments": "{\"city\":\"Paris\",\"unit\":\"celsius\"}"
+      }
+     }
+    ],
+    "prompt_tokens": 320,
+    "cached_tokens": 0
+   },
+   "R4": {
+    "status": 200,
+    "text": "{\n  \"app\": \"Orbit Notes\",\n  \"title\": \"Quarterly Planning — Orbit Notes\",\n  \"button\": \"Export to PDF\"\n}",
+    "tool_calls": null,
+    "prompt_tokens": 112,
+    "cached_tokens": 0
+   },
+   "C1": {
+    "status": 200,
+    "text": "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 KESTREL",
+    "tool_calls": null,
+    "prompt_tokens": 45,
+    "cached_tokens": 0
+   },
+   "C2": {
+    "status": 200,
+    "text": "80 79 78 77 76 75 74 73 72 71 70 69 68 67 66 65 64 63 62 61 60 59 58 57 56 55 54 53 52 51 50 49 48 47 46 45 44 43 42 41 MARMOT",
+    "tool_calls": null,
+    "prompt_tokens": 47,
+    "cached_tokens": 0
+   },
+   "C1solo": {
+    "status": 200,
+    "text": "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 KESTREL",
+    "tool_calls": null,
+    "prompt_tokens": 45,
+    "cached_tokens": 45
+   },
+   "C2solo": {
+    "status": 200,
+    "text": "80 79 78 77 76 75 74 73 72 71 70 69 68 67 66 65 64 63 62 61 60 59 58 57 56 55 54 53 52 51 50 49 48 47 46 45 44 43 42 41 MARMOT",
+    "tool_calls": null,
+    "prompt_tokens": 47,
+    "cached_tokens": 47
+   },
+   "K1": {
+    "status": 200,
+    "text": "KESTREL",
+    "tool_calls": null,
+    "prompt_tokens": 186,
+    "cached_tokens": 158
+   },
+   "K2": {
+    "status": 200,
+    "text": "MARMOT",
+    "tool_calls": null,
+    "prompt_tokens": 197,
+    "cached_tokens": 169
+   }
+  }
+ },
+ "reasoning_budget": {
+  "checks": {
+   "responses_exact_budget": true,
+   "answer_follows": true,
+   "chat_matches_responses": true
+  },
+  "responses_reasoning_tokens": 16,
+  "answer": "No."
+ },
+ "perf_sanity": {
+  "reference": "sp91 candidate run of 39aa010 (same host, runtime and command)",
+  "result": {
+   "rows": {
+    "warm": {
+     "prompt_tokens": [
+      "15",
+      "15"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1",
+      "1"
+     ],
+     "prefill_tps": [
+      "127.7",
+      "128.4"
+     ],
+     "decode_tps": [
+      "19.5",
+      "19.4"
+     ],
+     "draft_accepted": [
+      "0",
+      "0"
+     ],
+     "draft_proposed": [
+      "1",
+      "1"
+     ],
+     "text_equal_sp91": true
+    },
+    "O1": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "300",
+      "300"
+     ],
+     "prefill_tps": [
+      "1692.2",
+      "1711.1"
+     ],
+     "decode_tps": [
+      "64.4",
+      "62.3"
+     ],
+     "draft_accepted": [
+      "235",
+      "231"
+     ],
+     "draft_proposed": [
+      "264",
+      "270"
+     ],
+     "text_equal_sp91": false,
+     "prefill_change": 0.0112,
+     "decode_change": -0.0326
+    },
+    "W1": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1514.6",
+      "1511.7"
+     ],
+     "decode_tps": [
+      "90.5",
+      "89.9"
+     ],
+     "draft_accepted": [
+      "1155",
+      "1154"
+     ],
+     "draft_proposed": [
+      "1339",
+      "1346"
+     ],
+     "text_equal_sp91": true,
+     "prefill_change": -0.0019,
+     "decode_change": -0.0066
+    },
+    "O2": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "183",
+      "183"
+     ],
+     "prefill_tps": [
+      "1725.4",
+      "1723.5"
+     ],
+     "decode_tps": [
+      "51.3",
+      "52.2"
+     ],
+     "draft_accepted": [
+      "122",
+      "123"
+     ],
+     "draft_proposed": [
+      "162",
+      "160"
+     ],
+     "text_equal_sp91": true,
+     "prefill_change": -0.0011,
+     "decode_change": 0.0175
+    },
+    "W2": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1626.5",
+      "1627.3"
+     ],
+     "decode_tps": [
+      "89.8",
+      "90.0"
+     ],
+     "draft_accepted": [
+      "1154",
+      "1154"
+     ],
+     "draft_proposed": [
+      "1346",
+      "1346"
+     ],
+     "text_equal_sp91": true,
+     "prefill_change": 0.0005,
+     "decode_change": 0.0022
+    },
+    "O3": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "300",
+      "300"
+     ],
+     "prefill_tps": [
+      "1721.8",
+      "1721.9"
+     ],
+     "decode_tps": [
+      "58.1",
+      "58.3"
+     ],
+     "draft_accepted": [
+      "215",
+      "215"
+     ],
+     "draft_proposed": [
+      "233",
+      "230"
+     ],
+     "text_equal_sp91": false,
+     "prefill_change": 0.0001,
+     "decode_change": 0.0034
+    },
+    "W3": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1622.9",
+      "1623.2"
+     ],
+     "decode_tps": [
+      "89.0",
+      "89.0"
+     ],
+     "draft_accepted": [
+      "1152",
+      "1152"
+     ],
+     "draft_proposed": [
+      "1356",
+      "1356"
+     ],
+     "text_equal_sp91": true,
+     "prefill_change": 0.0002,
+     "decode_change": 0.0
+    }
+   },
+   "checks": {
+    "O1_same_prompt_work": true,
+    "O1_prefill_within_5pct": true,
+    "O1_decode_within_15pct": true,
+    "W1_same_prompt_work": true,
+    "W1_prefill_within_5pct": true,
+    "W1_decode_within_15pct": true,
+    "W1_expected_edit": true,
+    "O2_same_prompt_work": true,
+    "O2_prefill_within_5pct": true,
+    "O2_decode_within_15pct": true,
+    "W2_same_prompt_work": true,
+    "W2_prefill_within_5pct": true,
+    "W2_decode_within_15pct": true,
+    "W2_expected_edit": true,
+    "O3_same_prompt_work": true,
+    "O3_prefill_within_5pct": true,
+    "O3_decode_within_15pct": true,
+    "W3_same_prompt_work": true,
+    "W3_prefill_within_5pct": true,
+    "W3_decode_within_15pct": true,
+    "W3_expected_edit": true
+   },
+   "pass": true
+  },
+  "first_checker_result": {
+   "pass": false,
+   "cause": "paired by server request id; #669's /props request consumed r1, offsetting every row by one"
+  }
+ },
+ "deployment": {
+  "name": "gufo-38fe3fd-s2",
+  "checks": {
+   "ready": true,
+   "binary": true,
+   "command": true,
+   "preparation_before_ready": true,
+   "no_error_lines": true,
+   "patched_rocr_loaded": true,
+   "hip_from_nix": true,
+   "no_opt_rocm": true,
+   "launcher_env": true,
+   "models": true,
+   "tool_smoke": true,
+   "props": true
+  },
+  "ready_s": 34.6,
+  "cmdline": [
+   "/nix/store/jxr3y59cafkmfhc2jp58iz590982282w-gufo-0-unstable-38fe3fd/bin/gufo",
+   "serve",
+   "--host",
+   "0.0.0.0",
+   "--port",
+   "8080",
+   "--max-request-bytes",
+   "67108864",
+   "llm",
+   "--model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "--served-model-name",
+   "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "--mmproj",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf",
+   "--speculative",
+   "mtp",
+   "--mtp-model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "--sessions",
+   "2",
+   "--context",
+   "262144",
+   "--cache-ram-bytes",
+   "17179869184"
+  ],
+  "create_command_changes": [
+   "--name",
+   "launcher path"
+  ],
+  "rollback": "podman stop --time 60 gufo-38fe3fd-s2 && podman start gufo-39aa010-s2"
+ },
+ "memory_min_mib": {
+  "gtests": 30652,
+  "new": 17561,
+  "deploy": 22964
+ },
+ "gpu_server_window": {
+  "start": "2026-10-20T01:43:57Z",
+  "end": "2026-10-20T01:53:11Z",
+  "phase_seconds": {
+   "gtests": 322.8,
+   "new": 128.9,
+   "deploy": 34.6
+  }
+ },
+ "not_covered": [
+  "timing qualification",
+  "other model profiles",
+  "depth sweeps",
+  "Pi replay",
+  "concurrent image requests"
+ ]
+}

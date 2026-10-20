@@ -465,6 +465,66 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream `b6a671c` integration (October 20, 2026): a checked integration
+and deployment, not a new timing qualification.** The fork no longer carries
+production changes. `15f5e55` removes the withdrawn `--cache-ram-commit eager`
+option (#640, closed upstream without merging), so the deployment uses
+upstream's default lazy commitment. `39aa010` and `38fe3fd` are ordinary merges
+of upstream main `270b533` (v0.18.0) and `b6a671c` (#660, #668, #669, #667,
+#672 and #655). Upstream merged #655 byte-identical to the fork's copy, which
+the fork now takes from upstream. Production source and build inputs equal
+upstream main `b6a671c`: both evaluate to the same Nix source
+`lnn3kcjp…-source`. Only the fork's historical documentation and functional
+test tooling differ. #667 corrects the q8_1 block sum and intentionally changes
+numerical results.
+
+- **Build:** pinned flake; `/nix/store/jxr3y59c…-gufo-0-unstable-38fe3fd`,
+  launcher `bin/gufo` sha256 `0cfb5de8…`, ELF `bin/.gufo-wrapped` sha256
+  `0d4e5447…`. The launcher selects the patched ROCr 7.2.3. The binary contains
+  none of `--cache-ram-commit`, `--prepare-vision` and
+  `--prepare-structured-output`. Formatting (592 files), the hosted PR checks
+  and 146 harness tests pass.
+- **GPU tests** (patched runtime): `session_test --batch-only` passes,
+  including #655's two-session sampled small head (`small_head_cycles=8,8,1,8`,
+  schedules and restores exact, greedy policy unchanged), batching, rollback
+  and graph replay. `--cache-only` (MTP cache replay and draft-policy
+  snapshots) passes. So do #667's `.routed_wmma_ops`, `.projection_ops`,
+  `.hc_mix_ops` and `.mtp_ops`, and `.draft_vocab`, `.mtp_sampling` and
+  `.continuation_layout`.
+- **Deployment configuration** (two sessions, 262K, vision, MTP, 16 GiB lazy
+  RAM cache, no `--cache-ram-commit`):
+  - Vision, backing (the 2.27 GB lazy reserve) and structured output (248,320
+    tokens) each prepare once before readiness. There are no error or warning
+    lines, and the lowest MemAvailable is 17,561 MiB.
+  - `/props` (#669) reports build `development (38fe3fd)`, the served model and
+    path, 2 slots, 262,144 context and vision.
+  - Image and history: the screenshot answer names the app, window title and
+    button; its wording differs from the previous build's, as #667 allows. Its
+    repeat is identical and reuses the 2,077-token prefix, and the history
+    continuation reuses 2,184 of 2,210 tokens.
+  - Tools: the tool call, the JSON-schema output and a 12-field `todo` call pass.
+  - Overlap: two batched requests equal their solo runs, and two overlapped
+    history continuations each recall only their own code word.
+  - Reasoning budget: with `reasoning_budget_tokens: 16`, Responses reasons for
+    exactly 16 tokens, and Chat returns the same reasoning and answer.
+- **Sanity comparison** against sp91's run of the previous build `39aa010`
+  (same host, runtime and command), one fresh process and one pass. Prompt
+  work is identical. The three rewrite fixtures give identical output with the
+  expected edit; two of the three ordinary prompts differ in text (#667) with
+  equal token counts. Per-request prefill rates are within −0.2% to +1.1% and
+  decode rates within −3.3% to +1.8%. The checker first paired requests by
+  server id, which #669's `/props` request offsets by one; it now pairs them by
+  completion order, and both results are retained.
+- **Deployment:** `gufo-38fe3fd-s2` uses the previous container's create
+  command with only the name and launcher changed (`/dev/kfd` and
+  `/dev/dri/renderD128`, `LD_LIBRARY_PATH` unset), ready in 34.6 s. Rollback:
+  stop it and start `gufo-39aa010-s2`.
+- **Not covered:** a timing qualification, other model profiles, depth sweeps,
+  a Pi replay and concurrent image requests. The RAM cache starts empty after a
+  restart, so the next long continuation is a full prefill.
+
+[Evidence](artifacts/upstream-sync-b6a671c.json).
+
 **Upstream `e773094` integration (October 19, 2026): a checked integration
 and deployment, not a new timing qualification.** Source `92a56e0` is an
 ordinary merge of pinned upstream main `e773094` (#653, #654, #624, #524 and
