@@ -465,6 +465,38 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream `ae9ec69` integration (October 20, 2026): a checked integration
+and deployment, not a new timing qualification.** Source `66c2881` is an
+ordinary merge of pinned upstream main `ae9ec69` (#681: vector loads for the
+F16 router and GDN alpha/beta projections and the BF16 indexer) into testing
+`f196ff2`. Production source and build inputs equal upstream; both evaluate to
+the same Nix source `rqfivxb9…-source`. The fork-only files are unchanged.
+
+- **Build:** pinned flake; `/nix/store/18103znh…-gufo-0-unstable-66c2881`,
+  launcher `bin/gufo` sha256 `ed47f29f…`, ELF `bin/.gufo-wrapped` sha256
+  `0c88f7ca…`, built in a 2 GiB / 2 CPU container beside the running server.
+  The launcher selects the patched ROCr 7.2.3, and the binary contains none of
+  the retired options. Formatting (592 files) and the hosted PR checks pass.
+- **GPU test** (patched runtime): `.projection_ops`, including #681's F16 and
+  BF16 cases, passes.
+- **Deployment configuration** (two sessions, 262K, vision, MTP, 16 GiB lazy
+  RAM cache): preparation once before readiness, no error or warning lines,
+  lowest MemAvailable 14,793 MiB. `/props` reports `development (66c2881)`.
+  All 27 functional checks pass, including the screenshot answer equal to
+  `72bb51c`'s, #676's parallel calls, #683's prefetch pair and balanced n-gram
+  counters on all 25 requests.
+- **Sanity comparison** against sp93's run of `72bb51c`, one fresh process and
+  one pass: all seven greedy outputs and their draft counts are identical.
+  Decode rates are +1.5% to +1.7% and prefill rates +0.2% to +1.6% on that
+  identical work.
+- **Deployment:** `gufo-66c2881-s2` uses the previous container's create
+  command with only the name and launcher changed, ready in 34.5 s. Rollback:
+  stop it and start `gufo-72bb51c-s2`.
+- **Not covered:** a timing qualification, other model profiles, depth sweeps
+  and a Pi replay. The RAM cache starts empty after a restart.
+
+[Evidence](artifacts/upstream-sync-ae9ec69.json).
+
 **Upstream `62c840e` integration (October 20, 2026): a checked integration
 and deployment, not a new timing qualification.** Source `72bb51c` is an
 ordinary merge of pinned upstream main `62c840e` (v0.19.0 with #664, #674 and
