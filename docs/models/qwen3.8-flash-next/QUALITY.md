@@ -632,6 +632,42 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream `e060aee` integration (October 21, 2026): a checked integration
+and deployment, not a new timing qualification.** Source `e4cd3c0` is an
+ordinary merge of pinned upstream main `e060aee` (#699: GPU top-k candidate
+selection for sampled MTP verification, a copy-source bypass of the neural
+proposal, predictor catch-up trimmed after KV, and a stable image RoPE
+descriptor before text graph capture) into testing `2c384b9`. Production
+source and build inputs equal upstream; both evaluate to the same Nix source
+`kms99zx8…-source`.
+
+- **Build:** pinned flake; `/nix/store/4k8fn4jh…-gufo-0-unstable-e4cd3c0`,
+  launcher `bin/gufo` sha256 `47dceb7f…`, ELF `bin/.gufo-wrapped` sha256
+  `03fa865b…`. The launcher selects the patched ROCr 7.2.3, and the binary
+  contains none of the retired options. Formatting (602 files) and the hosted
+  PR checks (60/60) pass.
+- **GPU tests** on the package's runtime: `qwen38_flash_next.verification_sampling`,
+  `qwen38_flash_next.projection_ops`, `qwen38_flash_next.mtp_ops` and
+  `qwen38_flash_next.snapshot_copy` pass (4/4).
+- **Deployment configuration** (two sessions, 262K, vision, MTP, 16 GiB lazy
+  RAM cache, no disk tier): preparation once before readiness, no error or
+  warning lines, lowest MemAvailable 13,734 MiB. `/props` reports
+  `development (e4cd3c0)`. All 30 functional checks pass, and every one of the
+  15 functional requests has the same prompt and cache work, text and tool
+  calls as `aa6a93e`'s. At the server's default sampling, a required tool call,
+  a code request and a copy edit are valid; the copy edit is exact.
+- **Sanity comparison** against sp96's run of `aa6a93e`, one fresh process and
+  one pass: all seven greedy outputs and draft counts are identical; decode is
+  within +0.8% and prefill within −1.6%.
+- **Deployment:** at the owner's request the disk cache is off.
+  `gufo-e4cd3c0-s2` uses the previous container's create command without the
+  cache mount and the `--cache-disk` options, with the name and launcher
+  changed. It was ready in 33 s and reports `disk_capacity_bytes=0`.
+- **Not covered:** a timing qualification, #699's sampled decoding gain, and a
+  Pi replay.
+
+[Evidence](artifacts/upstream-sync-e060aee.json).
+
 **Upstream `0c03748` integration (October 21, 2026): a checked integration
 and deployment, not a new timing qualification.** Source `aa6a93e` is an
 ordinary merge of pinned upstream main `0c03748` (v0.20.0: #690, wide prefill
