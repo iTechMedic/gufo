@@ -1,0 +1,666 @@
+{
+ "schema": 1,
+ "title": "Checked integration of upstream 0c03748 (v0.20.0: #690, #540, #692) and deployment with the disk cache (sp96)",
+ "date": "2026-10-21",
+ "scope": "Checked integration and deployment; one-pass sanity comparison; not a timing qualification.",
+ "identities": {
+  "start": {
+   "testing": "d806c7a33275b6066a6dab94e6a6ed9981fdbbe3",
+   "validated": "d806c7a33275b6066a6dab94e6a6ed9981fdbbe3",
+   "fork_main": "0c03748a271eab895befc0d2343aa50ca4b6d836"
+  },
+  "archives": [
+   "archive/testing-d806c7a",
+   "archive/validated-d806c7a"
+  ],
+  "upstream_main": "0c03748a271eab895befc0d2343aa50ca4b6d836",
+  "upstream_changes_since_f020bd3": [
+   692,
+   540,
+   690,
+   "release 0.20.0"
+  ],
+  "integration": "aa6a93ee5b3c466902a2974e8bba6ef713a5d538",
+  "tested_binary": {
+   "package": "/nix/store/wlikby22c9hjyg5zqkbv8a9a17fpq76k-gufo-0-unstable-aa6a93e",
+   "launcher_sha256": "a2df28a6923b4d5431ac0d47e0b98b46cea1dff9100dfcfedf392442df208d99",
+   "elf_sha256": "3259673a69c5d6a7dd4c488dfaacfa0ac6baafc28e10ec1dc0a6551c4c6f71ed",
+   "version": "gufo version development (aa6a93e)"
+  },
+  "production_source": {
+   "candidate": "/nix/store/ad6nwp0r0pwjnaig6gzn1s0xhx5f10m3-source",
+   "pinned_upstream": "/nix/store/ad6nwp0r0pwjnaig6gzn1s0xhx5f10m3-source",
+   "equal": true
+  },
+  "previous_binary": {
+   "package": "/nix/store/4c9cafzwxv3f8ly3p7rdlychsqmf5sz4-gufo-0-unstable-c917dcd",
+   "elf_sha256": "3a9c9266fffa62beb7e9d9e2eb54ff31d69e516e9f1465557901b76dbabfc59a",
+   "container": "gufo-c917dcd-s2d"
+  }
+ },
+ "diff_review": {
+  "remaining_production_difference": "none",
+  "fork_only": "unchanged (historical docs, harness tooling, component_text_cache_test.cpp resident-publication test); added/removed lines identical to f020bd3..d806c7a"
+ },
+ "cpu": {
+  "format": "pinned clang-format 21.1.8, 601 files",
+  "checks_pr": "pass (88 s; 60/60 hosted tests incl. component_text_cache, text_model_runner, text_generation_scheduler, continuation_disk_store, cache_disk, cache_disk_publication, cache_disk_faults, cache_tiered, cache_slot, http_server)"
+ },
+ "gpu_tests": {
+  "ok": true,
+  "rc": 0,
+  "tests": [
+   "1/4 Test #113: speculative_verification_test .......   Passed    0.05 sec",
+   "2/4 Test #202: qwen38_flash_next.projection_ops ....   Passed    6.25 sec",
+   "3/4 Test #203: qwen38_flash_next.routed_wmma_ops ...   Passed   22.37 sec",
+   "4/4 Test #205: qwen38_flash_next.snapshot_copy .....   Passed    0.26 sec"
+  ],
+  "runtime": "patched ROCr 7.2.3 and Nix HIP clr-7.2.3"
+ },
+ "runtime": {
+  "patched_rocr_loaded": true,
+  "hip_from_nix": true,
+  "no_opt_rocm": true,
+  "launcher_env": true
+ },
+ "startup": {
+  "checks": {
+   "each_once": true,
+   "before_listening": true,
+   "vision_before_backing": true,
+   "lazy_backing": true,
+   "vocabulary": true
+  },
+  "backing": {
+   "commit": null,
+   "segments": null,
+   "segment_bytes": null,
+   "committed_bytes": "2270560256",
+   "long_term_pinned_bytes": "0",
+   "prepare_ms": null,
+   "device_heap_free_bytes": null,
+   "host_available_mib": null
+  },
+  "error_lines": []
+ },
+ "props": {
+  "checks": {
+   "status": true,
+   "build_info": true,
+   "model_alias": true,
+   "model_path": true,
+   "total_slots": true,
+   "n_ctx": true,
+   "vision": true
+  },
+  "pass": true
+ },
+ "functional": {
+  "checks": {
+   "R1_answer": true,
+   "R2_equals_R1": true,
+   "R2_reuses_image_prefix": true,
+   "R5_history_cached": true,
+   "R5_answer": true,
+   "R1_equals_sp95": true,
+   "R3_tool_call": true,
+   "R4_json_schema": true,
+   "C1_expected": true,
+   "C1solo_expected": true,
+   "C1_equals_solo": true,
+   "C2_expected": true,
+   "C2solo_expected": true,
+   "C2_equals_solo": true,
+   "K1_isolated": true,
+   "K2_isolated": true,
+   "K_histories_cached": true,
+   "P676_parallel_calls": true,
+   "P676_no_whitespace_content": true,
+   "P676think_parallel_calls": true,
+   "P676think_no_whitespace_content": true,
+   "PF1_uncached": true,
+   "PF2_continuation_cached": true,
+   "PF2_answer": true,
+   "tool_smoke": true,
+   "expect_continue": true,
+   "reasoning_budget": true,
+   "models": true,
+   "cache_work_and_outputs_equal_sp95": true
+  },
+  "same_work_as_sp95": {
+   "R1": true,
+   "R2": true,
+   "R5": true,
+   "R3": true,
+   "R4": true,
+   "C1": true,
+   "C2": true,
+   "C1solo": true,
+   "C2solo": true,
+   "K1": true,
+   "K2": true,
+   "P676": true,
+   "P676think": true,
+   "PF1": true,
+   "PF2": true
+  },
+  "R1_equals_sp95_R1": true,
+  "C_overlap_ms": 2592.9,
+  "K_overlap_ms": 363.4
+ },
+ "expect_continue": {
+  "candidate": {
+   "interim": "HTTP/1.1 100 Continue\r\n\r\n",
+   "interim_ms": 0.2,
+   "final_status": "HTTP/1.1 200 OK",
+   "answer": "OK",
+   "curl": {
+    "http_code": "200",
+    "time_starttransfer_s": "0.000617",
+    "time_total_s": "0.050567",
+    "sent_expect": true,
+    "got_100": true
+   },
+   "checks": {
+    "interim_100": true,
+    "final_200": true,
+    "curl_large_body": true
+   },
+   "pass": true
+  },
+  "deployed": {
+   "interim": "HTTP/1.1 100 Continue\r\n\r\n",
+   "interim_ms": 0.1,
+   "final_status": "HTTP/1.1 200 OK",
+   "answer": "OK",
+   "curl": {
+    "http_code": "200",
+    "time_starttransfer_s": "0.000260",
+    "time_total_s": "0.050400",
+    "sent_expect": true,
+    "got_100": true
+   },
+   "checks": {
+    "interim_100": true,
+    "final_200": true,
+    "curl_large_body": true
+   },
+   "pass": true
+  }
+ },
+ "ngram_accounting": {
+  "requests_reporting": 27,
+  "all_balanced": true,
+  "PF1_reported": true,
+  "PF2_reported": true
+ },
+ "reasoning_budget": {
+  "responses_exact_budget": true,
+  "answer_follows": true,
+  "chat_matches_responses": true
+ },
+ "perf_sanity": {
+  "reference": "sp95 candidate run of c917dcd (same host, runtime and command, no disk tier)",
+  "result": {
+   "rows": {
+    "warm": {
+     "prompt_tokens": [
+      "15",
+      "15"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1",
+      "1"
+     ],
+     "prefill_tps": [
+      "127.6",
+      "129.7"
+     ],
+     "decode_tps": [
+      "19.6",
+      "19.6"
+     ],
+     "draft_accepted": [
+      "0",
+      "0"
+     ],
+     "draft_proposed": [
+      "1",
+      "1"
+     ],
+     "text_equal_reference": true
+    },
+    "O1": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "300",
+      "300"
+     ],
+     "prefill_tps": [
+      "1703.9",
+      "1704.8"
+     ],
+     "decode_tps": [
+      "60.2",
+      "60.2"
+     ],
+     "draft_accepted": [
+      "225",
+      "225"
+     ],
+     "draft_proposed": [
+      "265",
+      "265"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0005,
+     "decode_change": 0.0
+    },
+    "W1": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1509.5",
+      "1510.4"
+     ],
+     "decode_tps": [
+      "91.5",
+      "91.6"
+     ],
+     "draft_accepted": [
+      "1155",
+      "1155"
+     ],
+     "draft_proposed": [
+      "1342",
+      "1342"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0006,
+     "decode_change": 0.0011
+    },
+    "O2": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "183",
+      "183"
+     ],
+     "prefill_tps": [
+      "1726.0",
+      "1726.8"
+     ],
+     "decode_tps": [
+      "58.3",
+      "58.3"
+     ],
+     "draft_accepted": [
+      "138",
+      "138"
+     ],
+     "draft_proposed": [
+      "187",
+      "187"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0005,
+     "decode_change": 0.0
+    },
+    "W2": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1627.5",
+      "1629.4"
+     ],
+     "decode_tps": [
+      "92.2",
+      "92.3"
+     ],
+     "draft_accepted": [
+      "1156",
+      "1156"
+     ],
+     "draft_proposed": [
+      "1335",
+      "1335"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0012,
+     "decode_change": 0.0011
+    },
+    "O3": {
+     "prompt_tokens": [
+      "7221",
+      "7221"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "300",
+      "300"
+     ],
+     "prefill_tps": [
+      "1720.4",
+      "1723.3"
+     ],
+     "decode_tps": [
+      "69.8",
+      "69.9"
+     ],
+     "draft_accepted": [
+      "244",
+      "244"
+     ],
+     "draft_proposed": [
+      "278",
+      "278"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0017,
+     "decode_change": 0.0014
+    },
+    "W3": {
+     "prompt_tokens": [
+      "1413",
+      "1413"
+     ],
+     "cached_tokens": [
+      "0",
+      "0"
+     ],
+     "generated_tokens": [
+      "1348",
+      "1348"
+     ],
+     "prefill_tps": [
+      "1627.1",
+      "1627.3"
+     ],
+     "decode_tps": [
+      "91.4",
+      "91.5"
+     ],
+     "draft_accepted": [
+      "1155",
+      "1155"
+     ],
+     "draft_proposed": [
+      "1342",
+      "1342"
+     ],
+     "text_equal_reference": true,
+     "prefill_change": 0.0001,
+     "decode_change": 0.0011
+    }
+   },
+   "checks": {
+    "O1_same_prompt_work": true,
+    "O1_prefill_within_5pct": true,
+    "O1_decode_within_15pct": true,
+    "O1_text_equal_sp95": true,
+    "W1_same_prompt_work": true,
+    "W1_prefill_within_5pct": true,
+    "W1_decode_within_15pct": true,
+    "W1_expected_edit": true,
+    "W1_text_equal_sp95": true,
+    "O2_same_prompt_work": true,
+    "O2_prefill_within_5pct": true,
+    "O2_decode_within_15pct": true,
+    "O2_text_equal_sp95": true,
+    "W2_same_prompt_work": true,
+    "W2_prefill_within_5pct": true,
+    "W2_decode_within_15pct": true,
+    "W2_expected_edit": true,
+    "W2_text_equal_sp95": true,
+    "O3_same_prompt_work": true,
+    "O3_prefill_within_5pct": true,
+    "O3_decode_within_15pct": true,
+    "O3_text_equal_sp95": true,
+    "W3_same_prompt_work": true,
+    "W3_prefill_within_5pct": true,
+    "W3_decode_within_15pct": true,
+    "W3_expected_edit": true,
+    "W3_text_equal_sp95": true
+   },
+   "pass": true
+  }
+ },
+ "deployment": {
+  "name": "gufo-aa6a93e-s2d",
+  "checks": {
+   "ready": true,
+   "binary": true,
+   "command": true,
+   "preparation_before_ready": true,
+   "no_error_lines": true,
+   "patched_rocr_loaded": true,
+   "hip_from_nix": true,
+   "no_opt_rocm": true,
+   "launcher_env": true,
+   "models": true,
+   "tool_smoke": true,
+   "props": true,
+   "expect_continue": true,
+   "disk_cache": true
+  },
+  "phase_s": 85.2,
+  "cmdline": [
+   "/nix/store/wlikby22c9hjyg5zqkbv8a9a17fpq76k-gufo-0-unstable-aa6a93e/bin/gufo",
+   "serve",
+   "--host",
+   "0.0.0.0",
+   "--port",
+   "8080",
+   "--max-request-bytes",
+   "67108864",
+   "llm",
+   "--model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "--served-model-name",
+   "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "--mmproj",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf",
+   "--speculative",
+   "mtp",
+   "--mtp-model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "--sessions",
+   "2",
+   "--context",
+   "262144",
+   "--cache-ram-bytes",
+   "17179869184",
+   "--cache-disk",
+   "/gufo-cache",
+   "--cache-disk-bytes",
+   "68719476736"
+  ],
+  "load_elapsed_ms": 77261,
+  "disk": {
+   "restore": {
+    "status": 200,
+    "text": "OK",
+    "prompt_tokens": 21792,
+    "cached_tokens": 21785,
+    "disk_hit": true,
+    "restore_ms": 247.424081,
+    "restore_bytes": 731245316,
+    "prefill_tokens": 7,
+    "ttft_ms": 352.018493
+   },
+   "publication": {
+    "status": 200,
+    "prompt_tokens": 7230,
+    "queued_bytes": 331371132,
+    "published": [
+     {
+      "schema": "component-cache-v1",
+      "event": "published",
+      "tokens": "7223",
+      "checkpoint_id": "9087",
+      "payload_bytes": "331371132"
+     }
+    ]
+   },
+   "checks": {
+    "disk_budget": true,
+    "disk_enabled": true,
+    "restore_previous_build_checkpoint": true,
+    "new_publication": true
+   },
+   "pass": true
+  },
+  "earlier_attempts": [
+   {
+    "attempt": 1,
+    "result": "stopped by the script: harness wait loop ended at the first publication (earlier requests' 435- and 8-token checkpoints) and missed the 7,215-token publication one second later; server log shows it published",
+    "disk": {
+     "restore": {
+      "status": 200,
+      "text": "OK",
+      "prompt_tokens": 21792,
+      "cached_tokens": 21785,
+      "disk_hit": true,
+      "restore_ms": 245.812416,
+      "restore_bytes": 731245316,
+      "prefill_tokens": 7,
+      "ttft_ms": 355.904037
+     },
+     "publication": {
+      "status": 200,
+      "prompt_tokens": 7222,
+      "queued_bytes": 331151452,
+      "published": [
+       {
+        "schema": "component-cache-v1",
+        "event": "published",
+        "tokens": "435",
+        "checkpoint_id": "2425",
+        "payload_bytes": "144613228"
+       },
+       {
+        "schema": "component-cache-v1",
+        "event": "published",
+        "tokens": "8",
+        "checkpoint_id": "2455",
+        "payload_bytes": "133243072"
+       }
+      ]
+     },
+     "checks": {
+      "disk_budget": true,
+      "disk_enabled": true,
+      "restore_previous_build_checkpoint": true,
+      "new_publication": false
+     },
+     "pass": false
+    }
+   },
+   {
+    "attempt": 2,
+    "result": "stopped by the script: the publication prompt was already stored by attempt 1 (disk hit, nothing to publish); the prompt is now unique per run",
+    "disk": {
+     "restore": {
+      "status": 200,
+      "text": "OK",
+      "prompt_tokens": 21792,
+      "cached_tokens": 21785,
+      "disk_hit": true,
+      "restore_ms": 252.316724,
+      "restore_bytes": 731245316,
+      "prefill_tokens": 7,
+      "ttft_ms": 357.237668
+     },
+     "publication": {
+      "status": 200,
+      "prompt_tokens": 7222,
+      "queued_bytes": 0,
+      "published": []
+     },
+     "checks": {
+      "disk_budget": true,
+      "disk_enabled": true,
+      "restore_previous_build_checkpoint": true,
+      "new_publication": false
+     },
+     "pass": false
+    }
+   }
+  ]
+ },
+ "rollback": {
+  "container": "gufo-c917dcd-s2d",
+  "check": {
+   "reason": "requested",
+   "running": [
+    "gufo-nix",
+    "gufo-aa6a93e-s2d"
+   ],
+   "old_state": "exited",
+   "same_command": true,
+   "old_binary_sha_ok": true
+  }
+ },
+ "memory_min_mib": {
+  "gtests": 123628,
+  "new": 15497,
+  "deploy": 19616
+ },
+ "gpu_server_window": {
+  "start": "2026-10-21T11:54:48Z",
+  "end": "2026-10-21T12:03:48Z",
+  "phase_seconds": {
+   "gtests": 29.2,
+   "new": 136.6,
+   "deploy_attempt1": 87.2,
+   "deploy_attempt2": 142.0,
+   "deploy": 85.2
+  }
+ },
+ "not_covered": [
+  "timing qualification",
+  "#690's mid-size prefill gain (the fixture's passes are 15, 1,413 and 7,221 tokens)",
+  "other model profiles (27B paths of #540)",
+  "Pi replay"
+ ]
+}

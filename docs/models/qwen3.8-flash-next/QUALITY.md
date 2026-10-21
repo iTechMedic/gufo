@@ -519,6 +519,49 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream `0c03748` integration (October 21, 2026): a checked integration
+and deployment, not a new timing qualification.** Source `aa6a93e` is an
+ordinary merge of pinned upstream main `0c03748` (v0.20.0: #690, wide prefill
+routes for every Flash-Next prefill pass above eight rows; #540, Qwen 27B
+cache continuation, which also moves the snapshot copy helper to
+`src/core/hip` and changes shared cache, scheduler and speculative-verifier
+code; #692, a test change) into testing `d806c7a`. Production source and
+build inputs equal upstream; both evaluate to the same Nix source
+`ad6nwp0r…-source`.
+
+- **Build:** pinned flake; `/nix/store/wlikby22…-gufo-0-unstable-aa6a93e`,
+  launcher `bin/gufo` sha256 `a2df28a6…`, ELF `bin/.gufo-wrapped` sha256
+  `3259673a…`. The launcher selects the patched ROCr 7.2.3, and the binary
+  contains none of the retired options. Formatting (601 files) and the hosted
+  PR checks (60/60) pass, including `component_text_cache_test`,
+  `text_generation_scheduler_test`, `continuation_disk_store_test`,
+  `cache_disk_publication_test` and `cache_tiered_test`.
+- **GPU tests** on the package's runtime: `qwen38_flash_next.projection_ops`,
+  `qwen38_flash_next.routed_wmma_ops`, `qwen38_flash_next.snapshot_copy` and
+  `speculative_verification_test` pass (4/4).
+- **Deployment configuration without the disk tier** (two sessions, 262K,
+  vision, MTP, 16 GiB lazy RAM cache): preparation once before readiness, no
+  error or warning lines, lowest MemAvailable 15,497 MiB. `/props` reports
+  `development (aa6a93e)`. All 29 functional checks pass, and every one of the
+  15 functional requests has the same prompt and cache work, text and tool
+  calls as `c917dcd`'s.
+- **Sanity comparison** against sp95's run of `c917dcd`, one fresh process and
+  one pass: all seven greedy outputs and draft counts are identical; decode and
+  prefill rates are within +0.2%. The fixture's prefill passes (15, 1,413 and
+  7,221 tokens) barely exercise #690's sub-1,024-row routes.
+- **Deployment:** `gufo-aa6a93e-s2d` uses the previous container's create
+  command, including the 64 GiB disk tier on `/gufo-cache`, with only the name
+  and launcher changed. It restored a 21,785-token checkpoint written by
+  `c917dcd` in 247 ms (21,785 of 21,792 tokens cached) and published a new
+  7,223-token checkpoint. Two earlier deploy attempts were stopped by the check
+  script itself: its publication wait ended at an unrelated checkpoint, then
+  reused an already-stored prompt. Both attempts' server logs show correct
+  restores and publications.
+- **Not covered:** a timing qualification, #690's mid-size prefill gain, the
+  27B paths of #540, and a Pi replay.
+
+[Evidence](artifacts/upstream-sync-0c03748.json).
+
 **Upstream `f020bd3` integration (October 20, 2026): a checked integration
 and deployment, not a new timing qualification.** Source `c917dcd` is an
 ordinary merge of pinned upstream main `f020bd3` (#680: component-cache
