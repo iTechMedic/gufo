@@ -1,0 +1,129 @@
+{
+ "schema": 1,
+ "title": "Checked integration of upstream 53ebb51 (#702, benchmark tool only) and deployment from the Intel SSD (sp98)",
+ "date": "2026-10-21",
+ "scope": "Checked integration and deployment check; production source unchanged since e060aee, so sp97's GPU and functional evidence stands.",
+ "identities": {
+  "start": {
+   "testing": "e7bfa076eede94c8d553b65b7fd3e1ac21976dde",
+   "validated": "e7bfa076eede94c8d553b65b7fd3e1ac21976dde",
+   "fork_main": "53ebb51ed0c0b24dbe7c1e35dce6c97d82740bfe"
+  },
+  "archives": [
+   "archive/testing-e7bfa07",
+   "archive/validated-e7bfa07"
+  ],
+  "upstream_main": "53ebb51ed0c0b24dbe7c1e35dce6c97d82740bfe",
+  "upstream_changes_since_e060aee": [
+   702
+  ],
+  "integration": "bff4d30e8930507e4aee543e11c04ede59075f70",
+  "tested_binary": {
+   "package": "/nix/store/ksxl9lfizhydi940819ir8da5b3rjdpd-gufo-0-unstable-bff4d30",
+   "launcher_sha256": "50969c9039aaa8ab09bef565105ded5902818c95bd1639f0e27dfcf3140a51a2",
+   "elf_sha256": "5b3d5fdf3c26811d886f1b8afc4ead67cf93b37f3ba0f10777ac1123414f432c",
+   "version": "gufo version development (bff4d30)"
+  },
+  "production_source": {
+   "candidate": "/nix/store/kms99zx8d9k8d307vn650jhjp6vjjg59-source",
+   "pinned_upstream": "/nix/store/kms99zx8d9k8d307vn650jhjp6vjjg59-source",
+   "previous_e060aee": "/nix/store/kms99zx8d9k8d307vn650jhjp6vjjg59-source",
+   "equal_to_pinned": true,
+   "equal_to_previous": true
+  }
+ },
+ "diff_review": {
+  "upstream_change": "tools/gufo/model_bench/servers.py and tests/tools/serving_bench_test.py only",
+  "remaining_production_difference": "none",
+  "fork_only": "unchanged"
+ },
+ "cpu": {
+  "format": "pinned clang-format 21.1.8, 602 files",
+  "checks_pr": "pass (88 s; 60/60 hosted tests)"
+ },
+ "gpu_tests": "not run: production source identical to e060aee (sp97: 4/4 GPU tests, 30/30 functional, outputs equal to v0.20.0)",
+ "deployment": {
+  "name": "gufo-bff4d30-s2",
+  "checks": {
+   "ready": true,
+   "binary": true,
+   "command": true,
+   "preparation_before_ready": true,
+   "no_error_lines": true,
+   "patched_rocr_loaded": true,
+   "hip_from_nix": true,
+   "no_opt_rocm": true,
+   "launcher_env": true,
+   "model_from_intel": true,
+   "models": true,
+   "tool_smoke": true,
+   "props": true,
+   "expect_continue": true,
+   "disk_cache_off": true
+  },
+  "cmdline": [
+   "/nix/store/ksxl9lfizhydi940819ir8da5b3rjdpd-gufo-0-unstable-bff4d30/bin/gufo",
+   "serve",
+   "--host",
+   "0.0.0.0",
+   "--port",
+   "8080",
+   "--max-request-bytes",
+   "67108864",
+   "llm",
+   "--model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+   "--served-model-name",
+   "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+   "--mmproj",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf",
+   "--speculative",
+   "mtp",
+   "--mtp-model",
+   "/mnt/ai-storage/models/Qwen3.8-Flash-Next-GGUF/MTP/unsloth/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "--sessions",
+   "2",
+   "--context",
+   "262144",
+   "--cache-ram-bytes",
+   "17179869184"
+  ],
+  "load_elapsed_ms": 32938,
+  "disk_off": {
+   "configured": [
+    {
+     "schema": "component-cache-v1",
+     "event": "configured",
+     "sessions": "2",
+     "snapshot_entries": "128",
+     "capacity_bytes": "17179869184",
+     "staging_capacity_bytes": "0",
+     "automatic_bytes": "13373722624",
+     "max_bytes": "22452477952",
+     "disk_capacity_bytes": "0"
+    }
+   ],
+   "load_completed_disk_cache": "off"
+  },
+  "stopped_after_verify": {
+   "rc": 0,
+   "exit_code": "0"
+  },
+  "note": "owner request: run from the Intel SSD; the server is not in use, so the verified container was left stopped"
+ },
+ "backup": {
+  "container": "gufo-e4cd3c0-s2k",
+  "check": {
+   "reason": "requested",
+   "running": [],
+   "old_state": "exited",
+   "same_command": true,
+   "old_binary_sha_ok": true
+  }
+ },
+ "removed_previous_backup": "gufo-aa6a93e-s2d container (inspect/logs archived), GC root sp96-sync-aa6a93e-3259673a, package via nix-store --delete, ~/gufo-opt/sp96-src, results/nix23/sp96/gpu",
+ "gpu_server_window": {
+  "start": "2026-10-21T22:45:29Z",
+  "end": "2026-10-21T22:46:04Z"
+ }
+}

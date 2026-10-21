@@ -632,6 +632,26 @@ Other queue/snapshot timing flags remain inconclusive; the initial 58.25 s
 queue stall did not recur. The gate remains 5% and 3 ms per request/phase.
 Concurrent setup and maximum-token-gap flags are also retained in the evidence.
 
+**Upstream `53ebb51` integration (October 21, 2026): a checked integration
+and deployment check.** Source `bff4d30` is an ordinary merge of pinned
+upstream main `53ebb51` (#702: the model benchmark tool stops its server when
+startup is interrupted; `tools/` and `tests/tools/` only) into testing
+`e7bfa07`. Production source equals both upstream `53ebb51` and the previous
+`e060aee` (Nix source `kms99zx8…-source`), so `e4cd3c0`'s GPU and functional
+evidence stands for the server code.
+
+- **Build:** `/nix/store/ksxl9lfi…-gufo-0-unstable-bff4d30`, launcher sha256
+  `50969c90…`, ELF sha256 `5b3d5fdf…`. It selects the patched ROCr 7.2.3 and
+  contains no retired options. Formatting (602 files) and the hosted PR checks
+  (60/60) pass.
+- **Deployment check:** `gufo-bff4d30-s2` uses the previous Intel-path command
+  (models on `/mnt/ai-storage`, no disk cache) with the name and launcher
+  changed. It loaded in 32.9 s and passed readiness, identity, runtime,
+  `/props`, a tool request and `Expect: 100-continue`. At the owner's request
+  it was then stopped, because the server is not in use.
+
+[Evidence](artifacts/upstream-sync-53ebb51.json).
+
 **Upstream `e060aee` integration (October 21, 2026): a checked integration
 and deployment, not a new timing qualification.** Source `e4cd3c0` is an
 ordinary merge of pinned upstream main `e060aee` (#699: GPU top-k candidate
